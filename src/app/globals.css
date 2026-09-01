@@ -1,0 +1,288 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Official Hotel New Era Logo Colors */
+  --brand-crimson: #A81C24;
+  --brand-crimson-hover: #88131A;
+  --brand-crimson-light: #FEF2F2;
+  --brand-crimson-subtle: #FEE2E2;
+
+  --brand-green: #15803D;
+  --brand-green-hover: #166534;
+  --brand-green-light: #F0FDF4;
+
+  --brand-gold: #D97706;
+  --brand-gold-light: #FEF3C7;
+  --brand-gold-hover: #B45309;
+
+  /* Aliased Core Tokens for High Consistency */
+  --primary-orange: #A81C24;
+  --primary-orange-hover: #88131A;
+  --primary-orange-light: #FEF2F2;
+  --primary-orange-subtle: #FEE2E2;
+  
+  --golden: #D97706;
+  --golden-light: #FEF3C7;
+  --golden-hover: #B45309;
+  
+  --green: #15803D;
+  --green-light: #F0FDF4;
+  --green-hover: #166534;
+  
+  --danger-red: #DC2626;
+  --danger-light: #FEF2F2;
+  
+  --info-blue: #0284C7;
+  --info-light: #F0F9FF;
+
+  /* Plain White Clean Background Palette */
+  --bg-main: #FFFFFF;
+  --bg-subtle: #F8FAFC;
+  --bg-card: #FFFFFF;
+  --bg-sidebar: #FFFFFF;
+  --bg-input: #FFFFFF;
+  
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #94A3B8;
+  --text-light: #FFFFFF;
+
+  --border: #E2E8F0;
+  --border-focus: #A81C24;
+  --border-light: #F1F5F9;
+
+  /* Typography */
+  --font-family-display: 'Outfit', sans-serif;
+  --font-family-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* Elevation Shadows */
+  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+  --shadow-glow: 0 0 15px rgba(168, 28, 36, 0.25);
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+  
+  /* Transitions */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.25s ease;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+  font-family: var(--font-family-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-family-display);
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-track {
+  background: #F1F1F1;
+}
+::-webkit-scrollbar-thumb {
+  background: #D1D5DB;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9CA3AF;
+}
+
+/* Base Component Utility Classes */
+.hne-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-family-display);
+  font-weight: 600;
+  font-size: 14px;
+  padding: 9px 18px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-decoration: none;
+  line-height: 1.2;
+}
+
+.hne-btn-primary {
+  background-color: var(--primary-orange);
+  color: #FFFFFF;
+}
+.hne-btn-primary:hover {
+  background-color: var(--primary-orange-hover);
+  box-shadow: 0 4px 12px rgba(242, 140, 0, 0.3);
+}
+
+.hne-btn-secondary {
+  background-color: #FFFFFF;
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+.hne-btn-secondary:hover {
+  background-color: var(--bg-main);
+  border-color: #D1D5DB;
+}
+
+.hne-btn-success {
+  background-color: var(--green);
+  color: #FFFFFF;
+}
+.hne-btn-success:hover {
+  background-color: var(--green-hover);
+}
+
+.hne-btn-danger {
+  background-color: var(--danger-red);
+  color: #FFFFFF;
+}
+.hne-btn-danger:hover {
+  background-color: #C62828;
+}
+
+.hne-btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: var(--radius-sm);
+}
+
+.hne-btn-lg {
+  padding: 14px 28px;
+  font-size: 16px;
+  border-radius: var(--radius-lg);
+}
+
+/* Cards */
+.hne-card {
+  background-color: var(--bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-card);
+  padding: 24px;
+  transition: box-shadow var(--transition-normal), border-color var(--transition-normal);
+}
+.hne-card:hover {
+  border-color: #D1D5DB;
+}
+
+/* Badges */
+.hne-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.hne-badge-success { background: var(--green-light); color: var(--green); }
+.hne-badge-warning { background: var(--golden-light); color: #B45309; }
+.hne-badge-orange  { background: var(--primary-orange-light); color: var(--primary-orange-hover); }
+.hne-badge-danger  { background: var(--danger-light); color: var(--danger-red); }
+.hne-badge-neutral { background: #F3F4F6; color: var(--text-secondary); }
+
+/* Form Controls */
+.hne-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.hne-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.hne-input, .hne-select, .hne-textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-family: var(--font-family-body);
+  font-size: 14px;
+  color: var(--text-primary);
+  background-color: var(--bg-input);
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.hne-input:focus, .hne-select:focus, .hne-textarea:focus {
+  border-color: var(--primary-orange);
+  box-shadow: 0 0 0 3px rgba(242, 140, 0, 0.15);
+}
+
+/* Data Tables */
+.hne-table-container {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: #FFFFFF;
+}
+
+.hne-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13.5px;
+}
+
+.hne-table th {
+  background-color: #FAFAFA;
+  padding: 14px 18px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-family-display);
+  letter-spacing: 0.02em;
+}
+
+.hne-table td {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-primary);
+}
+
+.hne-table tbody tr:hover {
+  background-color: #FBFBFC;
+}
+
+/* Animation utilities */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease forwards;
+}

@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: hotel_new_era
+      POSTGRES_PASSWORD: hotel_new_era_dev
+      POSTGRES_DB: hotel_new_era_development
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hotel_new_era -d hotel_new_era_development"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    ports:
+      - "5432:5432"
+    volumes:
+      - hotel_new_era_postgres:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: bundle exec rails server -b 0.0.0.0 -p 3001
+    environment:
+      DB_HOST: db
+      DB_USERNAME: hotel_new_era
+      DB_PASSWORD: hotel_new_era_dev
+      JWT_SECRET_KEY: local-development-secret-change-before-deployment
+      FRONTEND_ORIGINS: http://localhost:3000
+      RAILS_ENV: development
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+    volumes:
+      - .:/rails
+
+volumes:
+  hotel_new_era_postgres:

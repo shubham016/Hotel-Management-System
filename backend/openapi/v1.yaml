@@ -1,0 +1,73 @@
+openapi: 3.1.0
+info:
+  title: Hotel New Era API
+  version: 1.0.0
+servers:
+  - url: http://localhost:3001/api/v1
+paths:
+  /auth/login:
+    post:
+      summary: Authenticate a staff user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, format: password }
+      responses:
+        "200": { description: Authenticated }
+        "401": { description: Invalid credentials }
+  /availability:
+    get:
+      summary: Search sellable room-type inventory and authoritative pricing
+      parameters:
+        - { in: query, name: propertyCode, required: true, schema: { type: string } }
+        - { in: query, name: checkInDate, required: true, schema: { type: string, format: date } }
+        - { in: query, name: checkOutDate, required: true, schema: { type: string, format: date } }
+        - { in: query, name: adultsCount, required: false, schema: { type: integer, minimum: 1 } }
+        - { in: query, name: roomsCount, required: false, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200": { description: Available room types and quotes }
+        "422": { description: Invalid stay }
+  /reservations:
+    post:
+      summary: Atomically create a public reservation and folio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [propertyCode, checkInDate, checkOutDate, roomTypeCode, firstName, lastName, phone]
+              properties:
+                propertyCode: { type: string }
+                checkInDate: { type: string, format: date }
+                checkOutDate: { type: string, format: date }
+                roomTypeCode: { type: string }
+                roomsCount: { type: integer, minimum: 1 }
+                adultsCount: { type: integer, minimum: 1 }
+                childrenCount: { type: integer, minimum: 0 }
+                firstName: { type: string }
+                lastName: { type: string }
+                email: { type: string, format: email }
+                phone: { type: string }
+                addOns: { type: object, additionalProperties: { type: boolean } }
+      responses:
+        "201": { description: Reservation and folio created }
+        "409": { description: Inventory no longer available }
+        "422": { description: Validation failed }
+    get:
+      summary: List reservations for the authenticated property
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Reservation collection }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

@@ -1,0 +1,31 @@
+{
+  "name": "hotel-new-era",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "backend:build": "docker compose -f backend/compose.yml build",
+    "backend:up": "docker compose -f backend/compose.yml up",
+    "backend:test": "docker compose -f backend/compose.yml run --rm -e RAILS_ENV=test api bin/rails db:test:prepare test"
+  },
+  "dependencies": {
+    "date-fns": "^3.6.0",
+    "jspdf": "^2.5.2",
+    "jspdf-autotable": "^3.8.4",
+    "lucide-react": "^0.454.0",
+    "next": "14.2.15",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "sharp": "^0.35.3",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.1",
+    "typescript": "^5.6.3"
+  }
+}

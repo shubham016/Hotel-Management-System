@@ -1,0 +1,22 @@
+# Next.js / Node
+node_modules/
+.next/
+npm-debug.log*
+
+# Local environment files
+.env
+.env.local
+.env.*.local
+backend/.env
+
+# Rails runtime and secrets
+backend/config/master.key
+backend/log/*.log
+backend/tmp/
+backend/storage/
+backend/coverage/
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+desktop.ini
