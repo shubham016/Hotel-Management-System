@@ -113,9 +113,9 @@ export default function LoginPage() {
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary-orange)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
             ENTERPRISE MANAGEMENT PORTAL
           </div>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 6 }}>
+          {/* <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 6 }}>
             Sign in to access PMS, POS, CRM, Accounting & CMS
-          </p>
+          </p> */}
         </div>
 
         {errorMsg && (
@@ -159,9 +159,7 @@ export default function LoginPage() {
                 <Lock size={14} color="var(--primary-orange)" />
                 <span>Password</span>
               </label>
-              <a href="#" style={{ fontSize: 12, color: 'var(--primary-orange)', textDecoration: 'none', fontWeight: 600 }}>
-                Forgot Password?
-              </a>
+              
             </div>
             <input
               type="password"
@@ -181,11 +179,14 @@ export default function LoginPage() {
                 onChange={(e) => setRememberMe(e.target.checked)}
                 style={{ accentColor: 'var(--primary-orange)' }}
               />
-              <span style={{ color: 'var(--text-secondary)' }}>Remember my session</span>
+              <span style={{ color: 'var(--text-secondary)' }}>Remember me</span>
             </label>
-            <span style={{ fontSize: 11.5, color: 'var(--green)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+            {/* <span style={{ fontSize: 11.5, color: 'var(--green)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
               <CheckCircle2 size={13} /> 256-Bit SSL Encrypted
-            </span>
+            </span> */}
+            <a href="#" style={{ fontSize: 12, color: 'var(--primary-orange)', textDecoration: 'none', fontWeight: 600 }}>
+                Forgot Password?
+              </a>
           </div>
 
           <Button
@@ -195,8 +196,8 @@ export default function LoginPage() {
             isLoading={isLoading}
             style={{ width: '100%', marginTop: 8, boxShadow: 'var(--shadow-glow)' }}
           >
-            <span>Sign In to Platform</span>
-            <ArrowRight size={16} />
+            <span>Sign In</span>
+            {/* <ArrowRight size={16} /> */}
           </Button>
         </form>
 
