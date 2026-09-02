@@ -3,6 +3,7 @@ module Api
     module Cms
       class PagesController < BackendController
         skip_before_action :authenticate!, only: :index
+        skip_before_action :authorize_request!, only: :index
 
         DEFAULT_PAGES = {
           "home" => {

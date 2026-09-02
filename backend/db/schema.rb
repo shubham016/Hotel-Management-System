@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_01_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_02_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -204,6 +204,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_01_000001) do
     t.decimal "unit_price", precision: 12, scale: 2, null: false
     t.datetime "updated_at", null: false
     t.boolean "voided", default: false, null: false
+    t.index ["folio_id", "source_reference"], name: "index_folio_items_on_folio_id_and_idempotency_key", unique: true, where: "(((source_module)::text = 'RESTAURANT'::text) AND (source_reference IS NOT NULL))"
     t.index ["folio_id"], name: "index_folio_items_on_folio_id"
   end
 
@@ -292,6 +293,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_01_000001) do
     t.datetime "updated_at", null: false
     t.string "voucher_number", null: false
     t.string "voucher_type", default: "JOURNAL", null: false
+    t.index ["company_id", "source_reference"], name: "index_journal_entries_on_company_id_and_idempotency_key", unique: true, where: "(source_reference IS NOT NULL)"
     t.index ["company_id"], name: "index_journal_entries_on_company_id"
     t.index ["voucher_number"], name: "index_journal_entries_on_voucher_number", unique: true
   end
@@ -306,6 +308,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_01_000001) do
     t.datetime "updated_at", null: false
     t.index ["account_id"], name: "index_journal_lines_on_account_id"
     t.index ["journal_entry_id"], name: "index_journal_lines_on_journal_entry_id"
+  end
+
+  create_table "menu_items", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.boolean "active", default: true, null: false
+    t.string "category", null: false
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.decimal "price", precision: 12, scale: 2, null: false
+    t.uuid "restaurant_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["restaurant_id", "name"], name: "index_menu_items_on_restaurant_id_and_name", unique: true
+    t.index ["restaurant_id"], name: "index_menu_items_on_restaurant_id"
   end
 
   create_table "notifications", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -644,6 +658,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_01_000001) do
   add_foreign_key "journal_entries", "companies"
   add_foreign_key "journal_lines", "accounts"
   add_foreign_key "journal_lines", "journal_entries"
+  add_foreign_key "menu_items", "restaurants"
   add_foreign_key "notifications", "users"
   add_foreign_key "password_reset_tokens", "users"
   add_foreign_key "payments", "folios"

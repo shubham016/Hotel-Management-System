@@ -2,6 +2,7 @@ module Api
   module V1
     class ContactInquiriesController < BackendController
       skip_before_action :authenticate!, only: :create
+      skip_before_action :authorize_request!, only: :create
 
       def create
         @property = public_property

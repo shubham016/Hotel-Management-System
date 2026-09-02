@@ -3,6 +3,7 @@ module Api
     module Hotel
       class AvailabilityController < BaseController
         skip_before_action :authenticate!
+        skip_before_action :authorize_request!
 
         def index
           property = Property.find_by!(code: params.require(:propertyCode).to_s.upcase, active: true)

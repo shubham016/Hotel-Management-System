@@ -1,0 +1,71 @@
+import {
+  LayoutDashboard,
+  CalendarCheck,
+  BedDouble,
+  Users,
+  UtensilsCrossed,
+  PartyPopper,
+  Sparkles,
+  Boxes,
+  ShoppingCart,
+  ReceiptText,
+  PieChart,
+  Globe,
+  Settings,
+  ShieldAlert,
+  Moon,
+  type LucideIcon
+} from 'lucide-react';
+
+export interface AdminNavItem {
+  name: string;
+  href: string;
+  icon: LucideIcon;
+}
+
+export interface AdminNavSection {
+  group: string;
+  items: AdminNavItem[];
+}
+
+export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
+  {
+    group: 'Core Operations',
+    items: [
+      { name: 'Overview Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
+      { name: 'Front Desk & Folios', href: '/admin/pms/frontdesk', icon: Users },
+      { name: 'Reservations Matrix', href: '/admin/pms/reservations', icon: CalendarCheck },
+      { name: 'Room Inventory', href: '/admin/pms/rooms', icon: BedDouble },
+      { name: 'Night Audit', href: '/admin/pms/night-audit', icon: Moon }
+    ]
+  },
+  {
+    group: 'Hospitality & Outlets',
+    items: [
+      { name: 'Restaurant POS', href: '/admin/pos/tables', icon: UtensilsCrossed },
+      { name: 'Live Kitchen Orders (KOT)', href: '/admin/pos/kot', icon: Sparkles },
+      { name: 'Banquets & Events', href: '/admin/banquet', icon: PartyPopper },
+      { name: 'Housekeeping & Tasks', href: '/admin/housekeeping', icon: Sparkles },
+      { name: 'Guest CRM', href: '/admin/crm', icon: Users }
+    ]
+  },
+  {
+    group: 'Supply & Finance',
+    items: [
+      { name: 'Inventory & Stores', href: '/admin/inventory', icon: Boxes },
+      { name: 'Procurement & POs', href: '/admin/procurement', icon: ShoppingCart },
+      { name: 'Accounting & Ledger', href: '/admin/accounting/journals', icon: ReceiptText },
+      { name: 'Chart of Accounts', href: '/admin/accounting/chart-of-accounts', icon: ReceiptText },
+      { name: 'Financial & BI Reports', href: '/admin/accounting/reports', icon: PieChart }
+    ]
+  },
+  {
+    group: 'CMS & Platform',
+    items: [
+      { name: 'Website CMS Builder', href: '/admin/cms/pages', icon: Globe },
+      { name: 'Media Library', href: '/admin/cms/media', icon: Boxes },
+      { name: 'Audit Trail', href: '/admin/audit-logs', icon: ShieldAlert },
+      { name: 'System Settings', href: '/admin/settings', icon: Settings }
+    ]
+  }
+];

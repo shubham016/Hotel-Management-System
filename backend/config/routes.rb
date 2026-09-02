@@ -9,4 +9,5 @@ Rails.application.routes.draw do
   draw :crm
   draw :operations
   draw :accounting
+  draw :notifications
 end

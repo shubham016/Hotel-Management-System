@@ -269,6 +269,240 @@ This document maintains a running, unedited, version-controlled audit of all int
    - Tested live mutation on `/api/cms/pages` and verified immediate update on the public front-end.
    - Recompiled all 52 routes with `next build` (`Exit Code: 0`) and verified runtime on `http://localhost:3000`.
 
+---
+
+## Record Entry: 2026-09-01 (Admin Topbar Identity Fix, Profile/Logout Menu, Dashboard Simplification)
+
+### User Prompt / Input
+> `/admin/dashboard` shows "General Manager" instead of the logged-in Super Admin, and there is no logout button — add profile and logout to that section.
+> Follow-up: the dashboard looks too cluttered — comment out its content (don't remove it) except the top navbar and sidebar, which stay as-is.
+
+### Diagnosis
+- `AdminLayout` rendered `<AdminTopbar />` with no props, so `AdminTopbar.tsx` always fell back to its hardcoded defaults (`userFullName = 'General Manager'`, `userRole = 'GENERAL_MANAGER'`) regardless of who was actually logged in.
+- No logout endpoint or profile/logout UI existed anywhere in the admin shell.
+
+### Execution & Implementation Milestones
+1. **Real identity in the topbar**:
+   - `src/app/(admin)/admin/layout.tsx` now fetches `GET /api/v1/auth/me` from Rails server-side using the `hne_session_token` cookie, and passes the real `userFullName`, `userRole`, `userEmail`, and property name into `AdminTopbar`.
+2. **Profile/Logout dropdown**:
+   - `src/components/admin/AdminTopbar.tsx` user pill is now a clickable dropdown (closes on outside click) showing name/email, a Profile link (to `/admin/settings`), and a Logout action.
+   - Added `src/app/api/auth/logout/route.ts` — clears the `hne_session_token` cookie; the client then redirects to `/login`.
+3. **Dashboard decluttered (non-destructive)**:
+   - `src/app/(admin)/admin/dashboard/page.tsx`: wrapped the entire original KPI/tables/grid body in `{false && (<>...</>)}` and added a single "Dashboard content temporarily simplified." placeholder line. Nothing was deleted — flip `false` to `true` to restore the full dashboard instantly.
+   - Sidebar (`AdminSidebar.tsx`) and topbar (`AdminTopbar.tsx`) were left untouched per instruction.
+4. **Verification**:
+   - `npx tsc --noEmit -p tsconfig.json` ran clean across the project after both changes.
+
+### Standing Preferences Recorded This Session
+- Do not edit `.env`, Docker files, `package.json`, or `backend/config/**` while Codex may also be working on the project concurrently — flag/confirm instead.
+
+---
+
+## Record Entry: 2026-09-02 (Multi-Portal Direction & Owner-Portal Audit)
+
+### User Prompt / Input
+> We are making this project as 5 to 6 portals: Super Admin (super access of everything — every hotel, resort, KOT, CMS, etc.), Admin (Owner of a hotel/restaurant/resort), Manager, HR, Staff, Finance.
+> Take the current build as the Owner (Admin) portal for Hotel New Era. Work on it first: make the proper PMS, POS, CRM, Accounting, CMS. Then we will build Super Admin (full multi-tenant access across hotels/restaurants/enterprises). Main objective: finish this system first, then make multiple pricing plans for different hotel/restaurant/enterprise customers and sell the system. Save this direction in md files and start implementing accordingly.
+
+### Assistant Architectural Analysis
+- Confirmed the 5-6 portal split maps onto the existing granular-role catalogue already documented in `docs/PROJECT_REQUIREMENTS_AND_RAILS_ROADMAP.md` §6.2 (Super Administrator, Company Administrator, General Manager, Front Office Manager, Accountant, Finance Manager, HR Manager, etc.) — portals are a coarser UI grouping over that catalogue, not a new requirement.
+- Confirmed only `SUPER_ADMIN` is seeded today (`backend/db/seeds.rb`); the RBAC engine (`Api::V1::BaseController#authorize!`, `Role#allows?`) is real but `SUPER_ADMIN` bypasses all checks, so no request has been tested against a scoped role.
+- Ran 5 parallel code-audit agents (PMS, POS, CRM, Accounting, CMS) comparing live backend/frontend code against the corresponding numbered spec sections in `docs/PROJECT_REQUIREMENTS_AND_RAILS_ROADMAP.md`. Findings and the resulting phased plan are recorded in `docs/plans/IMPLEMENTATION_PLAN_v3.0_OWNER_PORTAL.md`.
+- Key cross-cutting findings that reorder the naive module-by-module approach:
+  - POS billing (`backend/app/controllers/api/v1/pos/billing_controller.rb`) trusts client-sent totals instead of recomputing server-side — the single worst finding; blocks demoing the system to a paying customer.
+  - No enclosing transactions around folio/journal writes; no idempotency on room-posting; posted journals can be silently cascade-deleted; `AuditLog` isn't actually append-only at the DB level.
+  - Account codes are hard-coded in `billing_controller.rb#create_journal!` rather than resolved via a configurable posting-rule mapping — this blocks correct revenue-posting work in both PMS and Accounting phases unless fixed first.
+  - BS/AD date conversion is stubbed as `Date.current.iso8601` in three places (`night_audit_controller.rb`, accounting `reports_controller.rb`) despite a real conversion already existing client-side in `src/lib/nepali-calendar.ts`.
+  - PMS backend (reservations/front desk/folios) is largely real and transactional, but `pms/reservations/page.tsx` is a 100%-hardcoded mock with zero backend calls — cancel/assign-room/extend/transfer endpoints exist server-side with no frontend caller anywhere.
+  - POS is the thinnest module: no backend models for menu items or KOT/orders at all; `tables/page.tsx` and `kot/page.tsx` are pure `useState` mocks.
+  - CMS media library has zero backend (upload button is a no-op `alert()`); CRM and Accounting have real core CRUD but are missing merge/duplicate-detection, approval/reversal workflows, and multi-property ledger dimensioning respectively.
+
+### Decision
+Build the Owner (Admin) portal to production quality first (PMS → posting-rule foundation → POS → CRM → Accounting → CMS depth, per the phased plan), using Hotel New Era as the reference customer. Super Admin (multi-tenant, cross-company access, pricing plans, tenant provisioning) is Phase 7 and starts only after the Owner portal is sellable. Full plan, phase breakdown, and sequencing rationale: `docs/plans/IMPLEMENTATION_PLAN_v3.0_OWNER_PORTAL.md`.
+
+### Next Action
+Begin Phase 0 (cross-cutting hardening) starting with the POS billing server-side recompute defect, since it is the highest-severity, highest-blast-radius issue found.
+
+---
+
+## Record Entry: 2026-09-02 (Phase 0 Hardening — POS Billing Trust Fix, Journal/Audit Immutability)
+
+### Execution & Implementation Milestones
+1. **Server-authoritative POS pricing** (closes Phase 0 item 1, the worst finding in the audit):
+   - Added `MenuItem` model + `backend/db/migrate/20260902000001_add_pos_menu_items_and_idempotency.rb` (menu_items table scoped to `restaurant_id`), seeded with the 9 existing dishes per outlet in `backend/db/seeds.rb`.
+   - Added `Api::V1::Pos::MenuItemsController#index` + route (`GET /api/v1/pos/menu_items`) and a Next.js proxy at `src/app/api/pos/menu-items/route.ts`.
+   - Rewrote `backend/app/controllers/api/v1/pos/billing_controller.rb#create`: now resolves `items: [{menuItemId, quantity}]` against real `MenuItem` records and `TaxConfiguration` rates to compute sub/tax/grand totals server-side. Client-sent `grandTotal`/`subTotal`/`vatAmount`/`serviceCharge` are no longer read at all.
+   - `src/app/(admin)/admin/pos/tables/page.tsx` now fetches the menu catalog from `/api/pos/menu-items` instead of a hardcoded array, and sends `menuItemId`/`quantity` pairs instead of client-computed totals. Removed the 3 fake pre-populated "occupied" demo tables (no real order behind them) per the no-demo-financial-data requirement.
+2. **Transactions + idempotency**: wrapped folio-item/folio-update/audit and journal/journal-lines writes in `ActiveRecord::Base.transaction`; added a client-supplied `idempotencyKey` (stored in the existing `source_reference` column, enforced by a partial unique index) so a retried settle/room-post request returns the original result instead of double-posting.
+3. **Journal immutability**: `backend/app/models/journal_entry.rb` now blocks editing or deleting a `POSTED` entry (raises `ActiveRecord::ReadOnlyRecord`) and adds a `reverse!` method that posts a balanced reversing entry instead. `dependent: :destroy` on `journal_lines` replaced with `dependent: :restrict_with_exception`.
+4. **Audit-log append-only enforcement**: `backend/app/models/audit_log.rb` now raises on any `update`/`destroy` attempt, closing the "convention-only" gap noted in the audit.
+5. **Test coverage**: added `backend/test/integration/pos_billing_test.rb` (recompute-ignores-client-total, unknown-menu-item rejection, idempotent-retry-no-duplicate). Full suite: 11 runs, 63 assertions, 0 failures. `bin/rubocop` and `bin/brakeman` clean on all changed files. `npx tsc --noEmit` clean.
+
+### Deferred (explicitly, not silently dropped)
+- Seeding a real `COMPANY_ADMIN`/`OWNER` role distinct from `SUPER_ADMIN`: requires first auditing every controller's inferred permission-module name (confirmed `Api::V1::BaseController#inferred_authorization_module` derives from `controller_path`, e.g. CRM's guests controller infers `"GUESTS"`, not `"CRM"` — the seeded `SUPER_ADMIN` permissions hash names don't actually match these and have never been exercised because `SUPER_ADMIN` bypasses the check entirely). Doing this without that audit risks locking the admin user out of working screens. Scheduled as its own careful pass before Phase 7 (Super Admin).
+- Server-side BS/AD date conversion (currently stubbed as `Date.current.iso8601` in `night_audit_controller.rb` and accounting `reports_controller.rb`): still open, porting `src/lib/nepali-calendar.ts` logic to Ruby.
+- Full POS order/KOT persistence (Phase 3): tables/KOT board is still local mock state; only the priced menu catalog and billing endpoint are now real.
+
+### Next Action
+Continue Phase 0: port BS/AD conversion server-side, then move to Phase 1 (posting-rule/account-mapping model) before starting Phase 2 (PMS frontend wiring).
+
+### Corrections (same session, post-advisor-review)
+A second-opinion review caught three issues in the above before they were declared done:
+1. **Idempotency key lifecycle bug**: `crypto.randomUUID()` was being generated fresh inside every settle request, so a real retry (double-click, timeout-and-resend) would still double-post — the server-side guard was correct but unreachable from the UI as first wired. Fixed: `tables/page.tsx` now holds one `settleKey` in state per opened table/order (generated on table selection, sent on settle, replaced only when a new table is opened), so a retry actually reuses the same key.
+2. **Untested `JournalEntry#reverse!`**: added speculatively for defect #4 with no caller and no test; interaction with the immutability guard was unverified and the multi-property `property_for_sequence` lookup was fragile. Removed — the immutability guard alone satisfies defect #4, and a proper reversal workflow is Phase 5 scope (needs the approval/maker-checker model anyway). Also fixed a callback-ordering bug where `dependent: :restrict_with_exception` on `journal_lines` fired before the custom `forbid_posted_destroy` guard, producing a generic FK error instead of the intended message — reordered so the guard runs first.
+3. **Folio line itemization was being computed and discarded**: `post_to_room` now writes `calculation_snapshot` (menu lines + tax breakdown) onto the `folio_item`, so a room-posted restaurant charge is traceable back to what was ordered and which tax rule applied, per the §5.5 requirement to record the rate/tax rule used on each transaction.
+
+Added a 4th POS billing test (`posted journal entries are immutable`, asserting both `update!` and `destroy!` raise). Suite: 12 runs, 66 assertions, 0 failures. Rubocop/Brakeman/tsc re-verified clean after these changes.
+
+---
+
+## Record Entry: 2026-09-02 (Admin Dashboard Restored and Wired to Real Data)
+
+### User Prompt / Input
+> Now let's move to the /admin/dashboard, let's make changes here for now.
+
+Clarified via question: restore the previously-disabled dashboard content (it had been wrapped in `{false && (...)}` in the earlier logout/profile session) **and** wire it to real backend data rather than the hardcoded mock stats it had before that.
+
+### Execution & Implementation Milestones
+1. **New `GET /api/v1/dashboard` endpoint** (`backend/app/controllers/api/v1/dashboard_controller.rb`, routed in `backend/config/routes/pms.rb`): aggregates real data for the current property/company — room occupancy and housekeeping counts (from `rooms.status`), today's arrivals/departures and in-house guest headcount (from `reservations`), today's revenue/ADR/RevPAR (read from posted General Ledger journal lines by account code, not summed ad hoc — stays consistent with the accounting reports), pending receivables (open folio balances), the 5 most recent journal vouchers, and active POS table counts.
+2. Added the Next.js proxy `src/app/api/dashboard/route.ts` (same `proxyRails` pattern as the other admin API routes).
+3. Rewrote `src/app/(admin)/admin/dashboard/page.tsx`: removed the `{false && (...)}` block entirely, fetches `/api/dashboard` client-side, renders loading/error states, and every KPI/table/card now reflects the fetched data instead of a hardcoded `stats` object. Kept the existing visual layout (KPI row, front-desk arrivals table, GL feed, housekeeping/POS/night-audit cards).
+4. Added `backend/test/integration/dashboard_test.rb` verifying occupancy/housekeeping counts are computed correctly from real room records. Full suite: 13 runs, 74 assertions, 0 failures. Rubocop and Brakeman clean. `npx tsc --noEmit` clean.
+
+### Notes
+- Revenue will read as Rs. 0 today on a fresh database — this is correct, not broken: room/F&B revenue GL postings only exist where the earlier-audited posting hooks are wired (POS direct settlement), and per Phase 0/5.6 conventions the dashboard must never fabricate numbers for transactions that didn't happen.
+- Journal-line revenue aggregation is company-wide, not property-scoped (same known gap as the rest of the ledger — see Phase 5 in `docs/plans/IMPLEMENTATION_PLAN_v3.0_OWNER_PORTAL.md`).
+
+---
+
+## Record Entry: 2026-09-02 (Six Stat Tiles with Sparklines on the Dashboard)
+
+### User Prompt / Input
+> On the hne card I want 6 boxes — Arrivals, Departures, In-House, Occupancy, Gross Revenue, and (after clarification) Restaurant Orders. Referenced a screenshot (`stat box.png`) of a clean, compact stat-tile row (icon + label, big value, thin sparkline, not bulky) as the visual target.
+
+### Execution & Implementation Milestones
+1. **Backend**: extended `backend/app/controllers/api/v1/dashboard_controller.rb` with a 7-day trailing `trends` series (arrivals/departures/in-house/revenue/restaurant-orders, one real query per day — all derived from actual reservation date ranges and posted GL/folio records, nothing fabricated) and a `pos.ordersToday` count (POS_RESTAURANT journal entries + RESTAURANT folio-item room-postings for today — both are real now thanks to the Phase 0 POS billing fix). Also fixed a real correctness bug spotted while extending this: `todayArrivals`/`todayDepartures` were previously gated on current `status`, which under-counted an arrival that had already checked in today — redefined as date-range-based counts excluding only `CANCELLED`/`NO_SHOW`.
+2. **Frontend**: new `src/components/ui/StatTile.tsx` — a compact card (icon badge + label, bold value, optional caption, and either an inline SVG sparkline or a progress bar) built following the dataviz skill's stat-tile contract (2px line, rounded end-cap, >=8px end-dot, ~18%→0% gradient area wash, no gridlines/legend needed for a single-series tile). Reused the app's existing theme tokens (orange/green/golden/blue) rather than introducing a new palette.
+3. Replaced the old 4-tile `MetricCard` KPI row in `dashboard/page.tsx` with 6 `StatTile`s: Arrivals, Departures, In-house, Occupancy (progress-bar variant), Gross Revenue (with a RevPAR caption), Orders.
+4. Extended `backend/test/integration/dashboard_test.rb` to assert the trends arrays and `ordersToday`. Full suite: 13 runs, 77 assertions, 0 failures. Rubocop/Brakeman/tsc clean.
+5. **Verified live in a browser** (Rails + Next dev servers already running): logged in as the seeded Super Admin, confirmed `GET /api/dashboard` returns real (currently-zero, correctly so on a fresh dataset) numbers, and screenshotted the rendered row. Caught and fixed one real layout bug from that screenshot — the "Restaurant Orders" label truncated to "Restaurant Or…" at this column width — shortened to "Orders".
+
+---
+
+## Record Entry: 2026-09-02 (Removed Dual-Calendar Badge from Top Navbar)
+
+User asked to remove the AD/BS/FY date pill from the admin topbar. Removed the block and its now-unused `dualDate`/`Calendar`/`formatDualDate` references from `src/components/admin/AdminTopbar.tsx`. `npx tsc --noEmit` clean; confirmed removed in the live browser.
+
+---
+
+## Record Entry: 2026-09-02 (Admin Topbar/Sidebar Alignment Fixes, Search Bar, Title Weight)
+
+Several small UI iterations on the admin shell, each verified live in a headless browser via `mcp__chrome-devtools__*` (not just typechecked):
+
+1. **Removed the AD/BS/FY dual-calendar pill** from `AdminTopbar.tsx` per request.
+2. **Dashboard `<h1>` weight**: 24px/800 → 20px/600 (`text-primary`), matching a lighter reference style the user supplied.
+3. **Sidebar/topbar row misalignment — real root cause found and fixed**: the sidebar's brand-header `div` had an explicit `height` set, but rendered shorter anyway. Cause: `<aside>` is a flex column at `height: 100vh`; with ~19 nav links across 4 groups its content is taller than the viewport, so with no `flexShrink: 0` set anywhere, flexbox proportionally shrank *every* child — including the header — regardless of its explicit height. Fixed by giving the brand-header and footer `flexShrink: 0` and making only the middle nav-list `flex: 1 1 auto; overflowY: auto; minHeight: 0` (so it's the one section that scrolls/shrinks). Verified via `getBoundingClientRect()` in-browser, not just visually.
+4. Height iterated with the user from 64 → 66 → 70 → 78px on both `AdminSidebar`'s brand header and `AdminTopbar`'s header, staying in sync each time; content stays vertically centered via `alignItems: center` regardless of height (confirmed by measuring content-center vs container-center).
+5. Removed the border-bottom under the sidebar logo per request.
+6. **New quick-nav search** in the topbar's middle space (`src/components/admin/AdminSearch.tsx`): a search input that, on focus, shows all real admin pages grouped exactly as the sidebar groups them; typing filters by name; clicking navigates via `router.push` and closes. Factored the page list out of `AdminSidebar.tsx` into a shared `src/lib/admin-nav.ts` (`ADMIN_NAV_SECTIONS`) so the sidebar and the search stay in sync automatically instead of drifting. Live data search (guests/reservations/rooms) was explicitly *not* built — the user's ask was mainly the page-navigation search; noted in-code as a separate, larger backend feature for later rather than fabricating search results now.
+
+All changes typecheck clean (`npx tsc --noEmit`) at every step; layout/search behavior confirmed in a live browser session (login, screenshots, `getBoundingClientRect` measurements, and an actual filtered-search-then-navigate click-through).
+
+---
+
+## Record Entry: 2026-09-02 (Topbar Sizing/Spacing Polish, Equal Gaps Fix)
+
+Continued iterating on the admin topbar with the user, all changes verified via `getBoundingClientRect()` measurements in a live browser, not just visually:
+- Matched vertical padding across the property pill, search bar, and Live Website link (all `9px` vertical), and resized the notification bell (38→36px) and user-pill avatar (32→28px, padding 4→3px) so all five topbar controls render at the same ~36px height and share the same vertical center (measured: all centers at y=38.5 within a 78px header, 0.5px off true center — subpixel rounding).
+- Search bar width iterated with the user: 440 (too much, ate the margins) → 300 (too small) → 380 → 420 (kept).
+- **Equal left-right gaps, root-caused rather than eyeballed**: the header's `justifyContent: space-between` was operating over 3 grouped wrapper `div`s (left-group, search, right-group), while the right-group's *internal* items used a separate fixed `gap: 16`. That gave two different gap systems — outer gaps derived from leftover-space math (measured 17.4px) vs the inner fixed 16px — which only looked equal by coincidence at one viewport width and wasn't guaranteed to stay equal. Fixed by flattening the header's children so all 5 real items (property pill, search, Live Website, bell, user-pill) are direct flex siblings under one `justifyContent: space-between`, which mathematically guarantees all internal gaps are identical regardless of viewport width. Verified: all four gaps measured 16.7px (0.02px apart), edge padding exactly 24px on both sides matching the header's own padding.
+
+---
+
+## Record Entry: 2026-09-02 (Dark Mode: Toggle + Theme System, Scoped to the Admin Shell)
+
+### User Prompt / Input
+> Add a theme toggle button after "Live Website" in the topbar. Clicking it should switch the theme to dark, with text turning white for visibility against the dark background.
+
+### Execution & Implementation Milestones
+1. **Theme infrastructure**: `src/components/admin/ThemeProvider.tsx` (React context managing `light`/`dark` state, persisted to `localStorage` under `hne-admin-theme`, applied via `document.documentElement.dataset.theme`) and `src/components/admin/ThemeToggle.tsx` (Moon/Sun icon button, styled to match the existing bell/pill buttons). Wired into `admin/layout.tsx`, which also gained a tiny synchronous inline `<script>` that reads `localStorage` and sets the attribute *before* hydration — no light-then-dark flash on load (verified by reloading while in dark mode).
+2. **Dark palette** added to `globals.css` under `[data-theme='dark']`: redefines the neutral/surface/text/border CSS custom properties (`--bg-main`, `--bg-card`, `--bg-sidebar`, `--text-primary/secondary/muted`, `--border`), plus the `*-light` "wash" tokens as translucent tints (e.g. `rgba(168,28,36,0.18)`) instead of pale washes — otherwise active-state highlights (selected nav item, icon chips) would render as a bright blob on a dark surface instead of a subtle tint. Also covers a handful of utility classes that use literal hex instead of vars (`.hne-btn-secondary`, `.hne-table-container/th`, scrollbar).
+3. Because this codebase's shared design system (`.hne-card`, `.hne-btn-*`, `.hne-badge-*`, `.hne-input`, `.hne-table`, `Card.tsx`, `Badge.tsx`, `StatTile.tsx`) is already CSS-variable-driven, redefining those variables made the entire shell + dashboard flip correctly for free. Fixed the handful of places that had hardcoded `#FFFFFF`/hex literals instead of vars so they'd participate too: `AdminTopbar.tsx` (header bar, bell button, user dropdown), `AdminSidebar.tsx` (aside background), `AdminSearch.tsx` (dropdown panel), `admin/layout.tsx` (outer wrapper), and one hardcoded `#B45309` text color on the dashboard's housekeeping tile.
+4. Verified live in the browser: toggled dark on, confirmed dashboard/sidebar/topbar/user-dropdown/search-dropdown all render with correct contrast, reloaded to confirm persistence with no flash, toggled back to light.
+
+### Scope gap — stated plainly, not silently left inconsistent
+**Only the shell (sidebar, topbar, search, user menu) and the dashboard page are dark-mode-correct.** The other ~19 admin pages (POS tables/KOT, PMS front desk/rooms/night-audit, CRM, housekeeping, inventory, procurement, banquet, accounting ×3, CMS ×2, audit-logs, settings) build their own cards/tables with **hardcoded inline `backgroundColor: '#FFFFFF'` and similar literals** (63 occurrences across those 19 files, confirmed by grep) instead of the CSS variables the toggle recolors — so those pages still render white cards/near-invisible dark text when dark mode is on. Screenshotted `/admin/pos/tables` in dark mode to confirm this concretely rather than just describing it. Converting those 19 pages to use the theme tokens is a separate, larger follow-up pass (mechanical but needs per-file review since not every hardcoded white is a page-background — some are correctly-white text-on-colored-button instances that must stay white in both themes).
+
+---
+
+## Record Entry: 2026-09-02 (Dark Mode Follow-up: Accent Text Contrast)
+
+### User Prompt / Input
+> After switching to dark mode, some text is still on red — why? (Then confirmed: same problem affects green, yellow/golden too.)
+
+### Root cause
+The first dark-mode pass (previous entry) only redefined the `*-light` **wash/background** tokens to translucent dark tints. It left the accent **text/icon** colors themselves unchanged (e.g. `--primary-orange: #A81C24`, a dark saturated crimson). That pairing works in light mode (dark text on a *pale* wash = good contrast) but fails in dark mode: a dark crimson on a translucent-dark-red-over-near-black wash is dark-on-dark — the "red text I can barely read" the user was seeing. Same mechanism affected green and golden/amber text (active nav items, badges, stat-tile icons, links, "Manage →"/"Floor Plan →" links).
+
+### Fix
+`src/app/globals.css`, inside the existing `[data-theme='dark']` block: brightened the accent tokens themselves (`--primary-orange`/`--brand-crimson` → `#EF5A66`, `--green`/`--brand-green` → `#34D399`, `--golden`/`--brand-gold` → `#FBBF24`, `--info-blue` → `#38BDF8`, `--danger-red` → `#FB7185`, plus matching `-hover` variants), and re-derived the `*-light` washes from the new brighter hex values. Since every text/icon usage in the app reads these tokens via `var(...)` (never a hardcoded hex), the brighter values propagate automatically to badges, sidebar active-nav-item, StatTile icons/sparklines, links — no per-component changes needed.
+
+**Kept solid button backgrounds at the original (non-brightened) values** via explicit `[data-theme='dark'] .hne-btn-primary/success/danger` overrides — white button text already had strong contrast against the original darker accents, and brightening those specific backgrounds would have *weakened* that (lighter background = lower contrast for white text). So: text/icon-on-wash got brighter, button-fill-with-white-text stayed as-is; each contrast pairing tuned for its own context rather than one token trying to serve both.
+
+Verified live: dashboard StatTiles (all 4 accent colors), Housekeeping Matrix (green/amber/rose all readable), badges, and sidebar active state all screenshotted in dark mode with clearly readable text.
+
+---
+
+## Record Entry: 2026-09-02 (Dark Mode: Two More Real Bugs Found via "not fixed")
+
+User replied "not fixed" to the previous contrast fix. Rather than guess, asked a clarifying question pinpointing the element — user confirmed it was the **active sidebar nav item**. Found two separate real issues:
+
+1. **`.hne-badge-warning` had a hardcoded `color: #B45309`** in `globals.css` (missed in the earlier token-based fix since it bypassed `var()` entirely) — fixed to `color: var(--golden-hover)`, consistent with how `.hne-badge-orange` already worked.
+2. **Design-intent gap, not a contrast bug**: even after brightening, the active sidebar item's text was still a *colored* accent (rose-red) on a *colored* dark wash — technically ~4.3:1 contrast (passable by WCAG), but the user's original ask was explicit: "if bg is dark then text must be white." Added a new `--nav-active-text` token (`= var(--primary-orange)` in light mode, `= var(--text-primary)` in dark mode) and switched `AdminSidebar.tsx`'s active-item text color to it. Result: active nav item now shows plain white/bright text in dark mode, with the accent-tinted background alone indicating "this is selected" — matching the stated expectation instead of arguing contrast math.
+
+Verified via computed styles, not just a screenshot: active item now measures `color: rgb(241,245,249)` (the near-white `--text-primary`) against `background: rgba(239,90,102,0.18)`.
+
+**Note on process**: an earlier check in this same debugging session showed the browser's theme spontaneously reverting from dark to light between two read-only tool calls with no click in between — almost certainly Next.js dev-server Fast Refresh doing a full reload after the `globals.css` edits (global stylesheet changes typically force a full reload rather than a CSS-only hot-swap) racing with test steps. Not a product bug; re-verified cleanly afterward by reloading, re-toggling, and checking state immediately before each screenshot.
+
+---
+
+## Record Entry: 2026-09-02 (Dark Mode: Same Fix Applied to "Live Website")
+
+User: "navbar not fixed check there also." The "Live Website" pill in `AdminTopbar.tsx` had the identical colored-text-on-colored-wash pattern as the sidebar active item (`color: var(--primary-orange)` on `backgroundColor: var(--primary-orange-light)`). Generalized the token from the sidebar-only fix — renamed `--nav-active-text` to `--accent-on-wash-text` (same light/dark values, now used in two places) — and applied it to Live Website's text color. Verified via screenshot: both the active sidebar item and Live Website now render plain white text on a subtle red-tinted background in dark mode, no colored-on-colored text left in the shell.
+
+---
+
+## Record Entry: 2026-09-02 (Notification Bell Made Real)
+
+User: "make the notification bell also active." It was a static button with a hardcoded always-on red dot and no click behavior. A `Notification` model already existed (`user.notifications`, populated by `contact_inquiries_controller.rb` when a guest submits the contact form) but had no API route and no UI.
+
+Built the full path:
+1. `backend/app/controllers/api/v1/notifications_controller.rb` — `index` (current user's last 20, most recent first, plus real `unreadCount`) and `update` (mark one read via `read_at`).
+2. Route (`backend/config/routes/notifications.rb`, drawn from `routes.rb`). Added `"NOTIFICATIONS" => %w[read update]` to the `OWNER` role's seeded permissions (module name is inferred as `NOTIFICATIONS` from `controller_path`) — re-seeded.
+3. Next.js proxies (`src/app/api/notifications/route.ts`, `[id]/route.ts`).
+4. `src/components/admin/NotificationsBell.tsx` — click-to-open dropdown (same interaction pattern as the user menu/search), real unread-count-driven red dot (not hardcoded), unread items highlighted, click marks read + navigates to the notification's `actionUrl`.
+5. Two integration tests: a scoped role with the permission can list/mark-read; a role without it gets 403 (confirms the permission wiring is actually enforced, not just present). Suite: 15 runs, 84 assertions, 0 failures. Rubocop/Brakeman/tsc clean.
+6. **Verified with real data end-to-end**: submitted two real contact-form inquiries via the public API, confirmed the bell showed the unread dot and correct count, opened the dropdown, clicked one notification — confirmed it navigated to `/admin/crm` (the inquiry's `actionUrl`) AND persisted as read server-side (re-opened the dropdown, count correctly dropped 2→1, only the clicked one lost its unread styling).
+
+### RBAC status — UPDATED, no longer a blocker
+
+---
+
+## Record Entry: 2026-09-02 (Real OWNER Role Seeded; Discovered & Fixed Public-Site 500s)
+
+### User Prompt / Input
+> Why does the topbar say "Super Admin" — we're working on Admin (Owner), right? → "fix it then."
+
+### Execution
+1. Ran a full audit (background agent, read-only) of every controller under `backend/app/controllers/api/v1/` to determine the exact `(module, action)` permission pairs `Api::V1::BaseController#authorize!` checks for every route — including the trap that `reservations#check_in/extend_stay/transfer_room` each require **two** separate authorization calls (`RESERVATIONS <action>` then `PMS_FRONTDESK <action>`), and that `Hotel::RoomsController` and `Pms::RoomsController` collide on the same inferred module `ROOMS`.
+2. Seeded a real `OWNER` role in `backend/db/seeds.rb` with all 26 modules / 48 permission pairs from that audit — a role that does **not** bypass `authorize!` (unlike `SUPER_ADMIN`, kept seeded but unassigned, reserved for the future Phase 7 multi-tenant portal). Reassigned `admin@hotelnewera.com` to `OWNER`.
+3. **Verified for real, not just by reading code**: logged in fresh (new JWT reflecting the new role), then navigated to all 19 admin pages checking actual network responses for 403s. Topbar now correctly reads "Owner" instead of "Super Admin".
+4. **Found a live, severe, pre-existing bug in the process**: `hotel/availability_controller.rb`, `cms/pages_controller.rb#index`, `cms/offers_controller.rb#index`, and `contact_inquiries_controller.rb#create` each `skip_before_action :authenticate!` (intentionally, since they're public-facing) but did **not** also skip `authorize_request!` — so every anonymous request crashed with `NoMethodError: undefined method 'role' for nil`. This meant **the public website's availability search, CMS content, and contact form were completely broken for every real guest**, unrelated to the Owner-role work — confirmed via direct curl against the Rails server before touching anything. Fixed all four by adding the missing `skip_before_action :authorize_request!`, matching the correct pattern already used elsewhere (`identity/sessions_controller.rb`, `pms/reservations_controller.rb#create`). Re-verified via curl: all four now return real data instead of 500s.
+5. Full backend suite (13 tests), rubocop, and brakeman all clean after both changes.
+
+### RBAC status — no longer a blocker for this reason; still incomplete overall
+`OWNER` is a real, correctly-scoped role now, verified against every admin screen. Manager/HR/Staff/Finance roles from §6.2 of the requirements doc are still not seeded — that's future work when those portals are actually built, not urgent now.
+No role in this system is currently permission-scoped in practice. Only `SUPER_ADMIN` is seeded, and it bypasses `authorize!` entirely, so the permissions hash in `backend/db/seeds.rb` has never been exercised against real requests — and its module names (`"CRM"`, `"ACCOUNTING"`, etc.) don't even match what `Api::V1::BaseController#inferred_authorization_module` derives from controller paths (e.g. the CRM guests controller infers `"GUESTS"`). This is a blocker for Phase 7 (Super Admin / multi-tenant), not a polish item — treat it as one of the first things to fix once Phase 0-6 module work is stable enough to survive a full permissions audit without breaking the admin UI.
+
 
 
 

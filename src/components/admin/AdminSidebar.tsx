@@ -3,25 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-  LayoutDashboard,
-  CalendarCheck,
-  BedDouble,
-  Users,
-  UtensilsCrossed,
-  GlassWater,
-  PartyPopper,
-  Sparkles,
-  Boxes,
-  ShoppingCart,
-  ReceiptText,
-  PieChart,
-  Globe,
-  Settings,
-  ShieldAlert,
-  Moon,
-  ChevronRight
-} from 'lucide-react';
+import { ADMIN_NAV_SECTIONS } from '@/lib/admin-nav';
 
 interface SidebarProps {
   collapsed?: boolean;
@@ -30,53 +12,13 @@ interface SidebarProps {
 export const AdminSidebar: React.FC<SidebarProps> = ({ collapsed }) => {
   const pathname = usePathname();
 
-  const navSections = [
-    {
-      group: 'Core Operations',
-      items: [
-        { name: 'Overview Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
-        { name: 'Front Desk & Folios', href: '/admin/pms/frontdesk', icon: Users },
-        { name: 'Reservations Matrix', href: '/admin/pms/reservations', icon: CalendarCheck },
-        { name: 'Room Inventory', href: '/admin/pms/rooms', icon: BedDouble },
-        { name: 'Night Audit', href: '/admin/pms/night-audit', icon: Moon },
-      ]
-    },
-    {
-      group: 'Hospitality & Outlets',
-      items: [
-        { name: 'Restaurant POS', href: '/admin/pos/tables', icon: UtensilsCrossed },
-        { name: 'Live Kitchen Orders (KOT)', href: '/admin/pos/kot', icon: Sparkles },
-        { name: 'Banquets & Events', href: '/admin/banquet', icon: PartyPopper },
-        { name: 'Housekeeping & Tasks', href: '/admin/housekeeping', icon: Sparkles },
-        { name: 'Guest CRM', href: '/admin/crm', icon: Users },
-      ]
-    },
-    {
-      group: 'Supply & Finance',
-      items: [
-        { name: 'Inventory & Stores', href: '/admin/inventory', icon: Boxes },
-        { name: 'Procurement & POs', href: '/admin/procurement', icon: ShoppingCart },
-        { name: 'Accounting & Ledger', href: '/admin/accounting/journals', icon: ReceiptText },
-        { name: 'Chart of Accounts', href: '/admin/accounting/chart-of-accounts', icon: ReceiptText },
-        { name: 'Financial & BI Reports', href: '/admin/accounting/reports', icon: PieChart },
-      ]
-    },
-    {
-      group: 'CMS & Platform',
-      items: [
-        { name: 'Website CMS Builder', href: '/admin/cms/pages', icon: Globe },
-        { name: 'Media Library', href: '/admin/cms/media', icon: Boxes },
-        { name: 'Audit Trail', href: '/admin/audit-logs', icon: ShieldAlert },
-        { name: 'System Settings', href: '/admin/settings', icon: Settings },
-      ]
-    }
-  ];
+  const navSections = ADMIN_NAV_SECTIONS;
 
   return (
     <aside
       style={{
         width: collapsed ? 76 : 260,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: 'var(--bg-sidebar)',
         borderRight: '1px solid var(--border)',
         height: '100vh',
         display: 'flex',
@@ -84,18 +26,19 @@ export const AdminSidebar: React.FC<SidebarProps> = ({ collapsed }) => {
         position: 'sticky',
         top: 0,
         transition: 'width var(--transition-normal)',
-        zIndex: 40,
-        overflowY: 'auto'
+        zIndex: 40
       }}
     >
-      {/* Brand Header */}
+      {/* Brand Header — fixed height matching AdminTopbar's so the two rows align;
+          flexShrink:0 keeps it from being squeezed when the nav list below overflows. */}
       <div
         style={{
-          padding: '20px 20px',
+          height: 78,
+          flexShrink: 0,
+          padding: '0 20px',
           display: 'flex',
           alignItems: 'center',
-          gap: 12,
-          borderBottom: '1px solid var(--border)'
+          gap: 12
         }}
       >
         {!collapsed ? (
@@ -126,8 +69,9 @@ export const AdminSidebar: React.FC<SidebarProps> = ({ collapsed }) => {
         )}
       </div>
 
-      {/* Navigation Links */}
-      <div style={{ padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Navigation Links — the only section that scrolls; minHeight:0 lets it actually shrink
+          inside the flex column instead of pushing the header/footer out of place. */}
+      <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: 20 }}>
         {navSections.map((section, idx) => (
           <div key={idx}>
             {!collapsed && (
@@ -160,7 +104,7 @@ export const AdminSidebar: React.FC<SidebarProps> = ({ collapsed }) => {
                       padding: collapsed ? '10px 0' : '9px 12px',
                       justifyContent: collapsed ? 'center' : 'flex-start',
                       borderRadius: 'var(--radius-md)',
-                      color: isActive ? 'var(--primary-orange)' : 'var(--text-secondary)',
+                      color: isActive ? 'var(--accent-on-wash-text)' : 'var(--text-secondary)',
                       backgroundColor: isActive ? 'var(--primary-orange-light)' : 'transparent',
                       fontWeight: isActive ? 700 : 500,
                       fontSize: 13.5,
@@ -182,7 +126,7 @@ export const AdminSidebar: React.FC<SidebarProps> = ({ collapsed }) => {
       {!collapsed && (
         <div
           style={{
-            marginTop: 'auto',
+            flexShrink: 0,
             padding: '16px 20px',
             borderTop: '1px solid var(--border)',
             fontSize: 11.5,

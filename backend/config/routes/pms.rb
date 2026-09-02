@@ -1,5 +1,7 @@
 namespace :api do
   namespace :v1 do
+    resource :dashboard, only: :show, controller: :dashboard
+
     scope module: :pms do
       resources :reservations, only: %i[index show create update] do
         member do

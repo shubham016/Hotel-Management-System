@@ -3,8 +3,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Bell, Building2, Calendar, User, LogOut, ChevronDown, ExternalLink } from 'lucide-react';
-import { getCurrentNepaliDateString, formatNepaliDate, formatDualDate } from '@/lib/nepali-calendar';
+import { Building2, User, LogOut, ChevronDown, ExternalLink } from 'lucide-react';
+import { AdminSearch } from './AdminSearch';
+import { ThemeToggle } from './ThemeToggle';
+import { NotificationsBell } from './NotificationsBell';
 
 interface TopbarProps {
   propertyName?: string;
@@ -34,7 +36,6 @@ export const AdminTopbar: React.FC<TopbarProps> = ({
   userEmail
 }) => {
   const router = useRouter();
-  const dualDate = formatDualDate(new Date());
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -61,8 +62,8 @@ export const AdminTopbar: React.FC<TopbarProps> = ({
   return (
     <header
       style={{
-        height: 64,
-        backgroundColor: '#FFFFFF',
+        height: 78,
+        backgroundColor: 'var(--bg-card)',
         borderBottom: '1px solid var(--border)',
         display: 'flex',
         alignItems: 'center',
@@ -73,118 +74,63 @@ export const AdminTopbar: React.FC<TopbarProps> = ({
         zIndex: 30
       }}
     >
-      {/* Left: Property Selector & Dual Calendar Badge */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '6px 12px',
-            backgroundColor: 'var(--bg-main)',
-            borderRadius: 'var(--radius-md)',
-            border: '1px solid var(--border)',
-            fontSize: 13,
-            fontWeight: 600,
-            color: 'var(--text-primary)'
-          }}
-        >
-          <Building2 size={16} color="var(--primary-orange)" />
-          <span>{propertyName}</span>
-        </div>
-
-        {/* Dual Calendar Pill */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            padding: '5px 12px',
-            backgroundColor: 'var(--golden-light)',
-            border: '1px solid rgba(244, 180, 0, 0.3)',
-            borderRadius: 'var(--radius-md)',
-            fontSize: 12,
-            fontWeight: 700,
-            color: '#B45309'
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <Calendar size={13} color="var(--primary-orange)" />
-            <span>AD: {dualDate.adFormatted}</span>
-          </div>
-          <span style={{ color: '#D97706' }}>•</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span>BS: {dualDate.bsFormatted}</span>
-            <span style={{ fontSize: 11, color: '#92400E' }}>({dualDate.bsNepaliText.split(',')[0]})</span>
-          </div>
-          <span style={{ color: '#D97706' }}>•</span>
-          <span style={{ fontSize: 11, backgroundColor: '#FFFFFF', padding: '1px 6px', borderRadius: 4, border: '1px solid #FDE68A' }}>
-            FY {dualDate.fiscalYearBS}
-          </span>
-        </div>
+      {/* Property Selector */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '9px 12px',
+          backgroundColor: 'var(--bg-main)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid var(--border)',
+          fontSize: 13,
+          fontWeight: 600,
+          color: 'var(--text-primary)'
+        }}
+      >
+        <Building2 size={16} color="var(--primary-orange)" />
+        <span>{propertyName}</span>
       </div>
 
-      {/* Right: Quick Search, Live Public Link, Notifications, User Profile */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        <Link
-          href="/"
-          target="_blank"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            fontSize: 13,
-            fontWeight: 600,
-            color: 'var(--primary-orange)',
-            textDecoration: 'none',
-            padding: '6px 12px',
-            borderRadius: 'var(--radius-md)',
-            backgroundColor: 'var(--primary-orange-light)'
-          }}
-        >
-          <span>Live Website</span>
-          <ExternalLink size={14} />
-        </Link>
+      {/* Quick-Nav Search — a direct flex sibling (not wrapped) so justifyContent:space-between
+          on the header spaces all five items (property, search, live-website, bell, user)
+          equally, instead of mismatching an outer 2-group gap against an inner 16px gap. */}
+      <AdminSearch />
 
-        {/* Notifications */}
-        <button
-          style={{
-            position: 'relative',
-            width: 38,
-            height: 38,
-            borderRadius: 'var(--radius-md)',
-            border: '1px solid var(--border)',
-            backgroundColor: '#FFFFFF',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            color: 'var(--text-secondary)'
-          }}
-        >
-          <Bell size={18} />
-          <span
-            style={{
-              position: 'absolute',
-              top: 6,
-              right: 6,
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              backgroundColor: 'var(--primary-orange)'
-            }}
-          />
-        </button>
+      <Link
+        href="/"
+        target="_blank"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          fontSize: 13,
+          fontWeight: 600,
+          color: 'var(--accent-on-wash-text)',
+          textDecoration: 'none',
+          padding: '9px 12px',
+          borderRadius: 'var(--radius-md)',
+          backgroundColor: 'var(--primary-orange-light)'
+        }}
+      >
+        <span>Live Website</span>
+        <ExternalLink size={14} />
+      </Link>
 
-        {/* User Pill */}
-        <div ref={menuRef} style={{ position: 'relative' }}>
+      <ThemeToggle />
+
+      <NotificationsBell />
+
+      {/* User Pill */}
+      <div ref={menuRef} style={{ position: 'relative' }}>
           <button
             onClick={() => setMenuOpen((open) => !open)}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: 10,
-              padding: '4px 10px 4px 4px',
+              padding: '3px 10px 3px 3px',
               borderRadius: 'var(--radius-full)',
               border: '1px solid var(--border)',
               backgroundColor: 'var(--bg-main)',
@@ -193,8 +139,8 @@ export const AdminTopbar: React.FC<TopbarProps> = ({
           >
             <div
               style={{
-                width: 32,
-                height: 32,
+                width: 28,
+                height: 28,
                 borderRadius: '50%',
                 backgroundColor: 'var(--primary-orange)',
                 color: '#FFFFFF',
@@ -223,7 +169,7 @@ export const AdminTopbar: React.FC<TopbarProps> = ({
                 top: 'calc(100% + 8px)',
                 right: 0,
                 minWidth: 210,
-                backgroundColor: '#FFFFFF',
+                backgroundColor: 'var(--bg-card)',
                 border: '1px solid var(--border)',
                 borderRadius: 'var(--radius-md)',
                 boxShadow: '0 12px 24px -8px rgba(0, 0, 0, 0.15)',
@@ -278,7 +224,6 @@ export const AdminTopbar: React.FC<TopbarProps> = ({
             </div>
           )}
         </div>
-      </div>
     </header>
   );
 };

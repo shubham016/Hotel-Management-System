@@ -3,6 +3,7 @@ module Api
     module Cms
       class OffersController < BackendController
         skip_before_action :authenticate!, only: :index
+        skip_before_action :authorize_request!, only: :index
 
         DEFAULT_OFFERS = [
           { id: "off-1", title: "Lumbini Pilgrimage & Spiritual Package", code: "LUMBINI15", discountPct: 15.0, validFrom: "2026-01-01", validUntil: "2026-12-31", description: "2 nights stay with breakfast and Lumbini itinerary.", bannerUrl: "https://images.unsplash.com/photo-1544735716-392fe2489ffa?auto=format&fit=crop&w=1200&q=80", priceStartingAt: 8500, category: "PILGRIMAGE", isActive: true },

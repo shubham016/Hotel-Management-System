@@ -51,6 +51,11 @@
   --border-focus: #A81C24;
   --border-light: #F1F5F9;
 
+  /* Text/icons sitting on a colored *-light wash (active sidebar item, "Live Website" pill):
+     accent color in light mode, but flips to plain bright text in dark mode instead of
+     staying colored-on-colored-wash. */
+  --accent-on-wash-text: var(--primary-orange);
+
   /* Typography */
   --font-family-display: 'Outfit', sans-serif;
   --font-family-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -72,6 +77,117 @@
   /* Transitions */
   --transition-fast: 0.15s ease;
   --transition-normal: 0.25s ease;
+}
+
+/* Dark theme — admin portal only, toggled via document.documentElement[data-theme].
+   Wash tokens (*-light) become translucent tints instead of pale washes so active-state
+   highlights (nav items, badges, icon chips) stay readable against a dark surface. */
+[data-theme='dark'] {
+  --bg-main: #0B1220;
+  --bg-subtle: #0B1220;
+  --bg-card: #131B2C;
+  --bg-sidebar: #101828;
+  --bg-input: #1B2436;
+
+  --text-primary: #F1F5F9;
+  --text-secondary: #CBD5E1;
+  --text-muted: #7C8AA5;
+
+  --border: #263042;
+  --border-light: #1E2740;
+  --border-focus: #EF5A66;
+
+  --accent-on-wash-text: var(--text-primary);
+
+  /* Accent colors themselves, not just their washes, need to brighten in dark mode.
+     A dark-saturated accent (e.g. crimson #A81C24) reads fine as text on a *pale* light-mode
+     wash, but the same dark color on a *dark* wash/card has too little luminance contrast —
+     the classic "dark red text on near-black" problem. Every accent used as text/icon color
+     (badges, active nav items, stat-tile icons, links) gets a brighter tint here instead. */
+  --primary-orange: #EF5A66;
+  --primary-orange-hover: #F5808A;
+  --brand-crimson: #EF5A66;
+  --brand-crimson-hover: #F5808A;
+
+  --green: #34D399;
+  --green-hover: #6EE7B7;
+  --brand-green: #34D399;
+  --brand-green-hover: #6EE7B7;
+
+  --golden: #FBBF24;
+  --golden-hover: #FCD34D;
+  --brand-gold: #FBBF24;
+  --brand-gold-hover: #FCD34D;
+
+  --info-blue: #38BDF8;
+  --danger-red: #FB7185;
+
+  --primary-orange-light: rgba(239, 90, 102, 0.18);
+  --primary-orange-subtle: rgba(239, 90, 102, 0.28);
+  --brand-crimson-light: rgba(239, 90, 102, 0.18);
+  --brand-crimson-subtle: rgba(239, 90, 102, 0.28);
+
+  --golden-light: rgba(251, 191, 36, 0.18);
+  --brand-gold-light: rgba(251, 191, 36, 0.18);
+
+  --green-light: rgba(52, 211, 153, 0.18);
+  --brand-green-light: rgba(52, 211, 153, 0.18);
+
+  --danger-light: rgba(251, 113, 133, 0.18);
+  --info-light: rgba(56, 189, 248, 0.18);
+}
+
+/* .hne-btn-* backgrounds intentionally keep the *light-mode* accent (not the brightened
+   dark-mode text/icon tint above) so white button text keeps strong contrast; only the
+   hover shades follow the brighter dark accent for visible feedback. */
+[data-theme='dark'] .hne-btn-primary {
+  background-color: #A81C24;
+}
+[data-theme='dark'] .hne-btn-primary:hover {
+  background-color: #C42430;
+}
+[data-theme='dark'] .hne-btn-success {
+  background-color: #15803D;
+}
+[data-theme='dark'] .hne-btn-success:hover {
+  background-color: #1C9A4B;
+}
+[data-theme='dark'] .hne-btn-danger {
+  background-color: #DC2626;
+}
+[data-theme='dark'] .hne-btn-danger:hover {
+  background-color: #EF4444;
+}
+
+[data-theme='dark'] .hne-btn-secondary {
+  background-color: var(--bg-card);
+}
+
+[data-theme='dark'] .hne-table-container,
+[data-theme='dark'] .hne-table th {
+  background-color: var(--bg-card);
+}
+
+[data-theme='dark'] .hne-table tbody tr:hover {
+  background-color: var(--bg-subtle);
+}
+
+[data-theme='dark'] .hne-card:hover {
+  border-color: #33405A;
+}
+
+[data-theme='dark'] .hne-badge-neutral {
+  background: #1E293B;
+}
+
+[data-theme='dark'] ::-webkit-scrollbar-track {
+  background: #101828;
+}
+[data-theme='dark'] ::-webkit-scrollbar-thumb {
+  background: #38445C;
+}
+[data-theme='dark'] ::-webkit-scrollbar-thumb:hover {
+  background: #4A5875;
 }
 
 * {
@@ -204,7 +320,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .hne-badge-success { background: var(--green-light); color: var(--green); }
-.hne-badge-warning { background: var(--golden-light); color: #B45309; }
+.hne-badge-warning { background: var(--golden-light); color: var(--golden-hover); }
 .hne-badge-orange  { background: var(--primary-orange-light); color: var(--primary-orange-hover); }
 .hne-badge-danger  { background: var(--danger-light); color: var(--danger-red); }
 .hne-badge-neutral { background: #F3F4F6; color: var(--text-secondary); }

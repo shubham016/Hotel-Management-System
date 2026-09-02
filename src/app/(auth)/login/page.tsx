@@ -204,7 +204,7 @@ export default function LoginPage() {
         {/* Quick Demo Role Selector */}
         <div style={{ marginTop: 28, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
           <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 10, textAlign: 'center' }}>
-            Quick Demo Login Presets
+            Demo Accounts Presets
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
             <button

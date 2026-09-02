@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   UtensilsCrossed,
   Plus,
@@ -21,6 +21,8 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 
+const OUTLET_CODES: Record<'DHIKI' | 'TERRACE', string> = { DHIKI: 'DHIKI-REST', TERRACE: 'TERRACE-BAR' };
+
 export default function POSTablesPage() {
   const [selectedOutlet, setSelectedOutlet] = useState<'DHIKI' | 'TERRACE'>('DHIKI');
   const [selectedTable, setSelectedTable] = useState<any>(null);
@@ -28,48 +30,42 @@ export default function POSTablesPage() {
   const [postToRoom, setPostToRoom] = useState(false);
   const [selectedRoomNumber, setSelectedRoomNumber] = useState('101');
   const [paymentMethod, setPaymentMethod] = useState('FONEPAY');
+  // Generated once per settle attempt and held until it succeeds, so a retry (double
+  // click, timeout-and-resend) reuses the same key and the server's idempotency check applies.
+  const [settleKey, setSettleKey] = useState(() => crypto.randomUUID());
 
-  const menuItems = [
-    { id: 'm1', name: 'Royal Thakali Mutton Khana Set', price: 950, cat: 'Nepali' },
-    { id: 'm2', name: 'Bhojangriha Charcoal Sekuwa', price: 750, cat: 'Nepali' },
-    { id: 'm3', name: 'Palpali Chukauni & Batuk', price: 450, cat: 'Nepali' },
-    { id: 'm4', name: 'Claypot Tandoori Chicken (Half)', price: 850, cat: 'Tandoor' },
-    { id: 'm5', name: 'New Era Sizzler (Chicken / Paneer)', price: 950, cat: 'Continental' },
-    { id: 'm6', name: 'Woodfired Truffle Mushroom Pizza', price: 850, cat: 'Continental' },
-    { id: 'm7', name: 'Lumbini Sunset Signature Cocktail', price: 750, cat: 'Bar' },
-    { id: 'm8', name: 'Everest Craft Beer (Bottle)', price: 550, cat: 'Bar' },
-    { id: 'm9', name: 'Single-Estate Palpa Coffee / Espresso', price: 250, cat: 'Cafe' }
-  ];
+  // Menu catalog and prices are server-authoritative (backend/app/models/menu_item.rb) —
+  // fetched here only for display; billing recomputes totals from the same records.
+  const [menuItemsByOutlet, setMenuItemsByOutlet] = useState<Record<string, any[]>>({});
+
+  useEffect(() => {
+    fetch('/api/pos/menu-items')
+      .then((res) => res.json())
+      .then((json) => {
+        if (!json.success) return;
+        const byOutlet: Record<string, any[]> = {};
+        for (const outlet of json.outlets) {
+          const key = outlet.outletCode === OUTLET_CODES.DHIKI ? 'DHIKI' : 'TERRACE';
+          byOutlet[key] = outlet.items.map((item: any) => ({ id: item.id, name: item.name, price: item.price, cat: item.category }));
+        }
+        setMenuItemsByOutlet(byOutlet);
+      })
+      .catch(() => {});
+  }, []);
+
+  const menuItems = menuItemsByOutlet[selectedOutlet] || [];
+
+  // A fresh key per opened order/table prevents an idempotency key from a previous,
+  // unrelated settlement being silently reused (which would return the old receipt
+  // instead of billing the new one).
+  useEffect(() => {
+    setSettleKey(crypto.randomUUID());
+  }, [selectedTable?.id]);
 
   const [tables, setTables] = useState([
     // Outlet 1: Dhiki Restaurant & Bhojangriha
-    {
-      id: 't-01',
-      outlet: 'DHIKI',
-      number: 'T-01',
-      zone: 'Main Bhojangriha',
-      capacity: 4,
-      status: 'OCCUPIED',
-      kotNo: 'KOT-012',
-      items: [
-        { name: 'Royal Thakali Mutton Khana Set', qty: 2, price: 950 },
-        { name: 'Everest Craft Beer (Bottle)', qty: 2, price: 550 }
-      ]
-    },
-    {
-      id: 't-02',
-      outlet: 'DHIKI',
-      number: 'T-02',
-      zone: 'Main Bhojangriha',
-      capacity: 4,
-      status: 'OCCUPIED',
-      kotNo: 'KOT-013',
-      items: [
-        { name: 'Bhojangriha Charcoal Sekuwa', qty: 1, price: 750 },
-        { name: 'Palpali Chukauni & Batuk', qty: 1, price: 450 },
-        { name: 'Lumbini Sunset Signature Cocktail', qty: 2, price: 750 }
-      ]
-    },
+    { id: 't-01', outlet: 'DHIKI', number: 'T-01', zone: 'Main Bhojangriha', capacity: 4, status: 'AVAILABLE', kotNo: null, items: [] },
+    { id: 't-02', outlet: 'DHIKI', number: 'T-02', zone: 'Main Bhojangriha', capacity: 4, status: 'AVAILABLE', kotNo: null, items: [] },
     { id: 't-03', outlet: 'DHIKI', number: 'T-03', zone: 'Main Bhojangriha', capacity: 4, status: 'AVAILABLE', kotNo: null, items: [] },
     { id: 't-04', outlet: 'DHIKI', number: 'T-04', zone: 'Private Dining Cabin', capacity: 6, status: 'AVAILABLE', kotNo: null, items: [] },
     { id: 't-05', outlet: 'DHIKI', number: 'T-05', zone: 'Main Bhojangriha', capacity: 4, status: 'AVAILABLE', kotNo: null, items: [] },
@@ -78,19 +74,7 @@ export default function POSTablesPage() {
     { id: 't-08', outlet: 'DHIKI', number: 'T-08', zone: 'Family Section', capacity: 6, status: 'AVAILABLE', kotNo: null, items: [] },
 
     // Outlet 2: New Era Terrace Lounge & Bar
-    {
-      id: 'bar-01',
-      outlet: 'TERRACE',
-      number: 'BAR-01',
-      zone: 'Open-Air Terrace',
-      capacity: 4,
-      status: 'OCCUPIED',
-      kotNo: 'KOT-014',
-      items: [
-        { name: 'New Era Sizzler (Chicken / Paneer)', qty: 1, price: 950 },
-        { name: 'Everest Craft Beer (Bottle)', qty: 2, price: 550 }
-      ]
-    },
+    { id: 'bar-01', outlet: 'TERRACE', number: 'BAR-01', zone: 'Open-Air Terrace', capacity: 4, status: 'AVAILABLE', kotNo: null, items: [] },
     { id: 'bar-02', outlet: 'TERRACE', number: 'BAR-02', zone: 'Open-Air Terrace', capacity: 4, status: 'AVAILABLE', kotNo: null, items: [] },
     { id: 'bar-03', outlet: 'TERRACE', number: 'BAR-03', zone: 'Cocktail High-Top', capacity: 2, status: 'AVAILABLE', kotNo: null, items: [] },
     { id: 'bar-04', outlet: 'TERRACE', number: 'BAR-04', zone: 'Cocktail High-Top', capacity: 2, status: 'AVAILABLE', kotNo: null, items: [] },
@@ -111,14 +95,14 @@ export default function POSTablesPage() {
   const handleAddItemToTable = (item: any) => {
     if (!selectedTable) return;
 
-    const existing = selectedTable.items.find((i: any) => i.name === item.name);
+    const existing = selectedTable.items.find((i: any) => i.id === item.id);
     let updatedItems;
     if (existing) {
       updatedItems = selectedTable.items.map((i: any) =>
-        i.name === item.name ? { ...i, qty: i.qty + 1 } : i
+        i.id === item.id ? { ...i, qty: i.qty + 1 } : i
       );
     } else {
-      updatedItems = [...selectedTable.items, { name: item.name, qty: 1, price: item.price }];
+      updatedItems = [...selectedTable.items, { id: item.id, name: item.name, qty: 1, price: item.price }];
     }
 
     const updatedTable = {
@@ -134,20 +118,17 @@ export default function POSTablesPage() {
 
   const handleSettleOrder = async () => {
     if (!selectedTable) return;
-    const totals = calculateTableTotal(selectedTable.items);
 
     try {
       const res = await fetch('/api/pos/billing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          outletCode: OUTLET_CODES[selectedOutlet],
           outletName: selectedOutlet === 'DHIKI' ? 'Dhiki Restaurant & Bhojangriha' : 'New Era Terrace Lounge & Bar',
           tableNumber: selectedTable.number,
-          items: selectedTable.items,
-          subTotal: totals.foodSub,
-          serviceCharge: totals.sc,
-          vatAmount: totals.vat,
-          grandTotal: totals.grand,
+          items: selectedTable.items.map((i: any) => ({ menuItemId: i.id, quantity: i.qty })),
+          idempotencyKey: settleKey,
           postToRoom,
           roomNumber: selectedRoomNumber,
           paymentMethod

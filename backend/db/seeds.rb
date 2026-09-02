@@ -14,8 +14,12 @@ property.update!(
   active: true
 )
 
-role = company.roles.find_or_initialize_by(name: "SUPER_ADMIN")
-role.update!(
+# SUPER_ADMIN retains the historical "view every module" permissions hash and is reserved
+# for the future cross-tenant Super Admin portal (Phase 7). No user is assigned this role
+# today — it bypasses authorize! by name (base_controller.rb) so its permissions hash is
+# never actually exercised, and must not be used as a template for a real scoped role.
+super_admin_role = company.roles.find_or_initialize_by(name: "SUPER_ADMIN")
+super_admin_role.update!(
   system: true,
   permissions: {
     "ROOMS" => %w[view create update delete],
@@ -36,6 +40,47 @@ role.update!(
   }
 )
 
+# OWNER is the real, permission-checked property-owner role (does not bypass authorize!).
+# Module/action pairs below were derived by auditing every controller's inferred
+# authorization module (backend/app/controllers/api/v1/base_controller.rb#inferred_authorization_module,
+# which is the last segment of controller_path, e.g. Api::V1::Crm::GuestsController -> "GUESTS")
+# and every explicit `self.authorization_module_name` override, plus every custom route action
+# name (e.g. reservations#check_in requires BOTH "RESERVATIONS" and "PMS_FRONTDESK" checks).
+# Docs: docs/plans/IMPLEMENTATION_PLAN_v3.0_OWNER_PORTAL.md, docs/CONVERSATION.md 2026-09-02.
+owner_role = company.roles.find_or_initialize_by(name: "OWNER")
+owner_role.update!(
+  system: true,
+  permissions: {
+    "CHART_OF_ACCOUNTS" => %w[read create],
+    "JOURNALS" => %w[read create],
+    "REPORTS" => %w[read],
+    "AUDIT_LOGS" => %w[read],
+    "BOOKINGS" => %w[read create],
+    "PAGES" => %w[read create],
+    "OFFERS" => %w[read create delete],
+    "GUESTS" => %w[read create],
+    "CONTACT_INQUIRIES" => %w[create],
+    "DASHBOARD" => %w[read],
+    "NOTIFICATIONS" => %w[read update],
+    "PROPERTIES" => %w[read],
+    "ROOM_TYPES" => %w[read],
+    "ROOMS" => %w[read update],
+    "AVAILABILITY" => %w[read],
+    "TASKS" => %w[read create],
+    "SESSIONS" => %w[read],
+    "ITEMS" => %w[read create],
+    "RESERVATIONS" => %w[read update cancel assign_room check_in extend_stay transfer_room],
+    "PMS_FRONTDESK" => %w[read create check_in extend_stay transfer_room],
+    "FOLIOS" => %w[create],
+    "CHECKOUT" => %w[create],
+    "NIGHT_AUDIT" => %w[read create],
+    "TABLES" => %w[read],
+    "MENU_ITEMS" => %w[read],
+    "BILLING" => %w[create],
+    "ORDERS" => %w[read create]
+  }
+)
+
 admin_password = ENV["SEED_ADMIN_PASSWORD"].presence
 if admin_password.blank?
   raise "SEED_ADMIN_PASSWORD is required in production" if Rails.env.production?
@@ -45,7 +90,7 @@ end
 
 admin = company.users.find_or_initialize_by(email: "admin@hotelnewera.com")
 admin.assign_attributes(
-  role:,
+  role: owner_role,
   first_name: "System",
   last_name: "Administrator",
   password: admin_password,
@@ -151,6 +196,21 @@ terrace.update!(name: "New Era Terrace Lounge & Bar", active: true)
   (1..8).each do |number|
     table = restaurant.restaurant_tables.find_or_initialize_by(table_number: number.to_s.rjust(2, "0"))
     table.update!(capacity: number <= 2 ? 2 : 4, status: "AVAILABLE")
+  end
+
+  [
+    { name: "Royal Thakali Mutton Khana Set", category: "Nepali", price: 950 },
+    { name: "Bhojangriha Charcoal Sekuwa", category: "Nepali", price: 750 },
+    { name: "Palpali Chukauni & Batuk", category: "Nepali", price: 450 },
+    { name: "Claypot Tandoori Chicken (Half)", category: "Tandoor", price: 850 },
+    { name: "New Era Sizzler (Chicken / Paneer)", category: "Continental", price: 950 },
+    { name: "Woodfired Truffle Mushroom Pizza", category: "Continental", price: 850 },
+    { name: "Lumbini Sunset Signature Cocktail", category: "Bar", price: 750 },
+    { name: "Everest Craft Beer (Bottle)", category: "Bar", price: 550 },
+    { name: "Single-Estate Palpa Coffee / Espresso", category: "Cafe", price: 250 }
+  ].each do |attributes|
+    menu_item = restaurant.menu_items.find_or_initialize_by(name: attributes[:name])
+    menu_item.update!(category: attributes[:category], price: attributes[:price], active: true)
   end
 end
 

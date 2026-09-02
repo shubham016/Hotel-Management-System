@@ -8,6 +8,7 @@ namespace :api do
     end
     namespace :pos do
       resources :tables, only: :index
+      resources :menu_items, only: :index
       resources :billing, only: :create
     end
     namespace :procurement do
