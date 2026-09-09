@@ -117,7 +117,37 @@ room_type_definitions = [
   { code: "STD-01", slug: "standard-room", name: "Standard Room", base_price: 2_200, count: 6, max_adults: 2, max_children: 1 }
 ]
 
-room_number = 101
+room_numbers = [
+  *(101..109),
+  *(201..209),
+  *(301..309),
+  *(400..407),
+  *(501..508)
+]
+demo_room_statuses = {
+  "101" => "OCCUPIED",
+  "102" => "VACANT_DIRTY",
+  "103" => "OCCUPIED",
+  "104" => "OUT_OF_ORDER",
+  "105" => "OCCUPIED",
+  "106" => "OUT_OF_ORDER",
+  "201" => "OCCUPIED",
+  "202" => "INSPECTION_REQUIRED",
+  "203" => "OUT_OF_ORDER",
+  "204" => "VACANT_DIRTY",
+  "205" => "OUT_OF_ORDER",
+  "301" => "INSPECTION_REQUIRED",
+  "302" => "OUT_OF_ORDER",
+  "303" => "INSPECTION_REQUIRED",
+  "400" => "VACANT_DIRTY",
+  "401" => "OCCUPIED",
+  "402" => "VACANT_DIRTY",
+  "403" => "VACANT_CLEAN",
+  "501" => "OCCUPIED",
+  "502" => "VACANT_DIRTY",
+  "503" => "INSPECTION_REQUIRED",
+  "504" => "OUT_OF_ORDER"
+}
 room_type_definitions.each do |definition|
   room_type = property.room_types.find_or_initialize_by(code: definition[:code])
   room_type.update!(
@@ -142,10 +172,9 @@ room_type_definitions.each do |definition|
   )
 
   definition[:count].times do
-    number = room_number.to_s
+    number = room_numbers.shift.to_s
     room = property.rooms.find_or_initialize_by(room_number: number)
-    room.update!(room_type:, floor: number.first.to_i, status: "VACANT_CLEAN", active: true)
-    room_number += 1
+    room.update!(room_type:, floor: number.first.to_i, status: demo_room_statuses.fetch(number, "VACANT_CLEAN"), active: true)
   end
 end
 

@@ -16,31 +16,36 @@ interface SparklineProps {
   height?: number;
 }
 
-function Sparkline({ values, color, width = 100, height = 30 }: SparklineProps) {
+function Sparkline({ values, color, width = 96, height = 32 }: SparklineProps) {
   const gradientId = useId();
-  if (values.length < 2) return <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} />;
+  if (values.length < 2) return null;
 
-  const max = Math.max(...values, 1);
-  const min = Math.min(...values, 0);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
   const range = max - min || 1;
-  const stepX = width / (values.length - 1);
-  const points = values.map((v, i) => [i * stepX, height - ((v - min) / range) * height]);
+  const pad = 2;
+  const chartWidth = width - pad * 2;
+  const chartHeight = height - pad * 2;
+  const points = values.map((value, index) => [
+    pad + (index / (values.length - 1)) * chartWidth,
+    pad + chartHeight - ((value - min) / range) * chartHeight
+  ] as const);
 
-  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
-  const areaPath = `${linePath} L${width},${height} L0,${height} Z`;
+  const linePoints = points.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+  const areaPoints = `${pad},${height - pad} ${linePoints} ${width - pad},${height - pad}`;
   const [lastX, lastY] = points[points.length - 1];
 
   return (
-    <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" style={{ display: 'block', overflow: 'visible' }}>
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ display: 'block', overflow: 'visible' }} aria-hidden>
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.18" />
           <stop offset="100%" stopColor={color} stopOpacity="0" />
         </linearGradient>
       </defs>
-      <path d={areaPath} fill={`url(#${gradientId})`} stroke="none" />
-      <path d={linePath} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-      <circle cx={lastX} cy={lastY} r={4} fill={color} stroke="var(--bg-card)" strokeWidth={2} />
+      <polygon points={areaPoints} fill={`url(#${gradientId})`} />
+      <polyline points={linePoints} fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={lastX} cy={lastY} r="2.4" fill={color} />
     </svg>
   );
 }
@@ -51,7 +56,7 @@ interface StatTileProps {
   icon: React.ReactNode;
   colorTheme?: ColorTheme;
   /** Small muted line under the value (e.g. "RevPAR Rs. 983"). */
-  caption?: string;
+  caption?: React.ReactNode;
   /** Trend values oldest -> newest, rendered as a sparkline. Ignored if `progress` is set. */
   sparkline?: number[];
   /** Renders a progress bar + caption instead of a sparkline (e.g. occupancy). */
@@ -63,8 +68,15 @@ export const StatTile: React.FC<StatTileProps> = ({ label, value, icon, colorThe
 
   return (
     <div
-      className="hne-card"
-      style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '14px 16px', minWidth: 0 }}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        minWidth: 0,
+        padding: 16,
+        border: '1px solid #E4E4E7',
+        borderRadius: 12,
+        backgroundColor: '#FFFFFF'
+      }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <div
@@ -82,27 +94,28 @@ export const StatTile: React.FC<StatTileProps> = ({ label, value, icon, colorThe
         >
           {icon}
         </div>
-        <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <span style={{ fontSize: 13, fontWeight: 500, color: '#71717A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {label}
         </span>
       </div>
 
-      <div>
-        <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-family-display)', lineHeight: 1.1 }}>
-          {value}
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8, marginTop: 10 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.025em', color: '#18181B', fontFamily: 'var(--font-family-display)', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+            {value}
+          </div>
+          {caption && <div style={{ fontSize: 12, color: '#A1A1AA', marginTop: 2, lineHeight: 1.2 }}>{caption}</div>}
         </div>
-        {caption && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{caption}</div>}
+        {sparkline && sparkline.length > 0 ? <div style={{ flexShrink: 0 }}><Sparkline values={sparkline} color={theme.icon} /></div> : null}
       </div>
 
       {progress ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <div style={{ height: 5, borderRadius: 'var(--radius-full)', backgroundColor: theme.bg, overflow: 'hidden' }}>
+        <div style={{ marginTop: 12 }}>
+          <div style={{ height: 6, borderRadius: 9999, backgroundColor: '#F4F4F5', overflow: 'hidden' }}>
             <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, progress.pct))}%`, backgroundColor: theme.icon, borderRadius: 'var(--radius-full)' }} />
           </div>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{progress.caption}</span>
+          <span style={{ display: 'block', marginTop: 4, fontSize: 12, color: '#A1A1AA' }}>{progress.caption}</span>
         </div>
-      ) : sparkline && sparkline.length > 0 ? (
-        <Sparkline values={sparkline} color={theme.icon} />
       ) : null}
     </div>
   );

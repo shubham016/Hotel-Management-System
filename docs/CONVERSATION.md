@@ -503,6 +503,34 @@ Built the full path:
 `OWNER` is a real, correctly-scoped role now, verified against every admin screen. Manager/HR/Staff/Finance roles from §6.2 of the requirements doc are still not seeded — that's future work when those portals are actually built, not urgent now.
 No role in this system is currently permission-scoped in practice. Only `SUPER_ADMIN` is seeded, and it bypasses `authorize!` entirely, so the permissions hash in `backend/db/seeds.rb` has never been exercised against real requests — and its module names (`"CRM"`, `"ACCOUNTING"`, etc.) don't even match what `Api::V1::BaseController#inferred_authorization_module` derives from controller paths (e.g. the CRM guests controller infers `"GUESTS"`). This is a blocker for Phase 7 (Super Admin / multi-tenant), not a polish item — treat it as one of the first things to fix once Phase 0-6 module work is stable enough to survive a full permissions audit without breaking the admin UI.
 
+---
+
+## Record Entry: 2026-09-02 (End of Session — Summary & Resume Point)
+
+User asked to save everything to the md files before stopping for the day. Full detail for each item below is in this file's earlier same-day entries; this is the compact index.
+
+### What shipped today
+1. **Owner-portal plan**: 5-module (PMS/POS/CRM/Accounting/CMS) audit against spec → `docs/plans/IMPLEMENTATION_PLAN_v3.0_OWNER_PORTAL.md`, a 7-phase build order.
+2. **Phase 0 hardening**: POS billing now recomputes totals server-side from real `MenuItem`/`TaxConfiguration` records instead of trusting client input (the single worst finding in the audit); added transactions, working idempotency (caught and fixed a bug where the idempotency key was regenerated every attempt), journal/audit-log immutability, folio line itemization.
+3. **Dashboard rebuilt on real data**: `GET /api/v1/dashboard`, 6 stat tiles with 7-day sparklines (Arrivals/Departures/In-house/Occupancy/Gross Revenue/Orders).
+4. **Admin shell polish**: sidebar/topbar height & alignment fixes (root-caused a flexbox-shrink bug, not just nudged pixels), quick-nav search, dark mode (with a real color-contrast pass on accent text, twice — first pass only fixed backgrounds, second pass fixed the accent colors themselves after the user caught it), equal-gap topbar spacing (root-caused, not eyeballed).
+5. **Real `OWNER` role**: audited every controller's permission requirements, seeded a role that's actually permission-checked (unlike `SUPER_ADMIN`, which bypasses everything), reassigned the admin account, verified zero 403s across all 19 admin pages.
+6. **Found and fixed a live public-site bug** while verifying #5: availability search, CMS content, and the contact form were 500ing for every anonymous visitor. Unrelated to the role work — a pre-existing bug the RBAC audit surfaced as a side effect.
+7. **Notification bell made real**: built the missing API (`notifications` model existed, had no route or UI) and a working dropdown with real unread counts and mark-as-read.
+
+### Verification standard held throughout
+Every change in this session was checked against real state, not assumed: `npx tsc --noEmit`, `bin/rubocop`, `bin/brakeman`, and the Rails test suite (grew from 4 tests at session start to 15) after each change; UI changes were confirmed in an actual browser via `mcp__chrome-devtools__*` (login, click-through, `getBoundingClientRect()` measurements, network-response inspection) — not just described.
+
+### Explicitly known and open (not forgotten, just not done)
+- BS/AD date conversion still stubbed in `night_audit_controller.rb` and accounting `reports_controller.rb`.
+- Only the admin shell + dashboard are dark-mode-correct; ~18 other admin pages still have hardcoded white backgrounds (see `PROJECT_HANDOFF.md` for the file list).
+- PMS reservations admin page (`pms/reservations/page.tsx`) is still 100% mock data with no backend calls — highest value-per-effort item still on the table.
+- Manager/HR/Staff/Finance roles from requirements §6.2 are not seeded — not urgent until those portals are actually built.
+- Phase 1 (posting-rule/account-mapping model) not started — needed before PMS revenue-posting work in Phase 2 to avoid repeating POS's hard-coded-account-code mistake.
+
+### Resume point
+Start from `PROJECT_HANDOFF.md` → "Resume Here" section, then `docs/plans/IMPLEMENTATION_PLAN_v3.0_OWNER_PORTAL.md` for the phase detail. Dev environment: `npm run backend:up` (Docker/Rails+Postgres) and `npm run dev` (Next.js) — both were left running this session; re-seed with `docker compose -f backend/compose.yml run --rm api bin/rails db:seed` if the dev DB was reset.
+
 
 
 

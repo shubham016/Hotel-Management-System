@@ -17,7 +17,9 @@ export const AdminSidebar: React.FC<SidebarProps> = ({ collapsed }) => {
   return (
     <aside
       style={{
-        width: collapsed ? 76 : 260,
+        // Slightly wider than Kamra's `w-52` reference to accommodate this
+        // application's longer grouped navigation labels without crowding.
+        width: collapsed ? 76 : 240,
         backgroundColor: 'var(--bg-sidebar)',
         borderRight: '1px solid var(--border)',
         height: '100vh',
@@ -35,7 +37,7 @@ export const AdminSidebar: React.FC<SidebarProps> = ({ collapsed }) => {
         style={{
           height: 78,
           flexShrink: 0,
-          padding: '0 20px',
+          padding: '0 12px',
           display: 'flex',
           alignItems: 'center',
           gap: 12

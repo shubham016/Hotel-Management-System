@@ -44,13 +44,13 @@ export const AdminSearch: React.FC = () => {
   };
 
   return (
-    <div ref={wrapperRef} style={{ position: 'relative', width: 420, flexShrink: 0 }}>
+    <div ref={wrapperRef} style={{ position: 'relative', flex: '1 1 280px', minWidth: 210 }}>
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: 8,
-          padding: '9px 10px',
+          padding: '8px 10px',
           backgroundColor: 'var(--bg-main)',
           border: '1px solid var(--border)',
           borderRadius: 'var(--radius-md)'

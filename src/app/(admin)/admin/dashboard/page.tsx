@@ -2,13 +2,19 @@
 
 import React, { useEffect, useState } from 'react';
 import {
-  Users,
+  UsersRound,
   BedDouble,
-  DollarSign,
+  CheckCircle2,
   LogIn,
   LogOut,
-  UtensilsCrossed,
-  Moon
+  ChartPie,
+  WalletCards,
+  Sparkles,
+  AlertTriangle,
+  Wrench,
+  Moon,
+  Plus,
+  X
 } from 'lucide-react';
 import { StatTile } from '@/components/ui/StatTile';
 import { Card } from '@/components/ui/Card';
@@ -28,9 +34,63 @@ type DashboardData = {
   trends: { arrivals: number[]; departures: number[]; inHouse: number[]; revenue: number[]; restaurantOrders: number[] };
 };
 
+type RoomBoardRoom = {
+  id: number;
+  roomNumber: string;
+  floor: number;
+  status: 'OCCUPIED' | 'VACANT_CLEAN' | 'VACANT_DIRTY' | 'INSPECTION_REQUIRED' | 'OUT_OF_ORDER';
+};
+
+const roomStatusStyles = {
+  OCCUPIED: { label: 'Occupied', background: '#075b46', border: '#075b46', text: '#FFFFFF', muted: '#D1FAE5' },
+  VACANT_CLEAN: { label: 'Clean', background: '#ECFDF5', border: '#86EFAC', text: '#047857', muted: '#047857' },
+  VACANT_DIRTY: { label: 'Dirty', background: '#FFFBEB', border: '#FBBF24', text: '#B45309', muted: '#B45309' },
+  INSPECTION_REQUIRED: { label: 'Inspected', background: '#EFF6FF', border: '#7DD3FC', text: '#0369A1', muted: '#0369A1' },
+  OUT_OF_ORDER: { label: 'Out of Order', background: '#FFF1F2', border: '#FDA4AF', text: '#BE123C', muted: '#BE123C' }
+} as const;
+
+const dashboardFloors = [1, 2, 3, 4, 5];
+const roomStatuses = Object.keys(roomStatusStyles) as RoomBoardRoom['status'][];
+
+// Temporary presentation seed. These values intentionally mirror the approved
+// Front Desk Overview design until live dashboard metrics are connected.
+const frontDeskOverview = {
+  arrivals: { value: 1, trend: [2, 6, 5.6, 5.4, 11, 10.4, 10.5] },
+  departures: { value: 0, trend: [10, 10, 8, 5.2, 5.3, 2] },
+  inHouse: { value: 10, trend: [4, 6.5, 6.2, 6, 10.5, 10, 10.2] },
+  occupancy: { value: 20, occupiedRooms: 3, totalRooms: 15 },
+  revenue: { value: 'Rs. 9,819', revPar: 'Rs. 983', trend: [4, 5.5, 5.2, 8.5, 11, 10.2, 10.4] }
+} as const;
+
+const floorLabel = (floor: number) => `${floor}${floor === 1 ? 'st' : floor === 2 ? 'nd' : floor === 3 ? 'rd' : 'th'} Floor`;
+
+function RoomStatusIcon({ status, size = 14 }: { status: RoomBoardRoom['status']; size?: number }) {
+  switch (status) {
+    case 'OCCUPIED':
+      return <BedDouble size={size} aria-label="Occupied" />;
+    case 'VACANT_CLEAN':
+      return <Sparkles size={size} aria-label="Clean" />;
+    case 'VACANT_DIRTY':
+      return <AlertTriangle size={size} aria-label="Dirty" />;
+    case 'INSPECTION_REQUIRED':
+      return <CheckCircle2 size={size} aria-label="Inspected" />;
+    case 'OUT_OF_ORDER':
+      return <Wrench size={size} aria-label="Out of Order" />;
+    default:
+      return null;
+  }
+}
+
 export default function AdminDashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [rooms, setRooms] = useState<RoomBoardRoom[]>([]);
+  const [selectedRoomFloor, setSelectedRoomFloor] = useState<number | 'ALL'>('ALL');
+  const [selectedRoomStatus, setSelectedRoomStatus] = useState<RoomBoardRoom['status'] | 'ALL'>('ALL');
+  const [updatingRoomId, setUpdatingRoomId] = useState<number | null>(null);
+  const [roomStatusEditor, setRoomStatusEditor] = useState<RoomBoardRoom | null>(null);
+  const [pendingRoomStatus, setPendingRoomStatus] = useState<RoomBoardRoom['status'] | null>(null);
+  const [roomStatusError, setRoomStatusError] = useState('');
 
   useEffect(() => {
     fetch('/api/dashboard')
@@ -40,7 +100,49 @@ export default function AdminDashboardPage() {
         else setError(json.error || 'Failed to load dashboard');
       })
       .catch(() => setError('Failed to load dashboard'));
+
+    fetch('/api/pms/rooms')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success) setRooms(json.data);
+      })
+      .catch(() => setRooms([]));
   }, []);
+
+  const openRoomStatusEditor = (room: RoomBoardRoom) => {
+    if (updatingRoomId !== null) return;
+    setRoomStatusEditor(room);
+    setPendingRoomStatus(room.status);
+    setRoomStatusError('');
+  };
+
+  const updateRoomStatus = async () => {
+    if (!roomStatusEditor || !pendingRoomStatus || updatingRoomId !== null) return;
+
+    setUpdatingRoomId(roomStatusEditor.id);
+    setRoomStatusError('');
+    try {
+      const response = await fetch('/api/pms/rooms', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId: roomStatusEditor.id, status: pendingRoomStatus })
+      });
+      const json = await response.json();
+      if (json.success) {
+        setRooms((currentRooms) => currentRooms.map((currentRoom) => (
+          currentRoom.id === roomStatusEditor.id ? { ...currentRoom, status: pendingRoomStatus } : currentRoom
+        )));
+        setRoomStatusEditor(null);
+        setPendingRoomStatus(null);
+      } else {
+        setRoomStatusError(json.error || 'Unable to update this room. Please try again.');
+      }
+    } catch {
+      setRoomStatusError('Unable to update this room. Please try again.');
+    } finally {
+      setUpdatingRoomId(null);
+    }
+  };
 
   if (error) {
     return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>{error}</div>;
@@ -51,70 +153,271 @@ export default function AdminDashboardPage() {
   }
 
   const { occupancy, guests, revenue, receivables, arrivals, recentTransactions, housekeeping, pos, trends } = data;
+  const visibleRooms = rooms.filter((room) => (
+    (selectedRoomFloor === 'ALL' || room.floor === selectedRoomFloor) &&
+    (selectedRoomStatus === 'ALL' || room.status === selectedRoomStatus)
+  ));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       {/* Top Banner */}
-      <div>
-        <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--text-primary)' }}>Hotel Operational Overview</h1>
-        <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
-          Good afternoon. Here's what's happening today.
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div>
+          <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--text-primary)' }}>Front Desk Overview</h1>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
+            Good afternoon. Here's what's happening today.
 
-          {/* &middot; Business Date {data.businessDate} */}
-        </p>
+            {/* &middot; Business Date {data.businessDate} */}
+          </p>
+        </div>
+        <Link
+          href="/book"
+          className="hne-btn hne-btn-primary hne-btn-sm"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 11px', flexShrink: 0, textDecoration: 'none' }}
+        >
+          <Plus size={14} />
+          <span>New Booking</span>
+        </Link>
       </div>
 
       {/* Stat Tiles */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14 }}>
         <StatTile
           label="Arrivals"
-          value={guests.todayArrivals}
+          value={frontDeskOverview.arrivals.value}
           icon={<LogIn size={15} />}
           colorTheme="green"
-          sparkline={trends.arrivals}
+          sparkline={[...frontDeskOverview.arrivals.trend]}
         />
 
         <StatTile
           label="Departures"
-          value={guests.todayDepartures}
+          value={frontDeskOverview.departures.value}
           icon={<LogOut size={15} />}
           colorTheme="golden"
-          sparkline={trends.departures}
+          sparkline={[...frontDeskOverview.departures.trend]}
         />
 
         <StatTile
           label="In-house"
-          value={guests.inHouseGuests}
-          icon={<Users size={15} />}
-          colorTheme="blue"
-          sparkline={trends.inHouse}
+          value={frontDeskOverview.inHouse.value}
+          icon={<UsersRound size={15} />}
+          colorTheme="green"
+          sparkline={[...frontDeskOverview.inHouse.trend]}
         />
 
         <StatTile
           label="Occupancy"
-          value={`${occupancy.occupancyPct}%`}
-          icon={<BedDouble size={15} />}
-          colorTheme="orange"
-          progress={{ pct: occupancy.occupancyPct, caption: `${occupancy.occupiedRooms} of ${occupancy.totalRooms} rooms` }}
-        />
-
-        <StatTile
-          label="Gross Revenue"
-          value={`Rs. ${revenue.today.total.toLocaleString()}`}
-          icon={<DollarSign size={15} />}
+          value={`${frontDeskOverview.occupancy.value}%`}
+          icon={<ChartPie size={15} />}
           colorTheme="green"
-          caption={`RevPAR Rs. ${revenue.revPar.toLocaleString()}`}
-          sparkline={trends.revenue}
+          progress={{ pct: frontDeskOverview.occupancy.value, caption: `${frontDeskOverview.occupancy.occupiedRooms} of ${frontDeskOverview.occupancy.totalRooms} rooms` }}
         />
 
         <StatTile
-          label="Orders"
-          value={pos.ordersToday}
-          icon={<UtensilsCrossed size={15} />}
-          colorTheme="golden"
-          sparkline={trends.restaurantOrders}
+          label="Revenue"
+          value={frontDeskOverview.revenue.value}
+          icon={<WalletCards size={15} />}
+          colorTheme="green"
+          caption={<><span>RevPAR</span><br /><span>{frontDeskOverview.revenue.revPar}</span></>}
+          sparkline={[...frontDeskOverview.revenue.trend]}
         />
+
       </div>
+
+      <div className="hne-card" style={{ padding: 18 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap', borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
+          <div>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>Room Board</h2>
+            <p style={{ marginTop: 2, fontSize: 12, color: 'var(--text-secondary)' }}>Click a vacant room to advance its housekeeping status.</p>
+          </div>
+          <Link href="/admin/pms/rooms" style={{ color: 'var(--primary-orange)', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>
+            Manage rooms →
+          </Link>
+        </div>
+
+        <div style={{ display: 'flex', gap: 4, overflowX: 'auto', borderBottom: '1px solid var(--border)', marginBottom: 12 }}>
+          {(['ALL', ...dashboardFloors] as const).map((floor) => {
+            const isSelected = selectedRoomFloor === floor;
+            return (
+              <button
+                key={floor}
+                type="button"
+                onClick={() => setSelectedRoomFloor(floor)}
+                style={{
+                  flex: '0 0 auto',
+                  padding: '8px 12px',
+                  border: 'none',
+                  borderBottom: `2px solid ${isSelected ? 'var(--primary-orange)' : 'transparent'}`,
+                  background: 'transparent',
+                  color: isSelected ? 'var(--primary-orange)' : 'var(--text-secondary)',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                {floor === 'ALL' ? 'All Floors' : floorLabel(floor)}
+              </button>
+            );
+          })}
+        </div>
+
+        {rooms.length === 0 ? (
+          <div style={{ padding: '18px 0', color: 'var(--text-muted)', fontSize: 13 }}>No room status data is available.</div>
+        ) : visibleRooms.length === 0 ? (
+          <div style={{ padding: '18px 0', color: 'var(--text-muted)', fontSize: 13 }}>No rooms match this filter.</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {dashboardFloors
+              .filter((floor) => selectedRoomFloor === 'ALL' || floor === selectedRoomFloor)
+              .filter((floor) => visibleRooms.some((room) => room.floor === floor))
+              .map((floor) => (
+              <div key={floor} style={{ display: 'grid', gridTemplateColumns: '66px minmax(0, 1fr)', gap: 10, alignItems: 'start' }}>
+                <div style={{ paddingTop: 8, color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600 }}>{floorLabel(floor)}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(70px, 1fr))', gap: 8 }}>
+                  {visibleRooms.filter((room) => room.floor === floor).map((room) => {
+                    const style = roomStatusStyles[room.status];
+                    const isUpdating = updatingRoomId === room.id;
+                    return (
+                      <button
+                        key={room.id}
+                        type="button"
+                        onClick={() => openRoomStatusEditor(room)}
+                        disabled={isUpdating}
+                        title={`Update room ${room.roomNumber} status`}
+                        style={{
+                          minHeight: 66,
+                          padding: '9px 8px',
+                          borderRadius: 7,
+                          border: `1px solid ${style.border}`,
+                          background: style.background,
+                          color: style.text,
+                          textAlign: 'left',
+                          cursor: isUpdating ? 'wait' : 'pointer',
+                          opacity: isUpdating ? 0.6 : 1,
+                          boxShadow: room.status === 'OCCUPIED' ? '0 1px 0 rgba(7, 91, 70, 0.2)' : 'none'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, fontSize: 14, fontWeight: 800 }}>
+                          {room.roomNumber}
+                          <RoomStatusIcon status={room.status} size={15} />
+                        </div>
+                        <div style={{ marginTop: 5, fontSize: 9, fontWeight: 700, color: style.muted, lineHeight: 1.15, textTransform: 'uppercase' }}>{isUpdating ? 'Updating' : style.label}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14, alignItems: 'center' }}>
+          <button
+            type="button"
+            onClick={() => setSelectedRoomStatus('ALL')}
+            style={{
+              padding: '4px 8px',
+              borderRadius: 4,
+              border: `1px solid ${selectedRoomStatus === 'ALL' ? 'var(--primary-orange)' : 'var(--border)'}`,
+              background: selectedRoomStatus === 'ALL' ? 'var(--primary-orange-light)' : 'transparent',
+              color: selectedRoomStatus === 'ALL' ? 'var(--primary-orange)' : 'var(--text-secondary)',
+              fontSize: 10,
+              fontWeight: 700,
+              cursor: 'pointer'
+            }}
+          >
+            All statuses
+          </button>
+          {roomStatuses.map((status) => {
+            const style = roomStatusStyles[status];
+            const isSelected = selectedRoomStatus === status;
+            return (
+              <button
+                key={status}
+                type="button"
+                onClick={() => setSelectedRoomStatus(status)}
+                aria-pressed={isSelected}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '4px 7px',
+                  borderRadius: 4,
+                  border: `1px solid ${isSelected ? style.text : style.border}`,
+                  background: isSelected ? style.border : style.background,
+                  color: isSelected && status !== 'OCCUPIED' ? '#FFFFFF' : style.text,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                <RoomStatusIcon status={status} size={12} />
+                {style.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {roomStatusEditor && pendingRoomStatus && (
+        <div
+          role="presentation"
+          onMouseDown={() => setRoomStatusEditor(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, backgroundColor: 'rgba(15, 23, 42, 0.35)', backdropFilter: 'blur(2px)' }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="room-status-title"
+            onMouseDown={(event) => event.stopPropagation()}
+            style={{ width: '100%', maxWidth: 360, padding: 20, border: '1px solid var(--border)', borderRadius: 16, backgroundColor: 'var(--bg-card)', boxShadow: '0 24px 48px -18px rgba(15, 23, 42, 0.32)' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: roomStatusStyles[roomStatusEditor.status].background, color: roomStatusStyles[roomStatusEditor.status].text }}>
+                  <RoomStatusIcon status={roomStatusEditor.status} size={19} />
+                </div>
+                <div>
+                  <h3 id="room-status-title" style={{ margin: 0, fontSize: 16, fontWeight: 800, color: 'var(--text-primary)' }}>Room {roomStatusEditor.roomNumber}</h3>
+                  <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>Update housekeeping status</p>
+                </div>
+              </div>
+              <button type="button" aria-label="Close room status editor" onClick={() => setRoomStatusEditor(null)} style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', borderRadius: 7, background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                <X size={17} />
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 18 }}>
+              {roomStatuses.map((status) => {
+                const statusStyle = roomStatusStyles[status];
+                const isSelected = pendingRoomStatus === status;
+                const isOccupied = status === 'OCCUPIED';
+                return (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() => setPendingRoomStatus(status)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 10px', border: `1px solid ${isSelected ? statusStyle.text : statusStyle.border}`, borderRadius: 8, backgroundColor: isSelected ? statusStyle.background : (isOccupied ? '#ECFDF5' : 'transparent'), color: isSelected ? statusStyle.text : (isOccupied ? '#075B46' : statusStyle.text), fontSize: 12, fontWeight: 700, cursor: 'pointer', textAlign: 'left' }}
+                  >
+                    <RoomStatusIcon status={status} size={15} />
+                    <span>{statusStyle.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {roomStatusError && <p style={{ margin: '12px 0 0', fontSize: 12, color: 'var(--danger-red)' }}>{roomStatusError}</p>}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
+              <button type="button" onClick={() => setRoomStatusEditor(null)} className="hne-btn hne-btn-secondary hne-btn-sm">Cancel</button>
+              <button type="button" onClick={updateRoomStatus} disabled={updatingRoomId === roomStatusEditor.id} className="hne-btn hne-btn-primary hne-btn-sm">
+                {updatingRoomId === roomStatusEditor.id ? 'Updating…' : 'Update status'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Two-Column Operations Layout */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: 24 }}>

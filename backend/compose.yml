@@ -19,12 +19,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
-    command: bundle exec rails server -b 0.0.0.0 -p 3001
+    command: sh -c "rm -f tmp/pids/server.pid && bundle exec rails server -b 0.0.0.0 -p 3001"
     environment:
       DB_HOST: db
       DB_USERNAME: hotel_new_era
       DB_PASSWORD: hotel_new_era_dev
       JWT_SECRET_KEY: local-development-secret-change-before-deployment
+      BCRYPT_COST: 8
       FRONTEND_ORIGINS: http://localhost:3000
       RAILS_ENV: development
     depends_on:

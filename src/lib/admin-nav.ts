@@ -28,6 +28,25 @@ export interface AdminNavSection {
   items: AdminNavItem[];
 }
 
+export interface AdminApp {
+  id: string;
+  name: string;
+  description: string;
+  href: string;
+  icon: LucideIcon;
+}
+
+// Top-level work areas, mirroring the compact app-switcher pattern used in
+// the Kamra reference project. Individual pages remain in ADMIN_NAV_SECTIONS.
+export const ADMIN_APPS: AdminApp[] = [
+  { id: 'front-desk', name: 'Front Desk', description: 'Dashboard, reservations, rooms and night audit.', href: '/admin/dashboard', icon: LayoutDashboard },
+  { id: 'restaurant', name: 'Restaurant', description: 'POS tables, kitchen orders and billing.', href: '/admin/pos/tables', icon: UtensilsCrossed },
+  { id: 'operations', name: 'Operations', description: 'Housekeeping, guest service and banquets.', href: '/admin/housekeeping', icon: Sparkles },
+  { id: 'inventory', name: 'Inventory', description: 'Stores, stock and procurement workflows.', href: '/admin/inventory', icon: Boxes },
+  { id: 'finance', name: 'Finance', description: 'Accounting, ledgers and business reports.', href: '/admin/accounting/journals', icon: ReceiptText },
+  { id: 'website', name: 'Website', description: 'CMS pages, media and public-site content.', href: '/admin/cms/pages', icon: Globe }
+];
+
 export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
   {
     group: 'Core Operations',
