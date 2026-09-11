@@ -7,6 +7,9 @@ module Api
         property = default_property
         company = property.company
         today = Date.current
+
+        return render json: compact_dashboard(property, company, today) if params[:compact] == "true"
+
         days = (TREND_DAYS - 1).downto(0).map { |offset| today - offset.days }
 
         rooms = property.rooms.active
@@ -29,6 +32,31 @@ module Api
       end
 
       private
+
+      # The front-desk landing screen only displays these live operational
+      # sections. Avoid calculating the 7-day analytics series until a screen
+      # that consumes it asks for the complete dashboard payload.
+      def compact_dashboard(property, company, today)
+        rooms = property.rooms.active
+
+        {
+          success: true,
+          businessDate: today.iso8601,
+          receivables: { pendingReceivables: property.folios.where(status: "OPEN").sum(:balance_due).to_f },
+          arrivals: arrivals(property, today),
+          recentTransactions: recent_transactions(company),
+          housekeeping: housekeeping_stats(rooms),
+          pos: pos_stats(property, [ today ]),
+          rooms: rooms.order(:floor, :room_number).map do |room|
+            {
+              id: room.id,
+              roomNumber: room.room_number,
+              floor: room.floor,
+              status: room.status
+            }
+          end
+        }
+      end
 
       def occupancy_stats(rooms, total_rooms, occupied_rooms)
         {

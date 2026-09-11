@@ -74,6 +74,28 @@ class ReservationsTest < ActionDispatch::IntegrationTest
     assert_equal "ROOM_UNAVAILABLE", response.parsed_body["code"]
   end
 
+  test "admin booking can assign an exact available room" do
+    post "/api/v1/reservations", params: valid_payload.merge(
+      roomId: @second_room.id,
+      phone: "+977-9800000003"
+    ), as: :json
+
+    assert_response :created
+    body = response.parsed_body
+    reservation = Reservation.find(body.dig("data", "id"))
+    assert_equal @second_room.id, reservation.reservation_rooms.first.room_id
+    assert_equal @second_room.room_number, body.dig("data", "roomNumber")
+    assert_equal "RESERVED", @second_room.reload.status
+
+    post "/api/v1/reservations", params: valid_payload.merge(
+      roomId: @second_room.id,
+      phone: "+977-9800000004"
+    ), as: :json
+
+    assert_response :conflict
+    assert_equal "ROOM_UNAVAILABLE", response.parsed_body["code"]
+  end
+
   test "protected reservation lifecycle supports modify assign checkin extend transfer and cancel" do
     token = auth_token
 

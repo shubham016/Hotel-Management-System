@@ -12,6 +12,7 @@
     "backend:test": "docker compose -f backend/compose.yml run --rm -e RAILS_ENV=test api bin/rails db:test:prepare test"
   },
   "dependencies": {
+    "@inicrea/bikram-sambat-core": "^0.1.3",
     "date-fns": "^3.6.0",
     "jspdf": "^2.5.2",
     "jspdf-autotable": "^3.8.4",

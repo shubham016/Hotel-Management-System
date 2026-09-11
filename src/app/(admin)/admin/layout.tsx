@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminTopbar } from '@/components/admin/AdminTopbar';
 import { ThemeProvider } from '@/components/admin/ThemeProvider';
+import { getSessionProfile } from '@/lib/session-profile';
 
 // Runs before hydration so the saved theme applies on first paint — no light-then-dark flash.
 const THEME_INIT_SCRIPT = `
@@ -40,7 +41,9 @@ export default async function AdminLayout({
     redirect('/login');
   }
 
-  const user = await getCurrentUser(token);
+  // Login already returns the profile, so use that short-lived session metadata
+  // for the first paint. Older sessions without it retain the Rails validation.
+  const user = getSessionProfile() || await getCurrentUser(token);
   if (!user) {
     redirect('/login');
   }

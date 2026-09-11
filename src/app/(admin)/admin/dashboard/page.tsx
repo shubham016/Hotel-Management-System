@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   UsersRound,
   BedDouble,
@@ -35,14 +35,28 @@ type DashboardData = {
 };
 
 type RoomBoardRoom = {
-  id: number;
+  id: string;
   roomNumber: string;
   floor: number;
-  status: 'OCCUPIED' | 'VACANT_CLEAN' | 'VACANT_DIRTY' | 'INSPECTION_REQUIRED' | 'OUT_OF_ORDER';
+  status: 'OCCUPIED' | 'RESERVED' | 'VACANT_CLEAN' | 'VACANT_DIRTY' | 'INSPECTION_REQUIRED' | 'OUT_OF_ORDER';
+};
+
+const initialDashboardData: DashboardData = {
+  businessDate: new Date().toISOString().slice(0, 10),
+  occupancy: { totalRooms: 0, occupiedRooms: 0, vacantRooms: 0, occupancyPct: 0 },
+  guests: { todayArrivals: 0, todayDepartures: 0, inHouseGuests: 0 },
+  revenue: { today: { room: 0, fnb: 0, banquet: 0, total: 0 }, adr: 0, revPar: 0 },
+  receivables: { pendingReceivables: 0 },
+  arrivals: [],
+  recentTransactions: [],
+  housekeeping: { clean: 0, dirty: 0, inspectionRequired: 0 },
+  pos: { activeTables: 0, totalTables: 0, ordersToday: 0 },
+  trends: { arrivals: [], departures: [], inHouse: [], revenue: [], restaurantOrders: [] }
 };
 
 const roomStatusStyles = {
   OCCUPIED: { label: 'Occupied', background: '#075b46', border: '#075b46', text: '#FFFFFF', muted: '#D1FAE5' },
+  RESERVED: { label: 'Reserved', background: '#FFF7ED', border: '#FB923C', text: '#C2410C', muted: '#C2410C' },
   VACANT_CLEAN: { label: 'Clean', background: '#ECFDF5', border: '#86EFAC', text: '#047857', muted: '#047857' },
   VACANT_DIRTY: { label: 'Dirty', background: '#FFFBEB', border: '#FBBF24', text: '#B45309', muted: '#B45309' },
   INSPECTION_REQUIRED: { label: 'Inspected', background: '#EFF6FF', border: '#7DD3FC', text: '#0369A1', muted: '#0369A1' },
@@ -68,6 +82,8 @@ function RoomStatusIcon({ status, size = 14 }: { status: RoomBoardRoom['status']
   switch (status) {
     case 'OCCUPIED':
       return <BedDouble size={size} aria-label="Occupied" />;
+    case 'RESERVED':
+      return <CheckCircle2 size={size} aria-label="Reserved" />;
     case 'VACANT_CLEAN':
       return <Sparkles size={size} aria-label="Clean" />;
     case 'VACANT_DIRTY':
@@ -82,31 +98,47 @@ function RoomStatusIcon({ status, size = 14 }: { status: RoomBoardRoom['status']
 }
 
 export default function AdminDashboardPage() {
-  const [data, setData] = useState<DashboardData | null>(null);
+  const didLoadDashboard = useRef(false);
+  const [data, setData] = useState<DashboardData>(initialDashboardData);
   const [error, setError] = useState<string | null>(null);
   const [rooms, setRooms] = useState<RoomBoardRoom[]>([]);
   const [selectedRoomFloor, setSelectedRoomFloor] = useState<number | 'ALL'>('ALL');
   const [selectedRoomStatus, setSelectedRoomStatus] = useState<RoomBoardRoom['status'] | 'ALL'>('ALL');
-  const [updatingRoomId, setUpdatingRoomId] = useState<number | null>(null);
+  const [updatingRoomId, setUpdatingRoomId] = useState<string | null>(null);
   const [roomStatusEditor, setRoomStatusEditor] = useState<RoomBoardRoom | null>(null);
   const [pendingRoomStatus, setPendingRoomStatus] = useState<RoomBoardRoom['status'] | null>(null);
   const [roomStatusError, setRoomStatusError] = useState('');
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
 
   useEffect(() => {
-    fetch('/api/dashboard')
+    if (didLoadDashboard.current) return;
+    didLoadDashboard.current = true;
+
+    fetch('/api/dashboard?compact=true')
       .then((res) => res.json())
       .then((json) => {
-        if (json.success) setData(json);
+        if (json.success) {
+          setData((current) => ({ ...current, ...json }));
+          if (Array.isArray(json.rooms)) setRooms(json.rooms);
+        }
         else setError(json.error || 'Failed to load dashboard');
       })
       .catch(() => setError('Failed to load dashboard'));
+  }, []);
 
-    fetch('/api/pms/rooms')
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.success) setRooms(json.data);
-      })
-      .catch(() => setRooms([]));
+  useEffect(() => {
+    const handleBookingCreated = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.data?.type !== 'hne:booking-created') return;
+
+      const roomId = event.data.reservation?.roomId;
+      if (!roomId) return;
+      setRooms((currentRooms) => currentRooms.map((room) => (
+        room.id === roomId ? { ...room, status: 'RESERVED' } : room
+      )));
+    };
+
+    window.addEventListener('message', handleBookingCreated);
+    return () => window.removeEventListener('message', handleBookingCreated);
   }, []);
 
   const openRoomStatusEditor = (room: RoomBoardRoom) => {
@@ -144,14 +176,6 @@ export default function AdminDashboardPage() {
     }
   };
 
-  if (error) {
-    return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>{error}</div>;
-  }
-
-  if (!data) {
-    return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Loading dashboard…</div>;
-  }
-
   const { occupancy, guests, revenue, receivables, arrivals, recentTransactions, housekeeping, pos, trends } = data;
   const visibleRooms = rooms.filter((room) => (
     (selectedRoomFloor === 'ALL' || room.floor === selectedRoomFloor) &&
@@ -160,6 +184,11 @@ export default function AdminDashboardPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {error && (
+        <div role="status" style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--danger-light)', color: 'var(--danger-red)', fontSize: 13 }}>
+          {error}
+        </div>
+      )}
       {/* Top Banner */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div>
@@ -170,14 +199,15 @@ export default function AdminDashboardPage() {
             {/* &middot; Business Date {data.businessDate} */}
           </p>
         </div>
-        <Link
-          href="/book"
+        <button
+          type="button"
+          onClick={() => setIsBookingModalOpen(true)}
           className="hne-btn hne-btn-primary hne-btn-sm"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 11px', flexShrink: 0, textDecoration: 'none' }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 11px', flexShrink: 0 }}
         >
           <Plus size={14} />
           <span>New Booking</span>
-        </Link>
+        </button>
       </div>
 
       {/* Stat Tiles */}
@@ -578,6 +608,42 @@ export default function AdminDashboardPage() {
           </Link>
         </div>
       </div>
+
+      {isBookingModalOpen && (
+        <div
+          role="presentation"
+          onMouseDown={() => setIsBookingModalOpen(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, backgroundColor: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(2px)' }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="new-booking-title"
+            onMouseDown={(event) => event.stopPropagation()}
+            style={{ width: 'min(1180px, 100%)', height: 'min(860px, calc(100vh - 32px))', overflow: 'hidden', border: '1px solid var(--border)', borderRadius: 16, backgroundColor: 'var(--bg-card)', boxShadow: '0 24px 48px -18px rgba(15, 23, 42, 0.42)', display: 'flex', flexDirection: 'column' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '14px 18px', borderBottom: '1px solid var(--border)' }}>
+              <div>
+                <h2 id="new-booking-title" style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--text-primary)' }}>New Room Booking</h2>
+                <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>Create a reservation without leaving the dashboard.</p>
+              </div>
+              <button
+                type="button"
+                aria-label="Close new booking modal"
+                onClick={() => setIsBookingModalOpen(false)}
+                style={{ width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', borderRadius: 7, background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <iframe
+              title="New room booking"
+              src="/book?embedded=true"
+              style={{ width: '100%', flex: 1, border: 'none', backgroundColor: 'var(--bg-main)' }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

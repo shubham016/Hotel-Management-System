@@ -5,6 +5,7 @@ class Company < ApplicationRecord
   has_many :guests, dependent: :restrict_with_error
   has_many :tax_configurations, dependent: :restrict_with_error
   has_many :cms_pages, dependent: :restrict_with_error
+  has_many :cms_media_assets, dependent: :restrict_with_error
   has_many :inventory_items, dependent: :restrict_with_error
   has_many :suppliers, dependent: :restrict_with_error
   has_many :purchase_orders, dependent: :restrict_with_error

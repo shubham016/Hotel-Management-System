@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Calendar, Users, BedDouble, CheckCircle2, CreditCard, ShieldCheck, ArrowRight, Sparkles, Building2, User, Phone, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -9,6 +10,8 @@ import { DualCalendarPicker } from '@/components/ui/DualCalendarPicker';
 import { formatDualDate } from '@/lib/nepali-calendar';
 
 export default function BookPage() {
+  const searchParams = useSearchParams();
+  const isEmbeddedBooking = searchParams.get('embedded') === 'true';
   const today = new Date().toISOString().split('T')[0];
   const tomorrow = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
@@ -18,6 +21,17 @@ export default function BookPage() {
   const [adults, setAdults] = useState('2');
   const [children, setChildren] = useState('0');
   const [selectedRoomCode, setSelectedRoomCode] = useState('LUX-01');
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  const [physicalRooms, setPhysicalRooms] = useState<Array<{
+    id: string;
+    roomNumber: string;
+    floor: number;
+    status: string;
+    roomType: string;
+    roomTypeCode: string;
+  }>>([]);
+  const [roomsLoading, setRoomsLoading] = useState(false);
+  const [roomsError, setRoomsError] = useState('');
   
   // Add-on services
   const [addons, setAddons] = useState<{ [key: string]: boolean }>({
@@ -79,6 +93,32 @@ export default function BookPage() {
   };
 
   const selectedRoom = roomsCatalog[selectedRoomCode] || roomsCatalog['LUX-01'];
+  const selectablePhysicalRooms = physicalRooms.filter((room) => room.roomTypeCode === selectedRoomCode);
+
+  useEffect(() => {
+    if (!isEmbeddedBooking || !checkInDate || !checkOutDate || checkOutDate <= checkInDate) return;
+
+    const controller = new AbortController();
+    setRoomsLoading(true);
+    setRoomsError('');
+    setSelectedRoomId(null);
+    fetch(`/api/pms/rooms?availableOnly=true&checkInDate=${encodeURIComponent(checkInDate)}&checkOutDate=${encodeURIComponent(checkOutDate)}`, {
+      signal: controller.signal
+    })
+      .then((response) => response.json())
+      .then((json) => {
+        if (json.success) setPhysicalRooms(json.data);
+        else setRoomsError(json.error || 'Unable to load available rooms.');
+      })
+      .catch((error) => {
+        if (error.name !== 'AbortError') setRoomsError('Unable to load available rooms.');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setRoomsLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [isEmbeddedBooking, checkInDate, checkOutDate]);
 
   // Financial Calculations
   const nights = Math.max(1, Math.ceil((new Date(checkOutDate).getTime() - new Date(checkInDate).getTime()) / (1000 * 60 * 60 * 24)));
@@ -107,6 +147,7 @@ export default function BookPage() {
           checkInDate,
           checkOutDate,
           roomTypeCode: selectedRoomCode,
+          roomId: isEmbeddedBooking ? selectedRoomId : undefined,
           roomsCount: 1,
           adultsCount: parseInt(adults),
           childrenCount: parseInt(children),
@@ -130,6 +171,9 @@ export default function BookPage() {
       if (data.success) {
         setConfirmationData(data.data);
         setStep(3);
+        if (isEmbeddedBooking && window.parent !== window) {
+          window.parent.postMessage({ type: 'hne:booking-created', reservation: data.data }, window.location.origin);
+        }
       } else {
         alert(data.error || 'Failed to create reservation.');
       }
@@ -142,9 +186,9 @@ export default function BookPage() {
   };
 
   return (
-    <div style={{ padding: '40px 24px 80px', maxWidth: 1200, margin: '0 auto' }}>
+    <div style={{ padding: isEmbeddedBooking ? '24px' : '40px 24px 80px', maxWidth: 1200, margin: '0 auto' }}>
       {/* Title */}
-      <div style={{ textAlign: 'center', marginBottom: 36 }}>
+      {!isEmbeddedBooking && <div style={{ textAlign: 'center', marginBottom: 36 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary-orange)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
           Direct Online Booking
         </div>
@@ -152,10 +196,10 @@ export default function BookPage() {
         <p style={{ fontSize: 14.5, color: 'var(--text-secondary)' }}>
           Best Rate Guarantee • Instant Confirmation • Zero Booking Fees
         </p>
-      </div>
+      </div>}
 
       {/* Progress Tracker */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginBottom: 40 }}>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginBottom: isEmbeddedBooking ? 24 : 40 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: step >= 1 ? 'var(--primary-orange)' : 'var(--text-muted)', fontWeight: 700, fontSize: 14 }}>
           <span style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: step >= 1 ? 'var(--primary-orange)' : '#E5E7EB', color: step >= 1 ? '#FFFFFF' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>1</span>
           <span>Room Selection</span>
@@ -221,7 +265,10 @@ export default function BookPage() {
                   return (
                     <div
                       key={code}
-                      onClick={() => setSelectedRoomCode(code)}
+                      onClick={() => {
+                        setSelectedRoomCode(code);
+                        setSelectedRoomId(null);
+                      }}
                       style={{
                         padding: 16,
                         borderRadius: 'var(--radius-md)',
@@ -250,7 +297,38 @@ export default function BookPage() {
               </div>
             </Card>
 
-            <Card title="3. Optional Add-On Experiences">
+            {isEmbeddedBooking && (
+              <Card title="3. Select Exact Room Number">
+                {roomsLoading ? (
+                  <div style={{ padding: '14px 0', color: 'var(--text-muted)', fontSize: 13 }}>Loading available rooms…</div>
+                ) : roomsError ? (
+                  <div style={{ padding: '12px 14px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--danger-light)', color: 'var(--danger-red)', fontSize: 13 }}>{roomsError}</div>
+                ) : selectablePhysicalRooms.length === 0 ? (
+                  <div style={{ padding: '14px 0', color: 'var(--text-muted)', fontSize: 13 }}>No {selectedRoom.name} rooms are available for these dates.</div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 10 }}>
+                    {selectablePhysicalRooms.map((room) => {
+                      const isSelected = selectedRoomId === room.id;
+                      return (
+                        <button
+                          key={room.id}
+                          type="button"
+                          onClick={() => setSelectedRoomId(room.id)}
+                          aria-pressed={isSelected}
+                          style={{ padding: '12px 10px', borderRadius: 'var(--radius-md)', border: `2px solid ${isSelected ? 'var(--primary-orange)' : 'var(--border)'}`, backgroundColor: isSelected ? 'var(--primary-orange-light)' : 'var(--bg-card)', color: 'var(--text-primary)', cursor: 'pointer', textAlign: 'left' }}
+                        >
+                          <div style={{ fontSize: 16, fontWeight: 800 }}>Room {room.roomNumber}</div>
+                          <div style={{ marginTop: 3, fontSize: 11, color: 'var(--text-secondary)' }}>Floor {room.floor} · {room.status === 'RESERVED' ? 'Available for dates' : 'Ready'}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                <p style={{ marginTop: 12, fontSize: 11.5, color: 'var(--text-muted)' }}>The selected room number will be assigned to this reservation and shown as Reserved on the dashboard room board.</p>
+              </Card>
+            )}
+
+            <Card title={`${isEmbeddedBooking ? '4' : '3'}. Optional Add-On Experiences`}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', fontSize: 13.5 }}>
                   <input
@@ -342,6 +420,7 @@ export default function BookPage() {
               <Button
                 variant="primary"
                 size="lg"
+                disabled={isEmbeddedBooking && !selectedRoomId}
                 style={{ width: '100%', boxShadow: 'var(--shadow-glow)' }}
                 onClick={() => setStep(2)}
               >
@@ -452,7 +531,9 @@ export default function BookPage() {
                 </div>
                 <div>
                   <span style={{ color: 'var(--text-muted)' }}>Room Selected:</span>
-                  <div style={{ fontWeight: 700 }}>{confirmationData.roomName}</div>
+                  <div style={{ fontWeight: 700 }}>
+                    {confirmationData.roomNumber ? `Room ${confirmationData.roomNumber} · ` : ''}{confirmationData.roomName}
+                  </div>
                 </div>
                 <div>
                   <span style={{ color: 'var(--text-muted)' }}>Duration:</span>

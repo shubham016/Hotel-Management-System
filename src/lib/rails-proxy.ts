@@ -10,18 +10,21 @@ type ProxyOptions = {
 export async function proxyRails(path: string, options: ProxyOptions = {}) {
   const railsApiUrl = process.env.RAILS_API_URL || 'http://127.0.0.1:3001';
   const token = cookies().get('hne_session_token')?.value;
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   const headers: Record<string, string> = {
     Accept: 'application/json',
-    'Content-Type': 'application/json',
     'X-Property-Code': options.propertyCode || process.env.DEFAULT_PROPERTY_CODE || 'HNE-BTW'
   };
+
+  // Let fetch generate the multipart boundary for file uploads.
+  if (!isFormData) headers['Content-Type'] = 'application/json';
 
   if (token) headers.Authorization = `Bearer ${token}`;
 
   const response = await fetch(`${railsApiUrl}${path}`, {
     method: options.method || 'GET',
     headers,
-    body: options.body ? JSON.stringify(options.body) : undefined,
+    body: options.body ? (isFormData ? options.body as FormData : JSON.stringify(options.body)) : undefined,
     cache: 'no-store'
   });
 

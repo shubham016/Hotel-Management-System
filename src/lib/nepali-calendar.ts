@@ -1,47 +1,81 @@
 /**
- * Nepali Bikram Sambat (BS) & English Gregorian (AD) Dual Calendar Engine
- * Comprehensive bidirectional date utilities, formatting, and fiscal year calculations.
+ * Nepali Bikram Sambat (BS) and Gregorian (AD) date formatting.
+ *
+ * BS month lengths vary by year, so conversion must use calendar data rather
+ * than a fixed year/month/day offset.
  */
 
-export const NEPALI_MONTHS_EN = [
-  'Baishakh',
-  'Jestha',
-  'Ashadh',
-  'Shrawan',
-  'Bhadra',
-  'Ashwin',
-  'Kartik',
-  'Mangsir',
-  'Poush',
-  'Magh',
-  'Falgun',
-  'Chaitra'
-];
+import {
+  adToBs,
+  BS_MONTHS_EN,
+  BS_MONTHS_NE,
+  getNepaliFiscalYear,
+  toNepaliDigits
+} from '@inicrea/bikram-sambat-core';
 
-export const NEPALI_MONTHS_NP = [
-  'बैशाख',
-  'जेठ',
-  'असार',
-  'साउन',
-  'भदौ',
-  'असोज',
-  'कार्तिक',
-  'मंसिर',
-  'पुस',
-  'माघ',
-  'फागुन',
-  'चैत'
-];
+export const NEPALI_MONTHS_EN = [...BS_MONTHS_EN];
+export const NEPALI_MONTHS_NP = [...BS_MONTHS_NE];
 
 export interface DualDateInfo {
-  adDateString: string; // "2026-08-22"
-  adFormatted: string;  // "22 Aug 2026"
-  bsDateString: string; // "2083-05-06"
-  bsFormatted: string;  // "6 Bhadra, 2083"
-  bsNepaliText: string; // "६ भदौ, २०८३"
+  adDateString: string; // "2026-09-11"
+  adFormatted: string;  // "11 Sep 2026"
+  bsDateString: string; // "2083-05-26"
+  bsFormatted: string;  // "26 Bhadra, 2083"
+  bsNepaliText: string;
   bsMonthName: string;
-  combined: string;     // "22 Aug 2026 (6 Bhadra 2083 BS)"
+  combined: string;     // "11 Sep 2026 (26 Bhadra, 2083 BS)"
   fiscalYearBS: string; // "2083/84"
+}
+
+interface AdDateParts {
+  iso: string;
+  year: number;
+  month: number;
+  day: number;
+}
+
+const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+function createAdDateParts(year: number, month: number, day: number): AdDateParts | null {
+  const validationDate = new Date(Date.UTC(year, month - 1, day));
+
+  if (
+    validationDate.getUTCFullYear() !== year ||
+    validationDate.getUTCMonth() + 1 !== month ||
+    validationDate.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return {
+    iso: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+    year,
+    month,
+    day
+  };
+}
+
+function normalizeAdDate(input: Date | string): AdDateParts {
+  if (typeof input === 'string') {
+    const dateOnlyMatch = DATE_ONLY_PATTERN.exec(input);
+    if (dateOnlyMatch) {
+      const dateParts = createAdDateParts(
+        Number(dateOnlyMatch[1]),
+        Number(dateOnlyMatch[2]),
+        Number(dateOnlyMatch[3])
+      );
+      if (dateParts) return dateParts;
+    }
+  }
+
+  const parsedDate = input instanceof Date ? new Date(input.getTime()) : new Date(input);
+  const validDate = Number.isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
+
+  return createAdDateParts(
+    validDate.getFullYear(),
+    validDate.getMonth() + 1,
+    validDate.getDate()
+  ) as AdDateParts;
 }
 
 export function formatNepaliDate(gregorianDate: Date | string): {
@@ -53,75 +87,35 @@ export function formatNepaliDate(gregorianDate: Date | string): {
   bsMonth: number;
   bsDay: number;
 } {
-  const d = typeof gregorianDate === 'string' ? new Date(gregorianDate) : gregorianDate;
-  if (isNaN(d.getTime())) {
-    const today = new Date();
-    return formatNepaliDate(today);
-  }
-
-  const gYear = d.getFullYear();
-  const gMonth = d.getMonth(); // 0-indexed (0 = Jan, 7 = Aug)
-  const gDay = d.getDate();
-
-  let bsYear = gYear + 56;
-  let bsMonth = 0;
-  let bsDay = gDay;
-
-  if (gMonth >= 3) {
-    bsMonth = gMonth - 3;
-    if (gMonth === 3 && gDay < 14) {
-      bsYear -= 1;
-      bsMonth = 11; // Chaitra
-      bsDay = gDay + 17;
-    } else {
-      bsDay = (gDay >= 14) ? gDay - 13 : gDay + 17;
-    }
-  } else {
-    bsYear = gYear + 56;
-    bsMonth = gMonth + 9;
-    bsDay = (gDay >= 14) ? gDay - 13 : gDay + 16;
-  }
-
-  if (bsMonth > 11) {
-    bsMonth = 11;
-  }
-
-  const monthName = NEPALI_MONTHS_EN[bsMonth] || 'Bhadra';
-  const monthNameNp = NEPALI_MONTHS_NP[bsMonth] || 'भदौ';
-  const monthPad = String(bsMonth + 1).padStart(2, '0');
-  const dayPad = String(Math.min(Math.max(bsDay, 1), 32)).padStart(2, '0');
-
-  const nepaliDigits = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
-  const toNepaliNum = (num: number | string) =>
-    num.toString().split('').map(c => nepaliDigits[parseInt(c)] || c).join('');
+  const adDate = normalizeAdDate(gregorianDate);
+  const bsDate = adToBs(adDate.iso);
+  const monthName = NEPALI_MONTHS_EN[bsDate.month - 1];
+  const monthNameNp = NEPALI_MONTHS_NP[bsDate.month - 1];
 
   return {
-    bsDateString: `${bsYear}-${monthPad}-${dayPad}`,
-    bsFormatted: `${bsDay} ${monthName}, ${bsYear}`,
-    bsNepaliText: `${toNepaliNum(bsDay)} ${monthNameNp}, ${toNepaliNum(bsYear)}`,
+    bsDateString: `${bsDate.year}-${String(bsDate.month).padStart(2, '0')}-${String(bsDate.day).padStart(2, '0')}`,
+    bsFormatted: `${bsDate.day} ${monthName}, ${bsDate.year}`,
+    bsNepaliText: `${toNepaliDigits(bsDate.day)} ${monthNameNp}, ${toNepaliDigits(bsDate.year)}`,
     bsMonthName: monthName,
-    bsYear,
-    bsMonth: bsMonth + 1,
-    bsDay
+    bsYear: bsDate.year,
+    bsMonth: bsDate.month,
+    bsDay: bsDate.day
   };
 }
 
 export function formatDualDate(dateInput: Date | string): DualDateInfo {
-  const d = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-  const validDate = isNaN(d.getTime()) ? new Date() : d;
-
-  const adDateString = validDate.toISOString().split('T')[0];
+  const adDate = normalizeAdDate(dateInput);
   const monthsShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const adFormatted = `${validDate.getDate()} ${monthsShort[validDate.getMonth()]} ${validDate.getFullYear()}`;
-
-  const bsInfo = formatNepaliDate(validDate);
-
-  const fiscalYearBS = bsInfo.bsMonth >= 4
-    ? `${bsInfo.bsYear}/${(bsInfo.bsYear + 1).toString().slice(-2)}`
-    : `${bsInfo.bsYear - 1}/${bsInfo.bsYear.toString().slice(-2)}`;
+  const adFormatted = `${adDate.day} ${monthsShort[adDate.month - 1]} ${adDate.year}`;
+  const bsInfo = formatNepaliDate(adDate.iso);
+  const fiscalYearBS = getNepaliFiscalYear({
+    year: bsInfo.bsYear,
+    month: bsInfo.bsMonth,
+    day: bsInfo.bsDay
+  }).label;
 
   return {
-    adDateString,
+    adDateString: adDate.iso,
     adFormatted,
     bsDateString: bsInfo.bsDateString,
     bsFormatted: bsInfo.bsFormatted,

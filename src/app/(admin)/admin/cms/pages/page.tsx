@@ -3,11 +3,143 @@
 import React, { useState, useEffect } from 'react';
 import {
   Globe, Edit3, Save, CheckCircle2, Eye, Plus, Sparkles, Image,
-  Tag, Phone, MapPin, Mail, Trash2, Calendar, ShieldCheck, MessageSquare
+  Tag, Phone, MapPin, Mail, Trash2, Calendar, ShieldCheck, MessageSquare, Upload, X, Loader2
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+
+type CmsMediaAsset = {
+  id: string;
+  title: string;
+  alt: string;
+  category: string;
+  url: string;
+  filename: string;
+  size: number;
+};
+
+function CmsImageField({
+  label,
+  value,
+  onChange,
+  category
+}: {
+  label: string;
+  value: string;
+  onChange: (url: string) => void;
+  category: 'HERO' | 'OFFERS';
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [media, setMedia] = useState<CmsMediaAsset[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [title, setTitle] = useState('');
+  const [altText, setAltText] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const openPicker = async () => {
+    setIsOpen(true);
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/cms/media', { cache: 'no-store' });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || 'Unable to load images.');
+      setMedia(data.media || []);
+    } catch (loadError: any) {
+      setError(loadError.message || 'Unable to load images.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const closePicker = () => {
+    setIsOpen(false);
+    setFile(null);
+    setTitle('');
+    setAltText('');
+    setError(null);
+  };
+
+  const selectFile = (nextFile: File | null) => {
+    if (!nextFile) return;
+    if (!nextFile.type.startsWith('image/') || nextFile.size > 10 * 1024 * 1024) {
+      setError('Choose a JPG, PNG, WebP, or GIF image that is 10 MB or smaller.');
+      return;
+    }
+    setFile(nextFile);
+    const suggestedName = nextFile.name.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ');
+    setTitle((current) => current || suggestedName);
+    setAltText((current) => current || suggestedName);
+    setError(null);
+  };
+
+  const uploadAndUse = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!file || !title.trim() || !altText.trim()) {
+      setError('Choose an image, then add its title and alt text.');
+      return;
+    }
+    setIsUploading(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('title', title.trim());
+      formData.append('altText', altText.trim());
+      formData.append('category', category);
+      const response = await fetch('/api/cms/media', { method: 'POST', body: formData });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || 'Image upload failed.');
+      onChange(data.media.url);
+      closePicker();
+    } catch (uploadError: any) {
+      setError(uploadError.message || 'Image upload failed.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  return (
+    <div className="hne-form-group">
+      <label className="hne-label">{label}</label>
+      <div style={{ display: 'grid', gridTemplateColumns: value ? '120px minmax(0, 1fr)' : '1fr', gap: 12, alignItems: 'start' }}>
+        {value && <img src={value} alt="Selected CMS image" style={{ width: 120, height: 76, objectFit: 'cover', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }} />}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <input type="url" className="hne-input" value={value} onChange={(event) => onChange(event.target.value)} placeholder="Upload or choose an image" />
+          <button type="button" onClick={openPicker} className="hne-btn hne-btn-secondary hne-btn-sm" style={{ alignSelf: 'flex-start' }}><Image size={14} /><span>Choose or upload image</span></button>
+        </div>
+      </div>
+
+      {isOpen && (
+        <div role="dialog" aria-modal="true" aria-label={`Choose ${label}`} style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'grid', placeItems: 'center', padding: 16, backgroundColor: 'rgba(15, 23, 42, 0.56)' }}>
+          <div className="hne-card" style={{ width: 'min(100%, 920px)', maxHeight: '90vh', overflowY: 'auto', padding: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start', marginBottom: 20 }}>
+              <div><h2 style={{ fontSize: 19, fontWeight: 800 }}>Choose or upload an image</h2><p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 3 }}>The selected image is added to this field immediately. Save the CMS page to publish it.</p></div>
+              <button type="button" onClick={closePicker} aria-label="Close image picker" style={{ border: 0, background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={20} /></button>
+            </div>
+            {error && <div role="alert" style={{ padding: 10, marginBottom: 16, background: '#FEF2F2', color: '#991B1B', borderRadius: 'var(--radius-sm)', fontSize: 13 }}>{error}</div>}
+
+            <form onSubmit={uploadAndUse} style={{ padding: 16, borderRadius: 'var(--radius-md)', background: 'var(--bg-subtle)', border: '1px solid var(--border)', marginBottom: 20 }}>
+              <strong style={{ fontSize: 13 }}>Upload a new {category === 'HERO' ? 'hero' : 'offer'} image</strong>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginTop: 10 }}>
+                <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={(event) => selectFile(event.target.files?.[0] || null)} />
+                <input className="hne-input" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Image title" />
+                <input className="hne-input" value={altText} onChange={(event) => setAltText(event.target.value)} placeholder="Alt text" />
+              </div>
+              <Button type="submit" variant="primary" size="sm" disabled={isUploading} style={{ marginTop: 10 }}>{isUploading ? <Loader2 className="hne-spin" size={14} /> : <Upload size={14} />}<span>{isUploading ? 'Uploading…' : 'Upload and use image'}</span></Button>
+            </form>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}><strong style={{ fontSize: 14 }}>Previously uploaded images</strong><span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{media.length} image{media.length === 1 ? '' : 's'}</span></div>
+            {isLoading ? <div style={{ minHeight: 120, display: 'grid', placeItems: 'center', color: 'var(--text-secondary)' }}><Loader2 className="hne-spin" size={22} /></div> : media.length === 0 ? <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>No uploaded images yet. Use the form above to add one here.</p> : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>{media.map((item) => <button key={item.id} type="button" onClick={() => { onChange(item.url); closePicker(); }} style={{ padding: 0, overflow: 'hidden', textAlign: 'left', cursor: 'pointer', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-card)' }}><img src={item.url} alt={item.alt} style={{ display: 'block', width: '100%', height: 110, objectFit: 'cover' }} /><span style={{ display: 'block', padding: 9, fontSize: 12, fontWeight: 700 }}>{item.title}</span></button>)}</div>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function CMSPagesManager() {
   const [selectedSlug, setSelectedSlug] = useState('home');
@@ -301,15 +433,12 @@ export default function CMSPagesManager() {
                   />
                 </div>
 
-                <div className="hne-form-group">
-                  <label className="hne-label">Hero Cover Image URL</label>
-                  <input
-                    type="text"
-                    className="hne-input"
-                    value={currentPage.heroImageUrl}
-                    onChange={(e) => setCmsPages({ ...cmsPages, [selectedSlug]: { ...currentPage, heroImageUrl: e.target.value } })}
-                  />
-                </div>
+                <CmsImageField
+                  label="Hero cover image"
+                  value={currentPage.heroImageUrl}
+                  category="HERO"
+                  onChange={(heroImageUrl) => setCmsPages({ ...cmsPages, [selectedSlug]: { ...currentPage, heroImageUrl } })}
+                />
               </div>
 
               {/* SEO Section */}
@@ -602,15 +731,12 @@ export default function CMSPagesManager() {
                 />
               </div>
 
-              <div className="hne-form-group">
-                <label className="hne-label">Banner Image URL</label>
-                <input
-                  type="text"
-                  className="hne-input"
-                  value={editingOffer.bannerUrl}
-                  onChange={(e) => setEditingOffer({ ...editingOffer, bannerUrl: e.target.value })}
-                />
-              </div>
+              <CmsImageField
+                label="Offer banner image"
+                value={editingOffer.bannerUrl}
+                category="OFFERS"
+                onChange={(bannerUrl) => setEditingOffer({ ...editingOffer, bannerUrl })}
+              />
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
                 <Button type="button" variant="secondary" onClick={() => setShowOfferModal(false)}>

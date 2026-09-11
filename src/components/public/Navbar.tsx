@@ -1,11 +1,19 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Phone, Calendar, User, Menu, X, Sparkles, MapPin } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // In development, Next only prefetches links on hover. Start warming the
+  // lightweight staff login route as soon as the public navigation is ready.
+  useEffect(() => {
+    router.prefetch('/login');
+  }, [router]);
 
   const navLinks = [
     { name: 'Home', href: '/' },
@@ -55,7 +63,8 @@ export const Navbar: React.FC = () => {
             <Sparkles size={12} /> Best Rate Guarantee on Direct Bookings
           </span>
           <Link
-            href="/admin/dashboard"
+            href="/login"
+            prefetch
             style={{
               color: '#FFFFFF',
               textDecoration: 'none',

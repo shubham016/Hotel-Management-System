@@ -30,6 +30,7 @@ export const NotificationsBell: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const didInitialLoad = useRef(false);
 
   const load = () => {
     fetch('/api/notifications')
@@ -45,6 +46,8 @@ export const NotificationsBell: React.FC = () => {
   };
 
   useEffect(() => {
+    if (didInitialLoad.current) return;
+    didInitialLoad.current = true;
     load();
   }, []);
 

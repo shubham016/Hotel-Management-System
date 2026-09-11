@@ -58,6 +58,7 @@ owner_role.update!(
     "BOOKINGS" => %w[read create],
     "PAGES" => %w[read create],
     "OFFERS" => %w[read create delete],
+    "CMS" => %w[read create delete],
     "GUESTS" => %w[read create],
     "CONTACT_INQUIRIES" => %w[create],
     "DASHBOARD" => %w[read],

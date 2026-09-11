@@ -4,9 +4,10 @@ module Api
       class RoomsController < BackendController
         def index
           property = default_property
-          rooms = property.rooms.includes(:room_type, reservation_rooms: { reservation: %i[guest folio] })
+          rooms = property.rooms.active.includes(:room_type, reservation_rooms: { reservation: %i[guest folio] })
           rooms = rooms.where(floor: params[:floor]) if params[:floor].present? && params[:floor] != "ALL"
           rooms = rooms.where(status: params[:status]) if params[:status].present? && params[:status] != "ALL"
+          rooms = available_rooms(rooms, property) if params[:availableOnly] == "true"
           data = rooms.order(:floor, :room_number).map { |room| serialize(room) }
 
           render json: {
@@ -33,6 +34,23 @@ module Api
         end
 
         private
+
+        def available_rooms(rooms, property)
+          check_in = Date.iso8601(params.require(:checkInDate))
+          check_out = Date.iso8601(params.require(:checkOutDate))
+          raise ApiError.new("Check-out must be after check-in", code: "INVALID_STAY") unless check_out > check_in
+
+          conflicting_ids = ReservationRoom
+            .joins(:reservation)
+            .where(reservations: { property_id: property.id, status: Reservation::ACTIVE_STATUSES })
+            .where("reservations.check_in_date < ? AND reservations.check_out_date > ?", check_out, check_in)
+            .where.not(room_id: nil)
+            .select(:room_id)
+
+          rooms.where.not(id: conflicting_ids).where.not(status: %w[OUT_OF_ORDER OUT_OF_SERVICE])
+        rescue Date::Error
+          raise ApiError.new("Dates must be valid", status: :bad_request, code: "INVALID_REQUEST")
+        end
 
         def serialize(room)
           active = room.reservation_rooms.find { |rr| rr.reservation.status.in?(Reservation::ACTIVE_STATUSES) }&.reservation

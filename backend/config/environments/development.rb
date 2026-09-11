@@ -15,6 +15,11 @@ Rails.application.configure do
   # Enable server timing.
   config.server_timing = true
 
+  # Debug SQL/source logging is especially expensive through Docker Desktop's
+  # Windows bind mount and can delay otherwise fast API responses. Keep normal
+  # request logs while allowing DEBUG to be opted into when needed.
+  config.log_level = ENV.fetch("RAILS_LOG_LEVEL", "info")
+
   # Enable/disable Action Controller caching. By default Action Controller caching is disabled.
   # Run rails dev:cache to toggle Action Controller caching.
   if Rails.root.join("tmp/caching-dev.txt").exist?

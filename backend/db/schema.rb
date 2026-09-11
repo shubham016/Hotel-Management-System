@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_02_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_11_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -26,6 +26,33 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_02_000001) do
     t.datetime "updated_at", null: false
     t.index ["company_id", "account_code"], name: "index_accounts_on_company_id_and_account_code", unique: true
     t.index ["company_id"], name: "index_accounts_on_company_id"
+  end
+
+  create_table "active_storage_attachments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "blob_id", null: false
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.uuid "record_id", null: false
+    t.string "record_type", null: false
+    t.index ["record_type", "record_id", "name", "blob_id"], name: "index_active_storage_attachments_uniqueness", unique: true
+  end
+
+  create_table "active_storage_blobs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.bigint "byte_size", null: false
+    t.string "checksum"
+    t.string "content_type"
+    t.datetime "created_at", null: false
+    t.string "filename", null: false
+    t.string "key", null: false
+    t.text "metadata"
+    t.string "service_name", null: false
+    t.index ["key"], name: "index_active_storage_blobs_on_key", unique: true
+  end
+
+  create_table "active_storage_variant_records", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "blob_id", null: false
+    t.string "variation_digest", null: false
+    t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
   end
 
   create_table "api_sessions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -102,6 +129,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_02_000001) do
     t.datetime "updated_at", null: false
     t.index ["property_id", "code"], name: "index_banquet_halls_on_property_id_and_code", unique: true
     t.index ["property_id"], name: "index_banquet_halls_on_property_id"
+  end
+
+  create_table "cms_media_assets", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "alt_text", null: false
+    t.string "category", default: "GENERAL", null: false
+    t.uuid "company_id", null: false
+    t.datetime "created_at", null: false
+    t.uuid "property_id", null: false
+    t.string "title", null: false
+    t.datetime "updated_at", null: false
+    t.index ["company_id"], name: "index_cms_media_assets_on_company_id"
+    t.index ["property_id", "category"], name: "index_cms_media_assets_on_property_id_and_category"
+    t.index ["property_id"], name: "index_cms_media_assets_on_property_id"
   end
 
   create_table "cms_offers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -633,6 +673,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_02_000001) do
   end
 
   add_foreign_key "accounts", "companies"
+  add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "api_sessions", "users"
   add_foreign_key "audit_logs", "companies"
   add_foreign_key "audit_logs", "properties"
@@ -641,6 +683,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_02_000001) do
   add_foreign_key "banquet_bookings", "guests"
   add_foreign_key "banquet_bookings", "properties"
   add_foreign_key "banquet_halls", "properties"
+  add_foreign_key "cms_media_assets", "companies"
+  add_foreign_key "cms_media_assets", "properties"
   add_foreign_key "cms_offers", "properties"
   add_foreign_key "cms_pages", "companies"
   add_foreign_key "cms_pages", "properties"

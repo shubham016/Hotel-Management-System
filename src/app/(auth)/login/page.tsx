@@ -28,7 +28,7 @@ export default function LoginPage() {
 
       const data = await res.json();
       if (data.success) {
-        router.push('/admin/dashboard');
+        router.replace('/admin/dashboard');
       } else {
         setErrorMsg(data.error || 'Invalid credentials');
       }
@@ -196,7 +196,7 @@ export default function LoginPage() {
             isLoading={isLoading}
             style={{ width: '100%', marginTop: 8, boxShadow: 'var(--shadow-glow)' }}
           >
-            <span>Sign In</span>
+            <span>{isLoading ? 'Signing in…' : 'Sign In'}</span>
             {/* <ArrowRight size={16} /> */}
           </Button>
         </form>

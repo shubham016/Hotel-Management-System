@@ -35,6 +35,7 @@ module Reservations
       @check_in_date = Date.iso8601(@params[:checkInDate].to_s)
       @check_out_date = Date.iso8601(@params[:checkOutDate].to_s)
       @room_type = @property.room_types.find_by!(code: @params[:roomTypeCode].to_s.upcase, active: true)
+      @selected_room = @property.rooms.active.includes(:room_type).find(@params[:roomId]) if @params[:roomId].present?
       @rate_plan = if @params[:ratePlanCode].present?
         @property.rate_plans.find_by!(code: @params[:ratePlanCode].to_s.upcase, room_type: @room_type, active: true)
       else
@@ -54,6 +55,10 @@ module Reservations
       raise ApiError.new("Check-out must be after check-in", code: "INVALID_STAY") unless @check_out_date > @check_in_date
       raise ApiError.new("Check-in cannot be in the past", code: "INVALID_STAY") if @check_in_date < Date.current
       raise ApiError.new("At least one room is required", code: "INVALID_OCCUPANCY") unless @rooms_count.positive?
+      if @selected_room
+        raise ApiError.new("An exact room can only be used for a single-room booking", code: "INVALID_REQUEST") unless @rooms_count == 1
+        raise ApiError.new("Selected room does not match the chosen room category", status: :unprocessable_content, code: "ROOM_TYPE_MISMATCH") unless @selected_room.room_type_id == @room_type.id
+      end
       raise ApiError.new("Guest count exceeds room capacity", code: "INVALID_OCCUPANCY") if @adults_count > @room_type.max_adults * @rooms_count
       raise ApiError.new("Child count exceeds room capacity", code: "INVALID_OCCUPANCY") if @children_count > @room_type.max_children * @rooms_count
     end
@@ -71,9 +76,18 @@ module Reservations
         check_in_date: @check_in_date,
         check_out_date: @check_out_date
       )
-      return if available >= @rooms_count
+      raise ApiError.new("The requested room type is no longer available", status: :conflict, code: "ROOM_UNAVAILABLE") if available < @rooms_count
+      ensure_selected_room_available! if @selected_room
+    end
 
-      raise ApiError.new("The requested room type is no longer available", status: :conflict, code: "ROOM_UNAVAILABLE")
+    def ensure_selected_room_available!
+      conflict = ReservationRoom
+        .joins(:reservation)
+        .where(room: @selected_room)
+        .where(reservations: { property_id: @property.id, status: Reservation::ACTIVE_STATUSES })
+        .where("reservations.check_in_date < ? AND reservations.check_out_date > ?", @check_out_date, @check_in_date)
+        .exists?
+      raise ApiError.new("The selected room is no longer available for these dates", status: :conflict, code: "ROOM_UNAVAILABLE") if conflict
     end
 
     def find_or_create_guest!
@@ -138,9 +152,11 @@ module Reservations
         advance_paid: 0
       )
 
-      @rooms_count.times do
-        reservation.reservation_rooms.create!(room_type: @room_type, nightly_rate: quote.nightly_rate, nights: quote.nights)
+      @rooms_count.times do |index|
+        room = index.zero? ? @selected_room : nil
+        reservation.reservation_rooms.create!(room_type: @room_type, room:, nightly_rate: quote.nightly_rate, nights: quote.nights)
       end
+      @selected_room&.update!(status: "RESERVED")
       reservation
     end
 

@@ -1,6 +1,6 @@
 # Hotel New Era — Project Handoff
 
-**Updated:** 2026-09-02  
+**Updated:** 2026-09-11  
 **Backend direction:** Ruby on Rails JSON API  
 **Current migration stage:** Rails owns backend APIs; Next.js API routes are compatibility proxies
 
@@ -9,6 +9,67 @@
 The Rails backend is established in `backend/`; it is now the authoritative backend for the active application API surface. Authentication, hotel inventory, availability, pricing, reservation creation and lifecycle management, PMS rooms, front desk, folios, checkout, night audit, CMS pages/offers, CRM guests, housekeeping, inventory, POS, procurement, banquet, accounting, audit records, notifications, and document sequencing have Rails implementations.
 
 The public booking workflow and administration modules communicate with Rails either directly through `/rails-api/...` rewrites or through thin compatibility routes under `src/app/api`. Those Next.js API files should stay proxy-only until each frontend fetch is moved directly to Rails.
+
+## Resume Here (2026-09-11 session end)
+
+### Completed today
+
+- **Login and dashboard responsiveness:** reduced unnecessary post-login work by preserving a display-only session profile cookie and by using the compact dashboard response path. The dashboard now has a route loading state. The related Rails development logging was reduced to normal `info` level because verbose Docker bind-mount SQL logging was adding local delay.
+- **Exact room assignment:** the Dashboard **New Booking** flow now supports selecting a specific available room. The selected room is sent to Rails, reserved atomically, and reflected in the Room Board. The backend validates availability rather than trusting the browser.
+- **Correct BS/AD dates:** replaced the previous approximate, incorrect frontend conversion with `@inicrea/bikram-sambat-core`, which uses Bikram Sambat calendar data. Confirmed result: `2026-09-11` AD is `2083-05-26` / **26 Bhadra 2083 BS**, fiscal year `2083/84`.
+- **CMS media is real and property-scoped:** added `CmsMediaAsset`, authenticated Rails media endpoints, local Active Storage persistence, image validation (JPG/PNG/WebP/GIF, maximum 10 MB), audit records, upload/list/delete API routes, and Next.js multipart proxy support. Database migrations applied:
+  - `20260911000001_create_cms_media_library.rb`
+  - `20260911000002_create_active_storage_variant_records.rb`
+- **CMS Builder image workflow:** `/admin/cms/pages` now has **Choose or upload image** directly in the Hero Cover Image and Offer Banner Image fields. It supports selecting an existing asset or uploading a new one in-place; saving/publishing the CMS form applies it to the public page. `/admin/cms/media` remains a separate, clean asset-management page only, without Website CMS Builder instructions/options.
+
+### Validation completed today
+
+- `npx tsc --noEmit` passed after the active frontend changes.
+- Real authenticated CMS media workflow passed against Rails: upload → list → public image request (HTTP 200) → delete.
+- Authenticated request through the Next.js `/api/cms/media` proxy returned HTTP 200.
+- Rails migrations and seeds were applied to local Docker development. The OWNER seed role now has `CMS` read/create/delete permissions required by the new media API.
+
+### Important current caveats
+
+- Do not run `npm run build` while `npm run dev` uses the same `.next` directory. This corrupts the running dev server's generated chunks/CSS. Recovery is: stop Next dev, delete only the project `.next` cache, then restart `npm run dev`.
+- The last production build compiled TypeScript and application code, but static export still fails on pre-existing public-page `useSearchParams()` calls that are not wrapped in Suspense (`/`, `/about`, `/banquet`, `/book`, `/contact`, `/dining`, `/offers`, `/rooms`). Resolve that separately before production deployment.
+- CMS media currently uses the local Active Storage disk service. For production, configure S3-compatible/object storage and persistent backups before deployment; do not rely on ephemeral server disk.
+
+### Recommended next work
+
+1. Continue CMS depth: page sections beyond hero, saved contact information, testimonials/FAQs, draft/publish scheduling and revisions.
+2. Resolve the public-page Suspense build failures before a production release.
+3. Add integration tests for CMS pages/offers/media; the current media workflow is manually verified but needs automated coverage.
+4. Continue PMS reservation UI wiring and live dashboard data improvements as described below.
+
+## Resume Here (2026-09-09 session end)
+
+### Reference project
+
+Use `D:\Laravel Projects\kamra-pms-develop` as the local design and workflow reference for future Hotel New Era work. It is a Frappe/Python + React/Vite project; copy its interaction and layout patterns selectively, but keep Hotel New Era's Next.js + Rails architecture, Nepal localization, and own branding/data. Main reference sources: `frontend/src/AppShell.tsx` (app switcher/property selector/shell), `frontend/src/components/ui/stat-card.tsx` and `sparkline.tsx` (KPI cards), `frontend/src/screens/AppLauncher.tsx` (full launcher), plus `docs/screenshots/today.png` and `dashboard.png`. A nested duplicate `kamra-pms-develop\kamra-pms-develop` exists; use the top-level folder unless directed otherwise.
+
+### Current UI state
+
+- Dashboard top KPI cards are temporary static presentation seed data: Arrivals 1, Departures 0, In-house 10, Occupancy 20% (3 of 15), Revenue `Rs. 9,819`, RevPAR `Rs. 983`. Fixed sparklines and the Kamra-style layout are in `src/app/(admin)/admin/dashboard/page.tsx` and `src/components/ui/StatTile.tsx`.
+- KPI cards now mirror Kamra's compact `StatCard`: icon/label row, value and fixed 96×32 sparkline side-by-side, subtle border, and progress-bar variant. Revenue labels do not wrap.
+- Dashboard header has compact `New Booking` → `/book`.
+- Clicking a Room Board room opens a status modal (Clean, Dirty, Inspected, Occupied, Out of Order) and saves only after **Update status**. The unselected Occupied option uses soft green/dark text for visibility.
+- Sidebar width is 240px (208px Kamra reference was too narrow for HNE labels); sidebar-header horizontal padding is 12px.
+- Topbar includes: compact Kamra-style app-grid launcher, UI-only temporary hotel selector (Butwal/Kathmandu/Pokhara), flexible search, website/theme/notifications/user controls. The launcher opens a 3-column icon grid and **View all apps** → `/admin/apps`.
+- Current topbar spacing: 16px left padding, 16px app-grid/hotel gap, 12px hotel/search and utility gaps, flexible `AdminSearch` (`minWidth: 210px`), 32px right padding. Do not restore fixed 420px search width.
+
+### Local development/auth state
+
+- `backend/config/initializers/bcrypt.rb` applies `BCRYPT_COST` only in development/test. Docker development sets `BCRYPT_COST: 8`; production bcrypt security is unchanged. Default local seeded login remains `admin@hotelnewera.com` / `ChangeMe-Admin-2026!` unless manually changed.
+- Do **not** run `npm run build` while `npm run dev` is serving the same `.next` directory. It can cause missing chunk errors (e.g. `Cannot find module './7787.js'`). Recovery: stop Next dev, delete only this project's `.next`, restart `npm run dev`.
+
+### Next work
+
+1. Replace static KPI values and temporary property selector with live Rails data only after visual approval; real Kathmandu/Pokhara properties need explicit authorization and tenant/property-context wiring.
+2. Continue adapting Kamra's front-desk workflow patterns (Today board, reservation detail, tape chart) without changing HNE's backend architecture.
+3. Sajhilostay reference: do not attempt to extract private backend data. The requested demo URL was inaccessible here; require authorized credentials, screenshots/video, or an official export before using it as reference.
+
+Validation at session end: `npx tsc --noEmit` passed; `http://localhost:3000/admin/dashboard` returned HTTP 200.
 
 **This session's work (full detail in `docs/CONVERSATION.md`, dated entries under 2026-09-02):**
 - Ran a 5-module audit (PMS/POS/CRM/Accounting/CMS) against the spec and wrote the phased build plan: `docs/plans/IMPLEMENTATION_PLAN_v3.0_OWNER_PORTAL.md`. Phase 0 (POS billing server-trust fix, transactions, idempotency, journal/audit-log immutability) is done; BS/AD date conversion is still stubbed and open.
