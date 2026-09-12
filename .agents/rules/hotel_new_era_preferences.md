@@ -32,8 +32,8 @@
 - Always inherit and render both the Nepali Bikram Sambat (BS) calendar and the English Gregorian (AD) calendar with Nepali Devanagari numerals and Nepali Fiscal Year compliance (Shrawan 1 to Ashadh 31, e.g. FY 2083/84).
 
 ## 5. Documentation & Conversation Logging
-- Always record all architectural actions, decision logs, and conversation entries in `docs/CONVERSATION.md`.
-- Maintain version-controlled implementation plans under `docs/plans/`.
+- Update Markdown documentation, handoff files, plans, and conversation logs only when the user explicitly asks to save or update `.md` files.
+- Do not automatically record normal code changes in `docs/CONVERSATION.md`, `PROJECT_HANDOFF.md`, or implementation plans.
 
 ## 6. Mandatory Code and Folder Organization
 - Keep the project domain-first and easy to navigate, following the clean separation used by the local `D:\Laravel Projects\recruitment_system` reference project.
@@ -44,3 +44,7 @@
 - Keep shared frontend concerns in their dedicated folders: `src/layouts/`, `src/lib/`, `src/styles/`, and `src/types/`. Do not recreate deprecated Next.js-style `src/app/` or frontend API-route folders.
 - Keep Rails code domain-first too: controllers under `backend/app/controllers/api/v1/<domain>/`, services under `backend/app/services/<domain>/`, models under `backend/app/models/`, migrations under `backend/db/migrate/`, and domain routes under `backend/config/routes/`.
 - Preserve this organization for every new file and refactor existing oversized pages before adding substantial new functionality to them.
+
+## 7. Response Length
+- Keep user-facing responses short and outcome-focused by default.
+- Do not repeat completed work or provide long summaries unless the user explicitly requests detail, explanation, commands, or a report.

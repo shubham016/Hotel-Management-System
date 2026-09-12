@@ -7,6 +7,8 @@ class RoomType < ApplicationRecord
   normalizes :code, with: ->(value) { value.to_s.strip.upcase }
   normalizes :slug, with: ->(value) { value.to_s.strip.downcase }
 
+  scope :setup_managed, -> { where(setup_managed: true) }
+
   validates :name, :code, :slug, presence: true
   validates :base_price, numericality: { greater_than_or_equal_to: 0 }
   validates :max_adults, :max_children, :max_occupancy, numericality: { only_integer: true, greater_than_or_equal_to: 0 }

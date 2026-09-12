@@ -2,7 +2,7 @@ module Api
   module V1
     module Hotel
       class FloorsController < BackendController
-        self.authorization_module_name = "ROOMS"
+        self.authorization_module_name = "ROOM_SETUP"
 
         def index
           render json: { success: true, data: default_property.floors.order(:number).map { |floor| serialize(floor) } }

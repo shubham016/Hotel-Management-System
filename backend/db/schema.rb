@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_12_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_12_000004) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -569,9 +569,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_12_000001) do
     t.integer "max_occupancy", default: 3, null: false
     t.string "name", null: false
     t.uuid "property_id", null: false
+    t.boolean "setup_managed", default: false, null: false
     t.string "slug", null: false
     t.datetime "updated_at", null: false
     t.index ["property_id", "code"], name: "index_room_types_on_property_id_and_code", unique: true
+    t.index ["property_id", "setup_managed"], name: "index_room_types_on_property_id_and_setup_managed"
     t.index ["property_id", "slug"], name: "index_room_types_on_property_id_and_slug", unique: true
     t.index ["property_id"], name: "index_room_types_on_property_id"
   end
@@ -585,10 +587,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_12_000001) do
     t.uuid "property_id", null: false
     t.string "room_number", null: false
     t.uuid "room_type_id", null: false
+    t.boolean "setup_managed", default: false, null: false
     t.boolean "smoking", default: false, null: false
     t.string "status", default: "VACANT_CLEAN", null: false
     t.datetime "updated_at", null: false
     t.index ["property_id", "room_number"], name: "index_rooms_on_property_id_and_room_number", unique: true
+    t.index ["property_id", "setup_managed"], name: "index_rooms_on_property_id_and_setup_managed"
     t.index ["property_id", "status"], name: "index_rooms_on_property_id_and_status"
     t.index ["property_id"], name: "index_rooms_on_property_id"
     t.index ["room_type_id"], name: "index_rooms_on_room_type_id"

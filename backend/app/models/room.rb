@@ -7,6 +7,14 @@ class Room < ApplicationRecord
   has_many :housekeeping_tasks, dependent: :restrict_with_error
 
   scope :active, -> { where(active: true) }
+  scope :setup_managed, -> { where(setup_managed: true) }
+  scope :by_floor_and_room_number, -> {
+    order(
+      :floor,
+      Arel.sql("NULLIF(regexp_replace(room_number, '[^0-9]', '', 'g'), '')::integer"),
+      :room_number
+    )
+  }
 
   validates :room_number, presence: true, uniqueness: { scope: :property_id }
   validates :floor, numericality: { only_integer: true, greater_than: 0 }

@@ -2,13 +2,17 @@ module Api
   module V1
     module Pms
       class RoomsController < BackendController
+        self.authorization_module_name = "ROOMS"
+
+        OPERATIONAL_STATUSES = %w[OCCUPIED RESERVED VACANT_CLEAN VACANT_DIRTY INSPECTION_REQUIRED].freeze
+
         def index
           property = default_property
-          rooms = property.rooms.active.includes(:room_type, reservation_rooms: { reservation: %i[guest folio] })
+          rooms = property.rooms.active.setup_managed.includes(:room_type, reservation_rooms: { reservation: %i[guest folio] })
           rooms = rooms.where(floor: params[:floor]) if params[:floor].present? && params[:floor] != "ALL"
           rooms = rooms.where(status: params[:status]) if params[:status].present? && params[:status] != "ALL"
           rooms = available_rooms(rooms, property) if params[:availableOnly] == "true"
-          data = rooms.order(:floor, :room_number).map { |room| serialize(room) }
+          data = rooms.by_floor_and_room_number.map { |room| serialize(room) }
 
           render json: {
             success: true,
@@ -27,6 +31,8 @@ module Api
         def update
           property = default_property
           room = params[:id] == "lookup" ? property.rooms.find_by!(room_number: params.require(:roomNumber)) : property.rooms.find(params[:id])
+          raise ApiError.new("This room is not managed through Hotel Setup", status: :not_found, code: "NOT_FOUND") unless room.setup_managed?
+          ensure_operational_status_permission!(params.require(:status))
           old_status = room.status
           room.update!(status: params.require(:status), maintenance_notes: params[:maintenanceNotes].presence)
           audit!("PMS_ROOMS", "UPDATE", "Room", room.id, old_values: { status: old_status }, new_values: { status: room.status })
@@ -34,6 +40,13 @@ module Api
         end
 
         private
+
+        def ensure_operational_status_permission!(status)
+          return unless Current.user.role.name.in?(%w[MANAGER FRONT_DESK_STAFF])
+          return if status.in?(OPERATIONAL_STATUSES)
+
+          raise ApiError.new("Your role may only set Occupied, Reserved, Clean, Dirty, or Inspected status", status: :forbidden, code: "FORBIDDEN")
+        end
 
         def available_rooms(rooms, property)
           check_in = Date.iso8601(params.require(:checkInDate))

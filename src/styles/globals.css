@@ -339,6 +339,29 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--text-primary);
 }
 
+.hne-option-grid {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.hne-check-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.hne-check-option input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
+
 .hne-input, .hne-select, .hne-textarea {
   width: 100%;
   padding: 10px 14px;

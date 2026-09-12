@@ -20,6 +20,8 @@ The public booking workflow and administration modules communicate with Rails th
 - Removed the Next dependency, server layouts, API proxy routes, and build configuration.
 - Verified the Vite production build, all 29 frontend routes, and core authenticated Rails endpoints.
 - **Permanent code-organization rule:** use a domain-first, one-route-per-folder structure modeled on the local recruitment system. Each route owns `page.tsx`; feature-specific CRUD components, API functions, types, constants, and hooks stay beside it. The authoritative rule is `.agents/rules/hotel_new_era_preferences.md` section 6.
+- **Operational inventory rule:** old seed rooms and room categories are marked demo-only and excluded from Hotel Setup and the Dashboard Room Board. Create all operational floors, room categories, and rooms through `/admin/cms/hotel-setup`.
+- **Hotel Setup permission rule:** Floors, Room Categories, and Rooms are one operational inventory module. The `OWNER` role has `ROOMS` read/create/update/delete access; do not split these permissions into separate `FLOORS` or `ROOM_TYPES` modules.
 
 ## Resume Here (2026-09-11 session end)
 

@@ -64,7 +64,7 @@ owner_role.update!(
     "DASHBOARD" => %w[read],
     "NOTIFICATIONS" => %w[read update],
     "PROPERTIES" => %w[read],
-    "ROOM_TYPES" => %w[read],
+    "ROOM_SETUP" => %w[read create update delete],
     "ROOMS" => %w[read update],
     "AVAILABILITY" => %w[read],
     "TASKS" => %w[read create],
@@ -79,6 +79,29 @@ owner_role.update!(
     "MENU_ITEMS" => %w[read],
     "BILLING" => %w[create],
     "ORDERS" => %w[read create]
+  }
+)
+
+# Operational roles may update live room status but cannot change room inventory.
+manager_role = company.roles.find_or_initialize_by(name: "MANAGER")
+manager_role.update!(
+  system: true,
+  permissions: {
+    "DASHBOARD" => %w[read],
+    "ROOMS" => %w[read update],
+    "PMS_FRONTDESK" => %w[read],
+    "RESERVATIONS" => %w[read]
+  }
+)
+
+front_desk_staff_role = company.roles.find_or_initialize_by(name: "FRONT_DESK_STAFF")
+front_desk_staff_role.update!(
+  system: true,
+  permissions: {
+    "DASHBOARD" => %w[read],
+    "ROOMS" => %w[read update],
+    "PMS_FRONTDESK" => %w[read],
+    "RESERVATIONS" => %w[read]
   }
 )
 
@@ -110,12 +133,12 @@ UserProperty.find_or_create_by!(user: admin, property:)
 end
 
 room_type_definitions = [
-  { code: "LUX-01", slug: "luxury-room", name: "Luxury Room", base_price: 5_500, count: 8, max_adults: 2, max_children: 1 },
-  { code: "DLX-01", slug: "deluxe-room", name: "Deluxe Room", base_price: 4_200, count: 12, max_adults: 2, max_children: 1 },
-  { code: "FAM-01", slug: "family-room", name: "Family Room", base_price: 6_500, count: 6, max_adults: 4, max_children: 2 },
-  { code: "HNY-01", slug: "honeymoon-room", name: "Honeymoon Room", base_price: 7_000, count: 3, max_adults: 2, max_children: 0 },
-  { code: "STD-AC", slug: "standard-ac-room", name: "Standard AC Room", base_price: 3_200, count: 8, max_adults: 2, max_children: 1 },
-  { code: "STD-01", slug: "standard-room", name: "Standard Room", base_price: 2_200, count: 6, max_adults: 2, max_children: 1 }
+  { code: "DEMO-LUX-01", slug: "demo-luxury-room", name: "Demo Luxury Room", base_price: 5_500, count: 8, max_adults: 2, max_children: 1 },
+  { code: "DEMO-DLX-01", slug: "demo-deluxe-room", name: "Demo Deluxe Room", base_price: 4_200, count: 12, max_adults: 2, max_children: 1 },
+  { code: "DEMO-FAM-01", slug: "demo-family-room", name: "Demo Family Room", base_price: 6_500, count: 6, max_adults: 4, max_children: 2 },
+  { code: "DEMO-HNY-01", slug: "demo-honeymoon-room", name: "Demo Honeymoon Room", base_price: 7_000, count: 3, max_adults: 2, max_children: 0 },
+  { code: "DEMO-STD-AC", slug: "demo-standard-ac-room", name: "Demo Standard AC Room", base_price: 3_200, count: 8, max_adults: 2, max_children: 1 },
+  { code: "DEMO-STD-01", slug: "demo-standard-room", name: "Demo Standard Room", base_price: 2_200, count: 6, max_adults: 2, max_children: 1 }
 ]
 
 room_numbers = [
@@ -174,7 +197,7 @@ room_type_definitions.each do |definition|
 
   definition[:count].times do
     number = room_numbers.shift.to_s
-    room = property.rooms.find_or_initialize_by(room_number: number)
+    room = property.rooms.find_or_initialize_by(room_number: "DEMO-#{number}")
     room.update!(room_type:, floor: number.first.to_i, status: demo_room_statuses.fetch(number, "VACANT_CLEAN"), active: true)
   end
 end

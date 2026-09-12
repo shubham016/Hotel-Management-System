@@ -17,6 +17,31 @@ This document maintains a running, unedited, version-controlled audit of all int
 
 ---
 
+## Record Entry: 2026-09-12 (Dashboard Room Board Uses Operational Setup Inventory)
+
+### User Direction
+> I don't want to see seed data on the Room Board on the admin dashboard.
+
+### Decision and Implementation
+- Added `setup_managed` to room categories and rooms. Existing seed inventory is automatically marked demo-only; new records created from `/admin/cms/hotel-setup` are marked operational.
+- The Dashboard Room Board and Hotel Setup list only operational setup-managed rooms and room categories. The initial state is intentionally empty until hotel staff create their real floors, categories, and rooms.
+- The 43 demo room records and six demo categories were preserved in the development database rather than destructively deleted. They no longer appear in the operational UI and cannot be accidentally used when creating a new setup-managed room.
+
+---
+
+## Record Entry: 2026-09-12 (Hotel Setup Owner Permission Fix)
+
+### User Report
+> You do not have permission to perform this action while creating Floors, Room Categories, and Rooms in Hotel Setup.
+
+### Cause and Resolution
+- The `OWNER` role had read-only room-category permission, read/update room permission, and no floor permission. Rails therefore correctly returned HTTP 403 for all creation attempts.
+- Floors, Room Categories, and Rooms are now consistently authorized as one `ROOMS` inventory module.
+- The `OWNER` seed definition and current development role now grant `ROOMS: read, create, update, delete`.
+- Verified each create endpoint with the Owner token: the authorization gate now passes (HTTP 400 only because the verification body was intentionally empty, rather than HTTP 403).
+
+---
+
 ## Record Entry: 2026-08-22 17:33:51 NPT (Session Initialization)
 
 ### User Prompt / Input
@@ -543,8 +568,6 @@ Every change in this session was checked against real state, not assumed: `npx t
 
 ### Resume point
 Start from `PROJECT_HANDOFF.md` → "Resume Here" section, then `docs/plans/IMPLEMENTATION_PLAN_v3.0_OWNER_PORTAL.md` for the phase detail. Dev environment: `npm run backend:up` (Docker/Rails+Postgres) and `npm run dev` (Next.js) — both were left running this session; re-seed with `docker compose -f backend/compose.yml run --rm api bin/rails db:seed` if the dev DB was reset.
-
-
 
 
 

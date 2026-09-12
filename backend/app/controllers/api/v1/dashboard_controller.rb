@@ -12,7 +12,7 @@ module Api
 
         days = (TREND_DAYS - 1).downto(0).map { |offset| today - offset.days }
 
-        rooms = property.rooms.active
+        rooms = property.rooms.active.setup_managed
         total_rooms = rooms.count
         occupied_rooms = rooms.where(status: "OCCUPIED").count
 
@@ -37,7 +37,7 @@ module Api
       # sections. Avoid calculating the 7-day analytics series until a screen
       # that consumes it asks for the complete dashboard payload.
       def compact_dashboard(property, company, today)
-        rooms = property.rooms.active
+        rooms = property.rooms.active.setup_managed
 
         {
           success: true,
@@ -47,7 +47,7 @@ module Api
           recentTransactions: recent_transactions(company),
           housekeeping: housekeeping_stats(rooms),
           pos: pos_stats(property, [ today ]),
-          rooms: rooms.order(:floor, :room_number).map do |room|
+          rooms: rooms.by_floor_and_room_number.map do |room|
             {
               id: room.id,
               roomNumber: room.room_number,
