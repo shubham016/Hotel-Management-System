@@ -1,7 +1,5 @@
-'use client';
-
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/lib/router';
 import { Search } from 'lucide-react';
 import { ADMIN_NAV_SECTIONS } from '@/lib/admin-nav';
 

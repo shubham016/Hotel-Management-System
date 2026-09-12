@@ -1,13 +1,11 @@
-'use client';
-
 import React, { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import Link, { usePathname, useRouter } from '@/lib/router';
 import { User, LogOut, ChevronDown, ExternalLink, LayoutGrid } from 'lucide-react';
 import { AdminSearch } from './AdminSearch';
 import { ThemeToggle } from './ThemeToggle';
 import { NotificationsBell } from './NotificationsBell';
 import { ADMIN_APPS } from '@/lib/admin-nav';
+import { authClient } from '@/lib/auth-client';
 
 interface TopbarProps {
   propertyName?: string;
@@ -72,10 +70,10 @@ export const AdminTopbar: React.FC<TopbarProps> = ({
   const handleLogout = async () => {
     setMenuOpen(false);
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await fetch('/api/auth/logout', { method: 'POST', body: JSON.stringify({ refreshToken: authClient.refreshToken() }) });
     } finally {
+      authClient.clear();
       router.push('/login');
-      router.refresh();
     }
   };
 

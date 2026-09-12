@@ -3,6 +3,7 @@ class Property < ApplicationRecord
   has_many :user_properties, dependent: :destroy
   has_many :users, through: :user_properties
   has_many :room_types, dependent: :restrict_with_error
+  has_many :floors, dependent: :restrict_with_error
   has_many :rooms, dependent: :restrict_with_error
   has_many :rate_plans, dependent: :restrict_with_error
   has_many :service_offerings, dependent: :restrict_with_error

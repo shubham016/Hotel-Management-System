@@ -4,6 +4,19 @@ This document maintains a running, unedited, version-controlled audit of all int
 
 ---
 
+## Record Entry: 2026-09-12 (Permanent Code Organization Rule)
+
+### User Direction
+> From now on folder files should be clean and separate pages from separate functions like the NOC e-Recruitment project folder structure. Keep this as a rule of this project.
+
+### Decision
+- The Hotel New Era application must use a domain-first, one-route-per-folder structure modeled on the local `D:\Laravel Projects\recruitment_system` reference project.
+- Each React route owns a `page.tsx` entry file. Feature-specific components, API requests, types, constants, and hooks stay inside that route folder; shared code moves to top-level shared folders only when used by two or more routes.
+- Rails remains domain-first: API controllers, services, models, migrations, and route definitions must stay separated by their business domain.
+- This is a permanent implementation constraint, recorded in `.agents/rules/hotel_new_era_preferences.md` section 6 and summarized in `PROJECT_HANDOFF.md`.
+
+---
+
 ## Record Entry: 2026-08-22 17:33:51 NPT (Session Initialization)
 
 ### User Prompt / Input
@@ -530,7 +543,6 @@ Every change in this session was checked against real state, not assumed: `npx t
 
 ### Resume point
 Start from `PROJECT_HANDOFF.md` → "Resume Here" section, then `docs/plans/IMPLEMENTATION_PLAN_v3.0_OWNER_PORTAL.md` for the phase detail. Dev environment: `npm run backend:up` (Docker/Rails+Postgres) and `npm run dev` (Next.js) — both were left running this session; re-seed with `docker compose -f backend/compose.yml run --rm api bin/rails db:seed` if the dev DB was reset.
-
 
 
 

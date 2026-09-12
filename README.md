@@ -1,6 +1,6 @@
 # Hotel New Era Platform
 
-Hotel New Era is an integrated hotel website and management platform. The repository contains a Next.js frontend and a Ruby on Rails JSON API backed by PostgreSQL.
+Hotel New Era is an integrated hotel website and management platform. The repository contains a React/Vite frontend and a Ruby on Rails JSON API backed by PostgreSQL.
 
 ## Start Here
 
@@ -14,7 +14,7 @@ Read these documents in this order when joining or resuming the project:
 
 ## Technology
 
-- Frontend: Next.js 14.2.15, React 18, TypeScript
+- Frontend: React 18, React Router, Vite 7, TypeScript
 - Backend: Ruby 3.4.10, Rails 8.1.3.1 in API mode
 - Database: PostgreSQL 17
 - Local infrastructure: Docker Compose
@@ -30,13 +30,13 @@ Hotel New Era/
 |   |-- config/routes/       Routes split by business domain
 |   |-- db/                  Rails migrations and seed data
 |   `-- test/                Rails integration and unit tests
-|-- src/                     Next.js application
-|   |-- app/(public)/        Public hotel website
-|   |-- app/(auth)/          Login experience
-|   |-- app/(admin)/         Hotel administration screens
-|   |-- app/api/             Proxy-only compatibility routes to Rails
+|-- src/                     React single-page application
+|   |-- pages/public/        Public hotel website
+|   |-- pages/auth/          Login experience
+|   |-- pages/admin/         Hotel administration screens
 |   |-- components/          Shared UI grouped by audience
-|   `-- lib/                 Frontend helpers and Rails proxy utility
+|   |-- layouts/             Public/admin application shells
+|   `-- lib/                 Router, authentication, and Rails API clients
 |-- public/                  Static website assets
 |-- docs/                    Requirements, architecture, and plans
 |-- scripts/                 Project utility scripts
@@ -53,7 +53,7 @@ docker compose -f backend/compose.yml run --rm api bin/rails db:prepare
 npm run backend:up
 ```
 
-In another terminal, start Next.js:
+In another terminal, start the React/Vite frontend:
 
 ```bash
 npm install
@@ -73,9 +73,9 @@ The seed password is development-only and must be overridden with `SEED_ADMIN_PA
 
 ## Architecture Rule
 
-All backend business logic belongs in `backend/`. Existing `src/app/api/` routes are compatibility endpoints that forward older frontend fetch URLs to Rails.
+All backend business logic belongs in `backend/`. The React frontend uses the centralized API client in `src/lib/api-client.ts`, and Vite proxies `/rails-api` requests to Rails during local development.
 
-Do not add new hotel business logic to React components or Next.js API routes. Use a Rails service for workflows, an Active Record model for persistence, and a namespaced Rails controller for transport.
+Do not add hotel business logic to React components. Use a Rails service for workflows, an Active Record model for persistence, and a namespaced Rails controller for transport.
 
 ## Verification
 

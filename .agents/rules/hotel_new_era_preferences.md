@@ -34,3 +34,13 @@
 ## 5. Documentation & Conversation Logging
 - Always record all architectural actions, decision logs, and conversation entries in `docs/CONVERSATION.md`.
 - Maintain version-controlled implementation plans under `docs/plans/`.
+
+## 6. Mandatory Code and Folder Organization
+- Keep the project domain-first and easy to navigate, following the clean separation used by the local `D:\Laravel Projects\recruitment_system` reference project.
+- Every React URL must have its own route folder and a `page.tsx` entry file. Group routes by audience and business module, for example `src/pages/public/rooms/`, `src/pages/admin/pms/rooms/`, and `src/pages/admin/cms/hotel-setup/`.
+- A route's `page.tsx` must coordinate data loading, state, and composition only. Do not grow it into a catch-all file.
+- When a route has meaningful CRUD, forms, tables, dialogs, API calls, constants, types, or hooks, keep those files in that route's own folder: `components/`, `api.ts`, `types.ts`, `constants.ts`, and `hooks/` as appropriate.
+- Put a component in `src/components/` only when it is shared by two or more routes. Keep feature-only code next to its page.
+- Keep shared frontend concerns in their dedicated folders: `src/layouts/`, `src/lib/`, `src/styles/`, and `src/types/`. Do not recreate deprecated Next.js-style `src/app/` or frontend API-route folders.
+- Keep Rails code domain-first too: controllers under `backend/app/controllers/api/v1/<domain>/`, services under `backend/app/services/<domain>/`, models under `backend/app/models/`, migrations under `backend/db/migrate/`, and domain routes under `backend/config/routes/`.
+- Preserve this organization for every new file and refactor existing oversized pages before adding substantial new functionality to them.

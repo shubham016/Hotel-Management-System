@@ -6,6 +6,7 @@ module Api
 
         def index
           assets = default_property.cms_media_assets.with_attached_file.order(created_at: :desc)
+          assets = assets.where(category: CmsMediaAsset::PORTAL_CATEGORIES) if params[:scope] == "portal"
           render json: { success: true, media: assets.map { |asset| serialize(asset) } }
         end
 

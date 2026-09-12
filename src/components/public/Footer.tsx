@@ -1,5 +1,5 @@
 import React from 'react';
-import Link from 'next/link';
+import Link from '@/lib/router';
 import { MapPin, Phone, Mail, Globe, Shield, Award, Clock, Heart } from 'lucide-react';
 
 export const Footer: React.FC = () => {

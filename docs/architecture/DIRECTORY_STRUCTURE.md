@@ -7,10 +7,10 @@ This guide answers two questions: where existing code lives, and where new code 
 | Path | Owns | Should not own |
 |---|---|---|
 | `backend/` | Rails API, data model, business workflows, authorization, jobs | React UI |
-| `src/app/` | Next.js pages, layouts, UI composition | New authoritative business logic |
+| `src/pages/` | React route pages and UI composition | New authoritative business logic |
 | `src/components/` | Reusable React presentation and interaction | Database access |
-| `src/lib/` | Frontend helpers and Rails proxy utilities | Backend persistence or business workflows |
-| `src/app/api/` | Compatibility proxy routes that forward old frontend URLs to Rails | Database access or business logic |
+| `src/layouts/` | Shared React application layouts | Backend persistence or business workflows |
+| `src/lib/` | Frontend helpers, authentication, routing, and API client | Backend persistence or business workflows |
 | `public/` | Static images, fonts, and downloadable assets | Uploaded production content |
 | `docs/` | Architecture, requirements, decisions, plans | Executable application logic |
 
@@ -60,35 +60,49 @@ backend/
 
 Models stay at `app/models/` because the hotel modules share a relational domain: a reservation connects a guest, room inventory, pricing, a folio, taxes, and eventually accounting. Controller and service namespaces provide navigation without fragmenting shared entities.
 
-## Next.js Frontend
+## React/Vite Frontend
 
 ```text
 src/
-|-- app/
-|   |-- (public)/               guest-facing website routes
-|   |-- (auth)/                 authentication routes
-|   |-- (admin)/admin/          authenticated operational screens
-|   |-- api/                    proxy-only routes forwarding to Rails
-|   |-- globals.css
-|   `-- layout.tsx
+|-- pages/
+|   |-- public/                 guest-facing website routes
+|   |-- auth/                   authentication routes
+|   |-- admin/                  authenticated operational screens
+|-- layouts/                    shared route layouts
+|-- styles/                     application-wide CSS and design tokens
 |-- components/
 |   |-- public/                 guest-facing components
 |   |-- admin/                  administration shell components
 |   `-- ui/                     reusable design-system primitives
-`-- lib/                        shared helpers and Rails proxy utility
+|-- lib/                        shared helpers and Rails API client
+|-- App.tsx                     client-side route definitions
+`-- main.tsx                    browser application entry point
 ```
 
-Parentheses in Next.js route groups organize source code without adding a URL segment. For example, `src/app/(admin)/admin/pms/rooms/page.tsx` serves `/admin/pms/rooms`.
+React Router defines URL paths in `src/App.tsx`. For example, the page at `src/pages/admin/pms/rooms/page.tsx` serves `/admin/pms/rooms`.
+
+Each route owns a folder. Keep `page.tsx` focused on loading data, coordinating state, and composing the screen. When a page grows, place its private code beside it:
+
+```text
+src/pages/admin/cms/hotel-setup/
+|-- page.tsx                    route controller and composition
+|-- api.ts                     feature-specific API requests
+|-- types.ts                   feature data and form types
+|-- constants.ts               defaults and fixed options
+`-- components/                forms, tables, dialogs, and sections
+```
+
+Only place a component in `src/components/` when multiple routes use it. This keeps each business area self-contained while avoiding a single large global components folder.
 
 ## Where to Add New Work
 
 | Work | Location |
 |---|---|
-| New public page | `src/app/(public)/<route>/page.tsx` |
-| New admin page | `src/app/(admin)/admin/<module>/page.tsx` |
+| New public page | `src/pages/public/<route>/page.tsx`, registered in `src/App.tsx` |
+| New admin page | `src/pages/admin/<module>/page.tsx`, registered in `src/App.tsx` |
 | Reusable generic UI | `src/components/ui/` |
 | Admin-only component | `src/components/admin/<module>/` |
-| Old frontend URL bridge | `src/app/api/<module>/route.ts` using `proxyRails()` only |
+| Rails API call | `src/lib/api-client.ts`, using the `/rails-api` development proxy |
 | Rails endpoint | `backend/app/controllers/api/v1/<domain>/` |
 | Rails route | `backend/config/routes/<domain>.rb` |
 | Multi-step business workflow | `backend/app/services/<domain>/` |
@@ -101,4 +115,4 @@ When a new backend domain is introduced, create the controller namespace, servic
 
 ## Generated and Local-Only Directories
 
-Do not hand-edit or copy `node_modules/`, `.next/`, `backend/tmp/`, `backend/log/`, or PostgreSQL Docker volumes. These are generated locally and excluded from source control.
+Do not hand-edit or copy `node_modules/`, `dist/`, `.vite/`, `backend/tmp/`, `backend/log/`, or PostgreSQL Docker volumes. These are generated locally and excluded from source control.

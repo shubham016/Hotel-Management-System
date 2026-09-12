@@ -82,7 +82,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
     group: 'CMS & Platform',
     items: [
       { name: 'Website CMS Builder', href: '/admin/cms/pages', icon: Globe },
-      { name: 'Media Library', href: '/admin/cms/media', icon: Boxes },
+      { name: 'Hotel Setup', href: '/admin/cms/hotel-setup', icon: Boxes },
       { name: 'Audit Trail', href: '/admin/audit-logs', icon: ShieldAlert },
       { name: 'System Settings', href: '/admin/settings', icon: Settings }
     ]

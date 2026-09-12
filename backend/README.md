@@ -9,7 +9,7 @@ This directory contains the Rails backend. It is now the authoritative backend f
 - PostgreSQL 17
 - JSON API under `/api/v1`
 
-The Next.js application at the repository root remains the frontend. Existing files under `src/app/api` are compatibility proxies only; they should forward to Rails and must not contain database or business workflow code.
+The React/Vite application at the repository root is the frontend. During development, Vite forwards `/rails-api/*` requests to this Rails API; database access and business workflows remain in Rails.
 
 ## Code Organization
 
@@ -49,7 +49,7 @@ docker compose -f backend/compose.yml run --rm api bin/rails db:prepare
 docker compose -f backend/compose.yml up
 ```
 
-Rails listens on `http://localhost:3001`; Next.js listens on `http://localhost:3000`.
+Rails listens on `http://localhost:3001`; the Vite frontend listens on `http://localhost:3000`.
 
 ## Checks
 

@@ -4,7 +4,10 @@ class CmsMediaAsset < ApplicationRecord
 
   has_one_attached :file
 
-  CATEGORIES = %w[BRANDING HERO ROOMS DINING BANQUETS OFFERS GENERAL].freeze
+  # Existing public-site categories remain valid so saved page images are not
+  # affected. SITE_PAGE is used for new images uploaded from CMS Pages.
+  CATEGORIES = %w[ADMIN_PORTAL OPERATIONS REPORTS GENERAL SITE_PAGE BRANDING HERO ROOMS DINING BANQUETS OFFERS].freeze
+  PORTAL_CATEGORIES = %w[ADMIN_PORTAL OPERATIONS REPORTS GENERAL].freeze
   IMAGE_TYPES = %w[image/jpeg image/png image/webp image/gif].freeze
   MAX_FILE_SIZE = 10.megabytes
 

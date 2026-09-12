@@ -9,6 +9,7 @@ class Room < ApplicationRecord
   scope :active, -> { where(active: true) }
 
   validates :room_number, presence: true, uniqueness: { scope: :property_id }
+  validates :floor, numericality: { only_integer: true, greater_than: 0 }
   validates :status, inclusion: { in: STATUSES }
   validate :room_type_belongs_to_property
 

@@ -1,16 +1,12 @@
-'use client';
-
 import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import Link, { useRouter } from '@/lib/router';
 import { Phone, Calendar, User, Menu, X, Sparkles, MapPin } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // In development, Next only prefetches links on hover. Start warming the
-  // lightweight staff login route as soon as the public navigation is ready.
+  // This is a no-op in the Vite SPA adapter and keeps navigation intent explicit.
   useEffect(() => {
     router.prefetch('/login');
   }, [router]);

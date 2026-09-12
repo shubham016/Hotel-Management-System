@@ -1,7 +1,5 @@
-'use client';
-
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/lib/router';
 import { Calendar, Users, BedDouble, Search, Sparkles } from 'lucide-react';
 import { formatDualDate } from '@/lib/nepali-calendar';
 

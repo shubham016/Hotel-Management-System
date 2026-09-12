@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_11_000002) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_12_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -228,6 +228,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_11_000002) do
     t.index ["company_id", "property_id", "document_type", "year"], name: "index_document_sequences_on_scope", unique: true
     t.index ["company_id"], name: "index_document_sequences_on_company_id"
     t.index ["property_id"], name: "index_document_sequences_on_property_id"
+  end
+
+  create_table "floors", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.integer "number", null: false
+    t.uuid "property_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["property_id", "number"], name: "index_floors_on_property_id_and_number", unique: true
+    t.index ["property_id"], name: "index_floors_on_property_id"
   end
 
   create_table "folio_items", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -692,6 +703,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_11_000002) do
   add_foreign_key "contact_inquiries", "properties"
   add_foreign_key "document_sequences", "companies"
   add_foreign_key "document_sequences", "properties"
+  add_foreign_key "floors", "properties"
   add_foreign_key "folio_items", "folios"
   add_foreign_key "folios", "guests"
   add_foreign_key "folios", "properties"

@@ -1,14 +1,25 @@
 # Hotel New Era — Project Handoff
 
-**Updated:** 2026-09-11  
-**Backend direction:** Ruby on Rails JSON API  
-**Current migration stage:** Rails owns backend APIs; Next.js API routes are compatibility proxies
+**Updated:** 2026-09-12
+**Backend direction:** Ruby on Rails JSON API
+**Current frontend:** React 18 + React Router + Vite 7 SPA; Rails owns every backend API
 
 ## Resume Here (2026-09-02 session end)
 
 The Rails backend is established in `backend/`; it is now the authoritative backend for the active application API surface. Authentication, hotel inventory, availability, pricing, reservation creation and lifecycle management, PMS rooms, front desk, folios, checkout, night audit, CMS pages/offers, CRM guests, housekeeping, inventory, POS, procurement, banquet, accounting, audit records, notifications, and document sequencing have Rails implementations.
 
-The public booking workflow and administration modules communicate with Rails either directly through `/rails-api/...` rewrites or through thin compatibility routes under `src/app/api`. Those Next.js API files should stay proxy-only until each frontend fetch is moved directly to Rails.
+The public booking workflow and administration modules communicate with Rails through the centralized React API client and Vite's `/rails-api` development proxy. The former Next.js API compatibility routes have been removed.
+
+## Resume Here (2026-09-12 frontend migration)
+
+- Replaced Next.js with a React/Vite SPA while preserving all public and admin URLs.
+- React Router owns navigation and layouts; Rails remains the only backend and source of business logic.
+- The API client maps existing frontend `/api/...` calls to Rails `/api/v1/...`, adding JWT and property context.
+- Login persists the Rails token/profile according to Remember Me, validates sessions with `/auth/me`, revokes refresh sessions on logout, and redirects expired sessions to login.
+- A top-level error boundary prevents a component failure from blanking the entire application.
+- Removed the Next dependency, server layouts, API proxy routes, and build configuration.
+- Verified the Vite production build, all 29 frontend routes, and core authenticated Rails endpoints.
+- **Permanent code-organization rule:** use a domain-first, one-route-per-folder structure modeled on the local recruitment system. Each route owns `page.tsx`; feature-specific CRUD components, API functions, types, constants, and hooks stay beside it. The authoritative rule is `.agents/rules/hotel_new_era_preferences.md` section 6.
 
 ## Resume Here (2026-09-11 session end)
 
@@ -17,22 +28,21 @@ The public booking workflow and administration modules communicate with Rails ei
 - **Login and dashboard responsiveness:** reduced unnecessary post-login work by preserving a display-only session profile cookie and by using the compact dashboard response path. The dashboard now has a route loading state. The related Rails development logging was reduced to normal `info` level because verbose Docker bind-mount SQL logging was adding local delay.
 - **Exact room assignment:** the Dashboard **New Booking** flow now supports selecting a specific available room. The selected room is sent to Rails, reserved atomically, and reflected in the Room Board. The backend validates availability rather than trusting the browser.
 - **Correct BS/AD dates:** replaced the previous approximate, incorrect frontend conversion with `@inicrea/bikram-sambat-core`, which uses Bikram Sambat calendar data. Confirmed result: `2026-09-11` AD is `2083-05-26` / **26 Bhadra 2083 BS**, fiscal year `2083/84`.
-- **CMS media is real and property-scoped:** added `CmsMediaAsset`, authenticated Rails media endpoints, local Active Storage persistence, image validation (JPG/PNG/WebP/GIF, maximum 10 MB), audit records, upload/list/delete API routes, and Next.js multipart proxy support. Database migrations applied:
+- **CMS media is real and property-scoped:** added `CmsMediaAsset`, authenticated Rails media endpoints, local Active Storage persistence, image validation (JPG/PNG/WebP/GIF, maximum 10 MB), and audit records. Database migrations applied:
   - `20260911000001_create_cms_media_library.rb`
   - `20260911000002_create_active_storage_variant_records.rb`
-- **CMS Builder image workflow:** `/admin/cms/pages` now has **Choose or upload image** directly in the Hero Cover Image and Offer Banner Image fields. It supports selecting an existing asset or uploading a new one in-place; saving/publishing the CMS form applies it to the public page. `/admin/cms/media` remains a separate, clean asset-management page only, without Website CMS Builder instructions/options.
+- **Hotel Setup workflow:** `/admin/cms/hotel-setup` manages operational master data (floors, room categories, and rooms). Public page images are uploaded directly from `/admin/cms/pages`.
 
 ### Validation completed today
 
 - `npx tsc --noEmit` passed after the active frontend changes.
 - Real authenticated CMS media workflow passed against Rails: upload → list → public image request (HTTP 200) → delete.
-- Authenticated request through the Next.js `/api/cms/media` proxy returned HTTP 200.
+- Authenticated request through the Vite-to-Rails proxy returned HTTP 200.
 - Rails migrations and seeds were applied to local Docker development. The OWNER seed role now has `CMS` read/create/delete permissions required by the new media API.
 
 ### Important current caveats
 
-- Do not run `npm run build` while `npm run dev` uses the same `.next` directory. This corrupts the running dev server's generated chunks/CSS. Recovery is: stop Next dev, delete only the project `.next` cache, then restart `npm run dev`.
-- The last production build compiled TypeScript and application code, but static export still fails on pre-existing public-page `useSearchParams()` calls that are not wrapped in Suspense (`/`, `/about`, `/banquet`, `/book`, `/contact`, `/dining`, `/offers`, `/rooms`). Resolve that separately before production deployment.
+- Production hosting must provide SPA history fallback to `index.html` and reverse-proxy `/rails-api/*` to Rails `/api/*`.
 - CMS media currently uses the local Active Storage disk service. For production, configure S3-compatible/object storage and persistent backups before deployment; do not rely on ephemeral server disk.
 
 ### Recommended next work
@@ -46,11 +56,11 @@ The public booking workflow and administration modules communicate with Rails ei
 
 ### Reference project
 
-Use `D:\Laravel Projects\kamra-pms-develop` as the local design and workflow reference for future Hotel New Era work. It is a Frappe/Python + React/Vite project; copy its interaction and layout patterns selectively, but keep Hotel New Era's Next.js + Rails architecture, Nepal localization, and own branding/data. Main reference sources: `frontend/src/AppShell.tsx` (app switcher/property selector/shell), `frontend/src/components/ui/stat-card.tsx` and `sparkline.tsx` (KPI cards), `frontend/src/screens/AppLauncher.tsx` (full launcher), plus `docs/screenshots/today.png` and `dashboard.png`. A nested duplicate `kamra-pms-develop\kamra-pms-develop` exists; use the top-level folder unless directed otherwise.
+Use `D:\Laravel Projects\kamra-pms-develop` as the local design and workflow reference for future Hotel New Era work. Copy its interaction and layout patterns selectively, but keep Hotel New Era's React/Vite + Rails architecture, Nepal localization, and own branding/data.
 
 ### Current UI state
 
-- Dashboard top KPI cards are temporary static presentation seed data: Arrivals 1, Departures 0, In-house 10, Occupancy 20% (3 of 15), Revenue `Rs. 9,819`, RevPAR `Rs. 983`. Fixed sparklines and the Kamra-style layout are in `src/app/(admin)/admin/dashboard/page.tsx` and `src/components/ui/StatTile.tsx`.
+- Dashboard top KPI cards are temporary static presentation seed data: Arrivals 1, Departures 0, In-house 10, Occupancy 20% (3 of 15), Revenue `Rs. 9,819`, RevPAR `Rs. 983`. Fixed sparklines and the Kamra-style layout are in `src/pages/admin/dashboard/page.tsx` and `src/components/ui/StatTile.tsx`.
 - KPI cards now mirror Kamra's compact `StatCard`: icon/label row, value and fixed 96×32 sparkline side-by-side, subtle border, and progress-bar variant. Revenue labels do not wrap.
 - Dashboard header has compact `New Booking` → `/book`.
 - Clicking a Room Board room opens a status modal (Clean, Dirty, Inspected, Occupied, Out of Order) and saves only after **Update status**. The unselected Occupied option uses soft green/dark text for visibility.
@@ -61,7 +71,7 @@ Use `D:\Laravel Projects\kamra-pms-develop` as the local design and workflow ref
 ### Local development/auth state
 
 - `backend/config/initializers/bcrypt.rb` applies `BCRYPT_COST` only in development/test. Docker development sets `BCRYPT_COST: 8`; production bcrypt security is unchanged. Default local seeded login remains `admin@hotelnewera.com` / `ChangeMe-Admin-2026!` unless manually changed.
-- Do **not** run `npm run build` while `npm run dev` is serving the same `.next` directory. It can cause missing chunk errors (e.g. `Cannot find module './7787.js'`). Recovery: stop Next dev, delete only this project's `.next`, restart `npm run dev`.
+- The frontend is now Vite-based; the former `.next` cache warning no longer applies.
 
 ### Next work
 
@@ -101,11 +111,11 @@ Next recommended work:
 - Property, room type, room, and availability read APIs.
 - Transactional reservation creation with room quote, taxes, folio, and audit log.
 - Transactional reservation modification, cancellation, room assignment, check-in, stay extension, and room transfer.
-- Next.js public booking integration with Rails.
+- React public booking integration with Rails.
 - Development seeds for one property, 43 rooms, room types, rates, taxes, services, role, and administrator.
 - OpenAPI description in `backend/openapi/v1.yaml`.
 - Rails persistence for CMS, CRM, housekeeping, inventory, POS, procurement, banquet, accounting, contact inquiries, notifications, and payments.
-- Proxy-only Next.js API compatibility files with no Prisma imports.
+- Centralized React-to-Rails API client with no Prisma imports.
 
 ## Current API Domains
 
@@ -142,14 +152,9 @@ The public URL contract remains `/api/v1/...`; the domain folders improve intern
 
 ## Migration Boundary
 
-`backend/` is the authoritative destination for all backend work. `src/app/api/` is now only a compatibility proxy layer. Prisma source files and package dependencies were removed from the active frontend stack.
+`backend/` is the authoritative destination for all backend work. React owns presentation; Rails owns persistence, authorization, validation, and business workflows. Prisma and Next.js were removed from the active frontend stack.
 
-Before deleting a proxy endpoint:
-
-1. Switch every frontend consumer from `/api/...` to `/rails-api/v1/...` or a shared frontend API client.
-2. Run Rails checks and the Next.js production build.
-3. Search for remaining fetches to that `/api/...` path.
-4. Remove only the obsolete proxy route.
+When adding or changing a frontend API call, update the shared mapping in `src/lib/api-client.ts` and implement the authoritative endpoint, authorization, validation, and audit behavior in Rails.
 
 ## Important Requirements
 

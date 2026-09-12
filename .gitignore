@@ -1,6 +1,7 @@
-# Next.js / Node
+# React / Vite / Node
 node_modules/
-.next/
+dist/
+.vite/
 npm-debug.log*
 
 # Local environment files

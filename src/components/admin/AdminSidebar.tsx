@@ -1,8 +1,5 @@
-'use client';
-
 import React from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import Link, { usePathname } from '@/lib/router';
 import { ADMIN_NAV_SECTIONS } from '@/lib/admin-nav';
 
 interface SidebarProps {

@@ -1,5 +1,3 @@
-'use client';
-
 import React from 'react';
 import { Calendar, Sparkles } from 'lucide-react';
 import { formatDualDate } from '@/lib/nepali-calendar';

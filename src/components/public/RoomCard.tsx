@@ -1,7 +1,5 @@
-'use client';
-
 import React from 'react';
-import Link from 'next/link';
+import Link from '@/lib/router';
 import { Users, Maximize2, Sparkles, Check } from 'lucide-react';
 
 interface RoomCardProps {

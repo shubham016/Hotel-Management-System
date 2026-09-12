@@ -1,7 +1,5 @@
-'use client';
-
 import React, { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/lib/router';
 import { Bell } from 'lucide-react';
 
 interface NotificationItem {
