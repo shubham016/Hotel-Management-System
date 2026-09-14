@@ -15,16 +15,23 @@ module Api
         end
 
         def create
-          room_type = default_property.room_types.create!(room_type_params.merge(setup_managed: true))
-          audit!("ROOMS", "CREATE", "RoomType", room_type.id, new_values: room_type.attributes.slice("name", "code", "base_price"))
+          room_type = RoomType.transaction do
+            created = default_property.room_types.create!(room_type_params.merge(setup_managed: true))
+            created.reload
+            audit!("ROOMS", "CREATE", "RoomType", created.id, new_values: audit_values(created))
+            created
+          end
           render json: { success: true, data: serialize(room_type) }, status: :created
         end
 
         def update
           room_type = default_property.room_types.setup_managed.find(params[:id])
-          old_values = room_type.attributes.slice("name", "code", "base_price", "active")
-          room_type.update!(room_type_params)
-          audit!("ROOMS", "UPDATE", "RoomType", room_type.id, old_values:, new_values: room_type.attributes.slice("name", "code", "base_price", "active"))
+          RoomType.transaction do
+            old_values = audit_values(room_type)
+            room_type.update!(room_type_params)
+            room_type.reload
+            audit!("ROOMS", "UPDATE", "RoomType", room_type.id, old_values:, new_values: audit_values(room_type))
+          end
           render json: { success: true, data: serialize(room_type) }
         end
 
@@ -38,11 +45,15 @@ module Api
         private
 
         def serialize(room_type)
-          room_type.as_json(only: %i[id name code slug description base_price max_adults max_children max_occupancy amenities active])
+          room_type.as_json(only: %i[id name code slug description base_price bed_count max_adults max_children max_occupancy amenities active])
+        end
+
+        def audit_values(room_type)
+          room_type.attributes.slice("name", "code", "base_price", "bed_count", "active")
         end
 
         def room_type_params
-          permitted = params.require(:room_type).permit(:name, :code, :slug, :description, :base_price, :max_adults, :max_children, :max_occupancy, :active, amenities: [])
+          permitted = params.require(:room_type).permit(:name, :code, :slug, :description, :base_price, :bed_count, :max_adults, :max_children, :max_occupancy, :active, amenities: [])
           permitted[:slug] = permitted[:name].to_s.parameterize if permitted[:slug].blank? && permitted[:name].present?
           if permitted[:max_adults].present? && permitted[:max_children].present?
             permitted[:max_occupancy] = permitted[:max_adults].to_i + permitted[:max_children].to_i

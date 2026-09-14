@@ -4,6 +4,30 @@
 **Backend direction:** Ruby on Rails JSON API
 **Current frontend:** React 18 + React Router + Vite 7 SPA; Rails owns every backend API
 
+## Resume Here (2026-09-12 session end)
+
+### Completed today
+
+- Hotel Setup is the operational inventory screen at `/admin/cms/hotel-setup`. It manages Floors, Room Categories, and Rooms with live Rails CRUD; `/admin/cms/pages` remains the website-content editor.
+- Removed demo/seed inventory from Hotel Setup and the Dashboard Room Board. Existing demo room categories and rooms are marked/prefixed as demo data, leaving operational inventory to be created through Hotel Setup.
+- Added bulk room creation: an owner can create a consecutive room range (for example 101 to 110) at once. Room lists now use natural numeric ordering rather than lexicographic ordering (1, 2, ... 10).
+- Added per-floor room management: compact room ranges, expandable individual-room controls, and a delete-all-rooms-on-floor action.
+- Corrected Owner access for Hotel Setup through the `ROOM_SETUP` permission module. Manager and Front Desk Staff have status-update access through the separate `ROOMS` module.
+- Room Category form improvements: amenities accept comma-separated values normally; Base nightly rate, Adults, and Children start blank; total capacity is calculated after adult and child values are entered.
+
+### Validation completed today
+
+- Frontend typecheck passed: `npm.cmd run typecheck`.
+- Production frontend build passed earlier in this session.
+- Rails test suite passed: 16 runs, 90 assertions, 0 failures.
+- Rails database migrations are up, and the Docker API/database health checks returned HTTP 200 / healthy.
+
+### Resume next session
+
+1. Continue testing real owner-created floors, room categories, and bulk rooms in Hotel Setup.
+2. Replace remaining hard-coded PMS Room Board labels/counts with live values where needed.
+3. Continue the live Rails integration for remaining admin and staff workflows.
+
 ## Resume Here (2026-09-02 session end)
 
 The Rails backend is established in `backend/`; it is now the authoritative backend for the active application API surface. Authentication, hotel inventory, availability, pricing, reservation creation and lifecycle management, PMS rooms, front desk, folios, checkout, night audit, CMS pages/offers, CRM guests, housekeeping, inventory, POS, procurement, banquet, accounting, audit records, notifications, and document sequencing have Rails implementations.
@@ -21,7 +45,7 @@ The public booking workflow and administration modules communicate with Rails th
 - Verified the Vite production build, all 29 frontend routes, and core authenticated Rails endpoints.
 - **Permanent code-organization rule:** use a domain-first, one-route-per-folder structure modeled on the local recruitment system. Each route owns `page.tsx`; feature-specific CRUD components, API functions, types, constants, and hooks stay beside it. The authoritative rule is `.agents/rules/hotel_new_era_preferences.md` section 6.
 - **Operational inventory rule:** old seed rooms and room categories are marked demo-only and excluded from Hotel Setup and the Dashboard Room Board. Create all operational floors, room categories, and rooms through `/admin/cms/hotel-setup`.
-- **Hotel Setup permission rule:** Floors, Room Categories, and Rooms are one operational inventory module. The `OWNER` role has `ROOMS` read/create/update/delete access; do not split these permissions into separate `FLOORS` or `ROOM_TYPES` modules.
+- **Hotel Setup permission rule:** Floors, Room Categories, and Rooms are one operational inventory module. The `OWNER` role has `ROOM_SETUP` read/create/update/delete access; do not split these permissions into separate `FLOORS` or `ROOM_TYPES` modules. `ROOMS` is reserved for operational room-status access.
 
 ## Resume Here (2026-09-11 session end)
 

@@ -48,3 +48,18 @@
 ## 7. Response Length
 - Keep user-facing responses short and outcome-focused by default.
 - Do not repeat completed work or provide long summaries unless the user explicitly requests detail, explanation, commands, or a report.
+
+## 8. End-to-End Change Completeness
+- Treat every approved feature or data-field change as end-to-end work by default. Update all affected UI create, edit, and view states; frontend types and API clients; Rails routes, controllers, serializers, strong parameters, models, validation, migrations/schema, audit data, and relevant tests in the same change.
+- Do not wait for the user to separately request the related layers when they are required for the feature to function correctly.
+
+## 9. Authoritative Data Synchronization
+- Wrong or stale data is unacceptable. A write API must not report success until the database transaction has completed, and its response must be serialized from the persisted, reloaded database record.
+- After create, update, or delete operations, the frontend must reconcile with authoritative API/database data before showing success. Do not rely on optimistic or locally fabricated master, operational, inventory, reservation, accounting, or financial values.
+- Every data-changing feature must include relevant integration coverage proving that the submitted value, database value, API response, and refreshed view contract agree.
+
+## 10. Project-Wide Performance
+- Every page load, view transition, search, form submission, and CRUD action must remain responsive. Avoid unnecessary full-page reloads, duplicate API calls, blocking refetches, sequential requests that can run together, and repeated authentication or database work.
+- Use authoritative persisted API responses to update the interface immediately, then perform background revalidation only when needed. Performance improvements must never weaken validation, transactions, tenant isolation, authorization, auditability, or data correctness.
+- Design APIs and queries for the complete screen workflow: consolidate closely related reads, preload required associations, prevent N+1 queries, paginate large datasets, add appropriate indexes, and measure slow paths before considering work complete.
+- Loading and saving states must provide immediate visual feedback and must not freeze unrelated parts of the interface.

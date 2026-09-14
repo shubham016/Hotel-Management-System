@@ -1,5 +1,4 @@
 import type { Dispatch, FormEvent, SetStateAction } from 'react';
-import { Card } from '@/components/ui/Card';
 import { ROOM_STATUSES, readableStatus } from '../constants';
 import type { BulkRoomForm, Floor, FloorForm, RoomForm, RoomType, RoomTypeForm, SetupTab } from '../types';
 import { ActiveField, Field, FormActions } from './FormControls';
@@ -21,7 +20,7 @@ export function SetupForm(props: Props) {
   const title = tab === 'floors' ? 'Floor' : tab === 'room_types' ? 'Room Category' : 'Room';
   const submit = (event: FormEvent, resource: string, key: string, data: unknown) => { event.preventDefault(); onSave(resource, key, data); };
 
-  return <Card title={`${editing ? 'Edit' : 'Add'} ${title}`}>
+  return <>
     {tab === 'floors' && <form onSubmit={(event) => submit(event, 'floors', 'floor', floorForm)} className="hne-form-grid">
       <Field label="Floor number"><input required min="1" type="number" className="hne-input" value={floorForm.number} onChange={(event) => setFloorForm({ ...floorForm, number: Number(event.target.value) })} /></Field>
       <Field label="Display name"><input required className="hne-input" placeholder="e.g. First Floor" value={floorForm.name} onChange={(event) => setFloorForm({ ...floorForm, name: event.target.value })} /></Field>
@@ -29,11 +28,12 @@ export function SetupForm(props: Props) {
       <FormActions saving={saving} onClear={onClear} label={title} />
     </form>}
 
-    {tab === 'room_types' && <form onSubmit={(event) => submit(event, 'room_types', 'room_type', { ...roomTypeForm, base_price: Number(roomTypeForm.base_price), max_adults: Number(roomTypeForm.max_adults), max_children: Number(roomTypeForm.max_children), max_occupancy: Number(roomTypeForm.max_occupancy), amenities: roomTypeForm.amenities.filter(Boolean) })} className="hne-form-grid">
+    {tab === 'room_types' && <form onSubmit={(event) => submit(event, 'room_types', 'room_type', { ...roomTypeForm, base_price: Number(roomTypeForm.base_price), bed_count: Number(roomTypeForm.bed_count), max_adults: Number(roomTypeForm.max_adults), max_children: Number(roomTypeForm.max_children), max_occupancy: Number(roomTypeForm.max_occupancy), amenities: roomTypeForm.amenities.filter(Boolean) })} className="hne-form-grid">
       <Field label="Category name"><input required className="hne-input" value={roomTypeForm.name} onChange={(event) => setRoomTypeForm({ ...roomTypeForm, name: event.target.value })} /></Field>
       <Field label="Code"><input required className="hne-input" placeholder="DLX-K" value={roomTypeForm.code} onChange={(event) => setRoomTypeForm({ ...roomTypeForm, code: event.target.value })} /></Field>
       <Field label="Base nightly rate (NPR)"><input required min="0" type="number" className="hne-input" value={roomTypeForm.base_price} onChange={(event) => setRoomTypeForm({ ...roomTypeForm, base_price: event.target.value === '' ? '' : Number(event.target.value) })} /></Field>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+      <Field label="Number of beds"><input required min="1" step="1" type="number" className="hne-input" value={roomTypeForm.bed_count} onChange={(event) => setRoomTypeForm({ ...roomTypeForm, bed_count: event.target.value === '' ? '' : Number(event.target.value) })} /></Field>
+      <div className="hne-capacity-grid">
         <Field label="Adults"><input required min="0" type="number" className="hne-input" value={roomTypeForm.max_adults} onChange={(event) => { const max_adults = event.target.value === '' ? '' : Number(event.target.value); setRoomTypeForm({ ...roomTypeForm, max_adults, max_occupancy: max_adults === '' || roomTypeForm.max_children === '' ? '' : max_adults + roomTypeForm.max_children }); }} /></Field>
         <Field label="Children"><input required min="0" type="number" className="hne-input" value={roomTypeForm.max_children} onChange={(event) => { const max_children = event.target.value === '' ? '' : Number(event.target.value); setRoomTypeForm({ ...roomTypeForm, max_children, max_occupancy: roomTypeForm.max_adults === '' || max_children === '' ? '' : roomTypeForm.max_adults + max_children }); }} /></Field>
         <Field label="Total capacity"><input readOnly type="number" className="hne-input" value={roomTypeForm.max_occupancy} aria-label="Total capacity, calculated from adults and children" /></Field>
@@ -63,5 +63,5 @@ export function SetupForm(props: Props) {
       <ActiveField value={bulkRoomForm.active} onChange={(active) => setBulkRoomForm({ ...bulkRoomForm, active })} />
       <FormActions saving={saving} onClear={onClear} label={`room${bulkRoomForm.quantity === 1 ? '' : 's'}`} />
     </form>)}
-  </Card>;
+  </>;
 }

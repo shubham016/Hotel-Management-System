@@ -12,5 +12,6 @@ class RoomType < ApplicationRecord
   validates :name, :code, :slug, presence: true
   validates :base_price, numericality: { greater_than_or_equal_to: 0 }
   validates :max_adults, :max_children, :max_occupancy, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
+  validates :bed_count, numericality: { only_integer: true, greater_than: 0 }
   validates :code, uniqueness: { scope: :property_id }
 end

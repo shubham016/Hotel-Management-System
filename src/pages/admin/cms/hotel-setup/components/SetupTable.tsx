@@ -1,5 +1,6 @@
 import { Fragment, useState } from 'react';
-import { ChevronDown, ChevronUp, Pencil, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { readableStatus } from '../constants';
 import type { Floor, Room, RoomType, SetupTab } from '../types';
@@ -12,6 +13,7 @@ type Props = {
   onEditFloor: (floor: Floor) => void;
   onEditRoomType: (roomType: RoomType) => void;
   onEditRoom: (room: Room) => void;
+  onAdd: () => void;
   onRemove: (resource: string, id: string, name: string) => void;
   onRemoveFloorRooms: (floor: number, name: string, count: number) => void;
 };
@@ -39,10 +41,11 @@ function summary<T>(items: T[], label: (item: T) => string) {
     .map(([name]) => name).join(', ');
 }
 
-export function SetupTable({ tab, floors, roomTypes, rooms, onEditFloor, onEditRoomType, onEditRoom, onRemove, onRemoveFloorRooms }: Props) {
+export function SetupTable({ tab, floors, roomTypes, rooms, onEditFloor, onEditRoomType, onEditRoom, onAdd, onRemove, onRemoveFloorRooms }: Props) {
   const [expandedFloor, setExpandedFloor] = useState<number | null>(null);
   const count = tab === 'floors' ? floors.length : tab === 'room_types' ? roomTypes.length : rooms.length;
   const title = tab === 'floors' ? 'Floors' : tab === 'room_types' ? 'Room Categories' : 'Rooms';
+  const addLabel = tab === 'floors' ? 'Add Floor' : tab === 'room_types' ? 'Add Room Category' : 'Add Rooms';
   const roomsByFloor = rooms.reduce((groups, room) => {
     const group = groups.get(room.floor) || [];
     group.push(room);
@@ -50,9 +53,9 @@ export function SetupTable({ tab, floors, roomTypes, rooms, onEditFloor, onEditR
     return groups;
   }, new Map<number, Room[]>());
 
-  return <Card title={`${title} (${count})`}>
+  return <Card className="hne-setup-table-card" title={`${title} (${count})`} action={<Button size="sm" onClick={onAdd}><Plus size={15} />{addLabel}</Button>}>
     {tab === 'floors' && <table className="hne-table"><thead><tr><th>No.</th><th>Name</th><th>Status</th><th>Actions</th></tr></thead><tbody>{floors.map((floor) => <tr key={floor.id}><td>{floor.number}</td><td>{floor.name}</td><td>{floor.active ? 'Active' : 'Inactive'}</td><Actions onEdit={() => onEditFloor(floor)} onRemove={() => onRemove('floors', floor.id, floor.name)} /></tr>)}</tbody></table>}
-    {tab === 'room_types' && <table className="hne-table"><thead><tr><th>Category</th><th>Code</th><th>Rate</th><th>Capacity</th><th>Actions</th></tr></thead><tbody>{roomTypes.map((roomType) => <tr key={roomType.id}><td>{roomType.name}{!roomType.active && ' (Inactive)'}</td><td>{roomType.code}</td><td>Rs. {Number(roomType.base_price).toLocaleString()}</td><td>{roomType.max_occupancy}</td><Actions onEdit={() => onEditRoomType(roomType)} onRemove={() => onRemove('room_types', roomType.id, roomType.name)} /></tr>)}</tbody></table>}
+    {tab === 'room_types' && <table className="hne-table"><thead><tr><th>Category</th><th>Code</th><th>Rate</th><th>Beds</th><th>Capacity</th><th>Actions</th></tr></thead><tbody>{roomTypes.map((roomType) => <tr key={roomType.id}><td>{roomType.name}{!roomType.active && ' (Inactive)'}</td><td>{roomType.code}</td><td>Rs. {Number(roomType.base_price).toLocaleString()}</td><td>{roomType.bed_count}</td><td>{roomType.max_occupancy}</td><Actions onEdit={() => onEditRoomType(roomType)} onRemove={() => onRemove('room_types', roomType.id, roomType.name)} /></tr>)}</tbody></table>}
     {tab === 'rooms' && <table className="hne-table"><thead><tr><th>Floor</th><th>Rooms</th><th>Categories</th><th>Status</th><th>Actions</th></tr></thead><tbody>{Array.from(roomsByFloor.entries()).sort(([left], [right]) => left - right).map(([floorNumber, floorRooms]) => {
       const isExpanded = expandedFloor === floorNumber;
       const floorName = floors.find((floor) => floor.number === floorNumber)?.name || `Floor ${floorNumber}`;

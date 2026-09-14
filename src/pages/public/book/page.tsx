@@ -226,6 +226,8 @@ export default function BookPage() {
                   minDate={today}
                   onChange={(val) => setCheckInDate(val)}
                   required
+                  showBsIcon={!isEmbeddedBooking}
+                  showBsBadge={!isEmbeddedBooking}
                 />
                 <DualCalendarPicker
                   label="Check-Out Date"
@@ -233,6 +235,8 @@ export default function BookPage() {
                   minDate={checkInDate}
                   onChange={(val) => setCheckOutDate(val)}
                   required
+                  showBsIcon={!isEmbeddedBooking}
+                  showBsBadge={!isEmbeddedBooking}
                 />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>

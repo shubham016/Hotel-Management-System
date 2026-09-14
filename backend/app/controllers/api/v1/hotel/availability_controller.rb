@@ -32,7 +32,7 @@ module Api
               add_on_codes: []
             )
             {
-              roomType: room_type.as_json(only: %i[id name code slug description amenities max_adults max_children max_occupancy]),
+              roomType: room_type.as_json(only: %i[id name code slug description amenities bed_count max_adults max_children max_occupancy]),
               availableRooms: available,
               quote: quote_payload(quote)
             }

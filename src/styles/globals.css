@@ -361,6 +361,24 @@ h1, h2, h3, h4, h5, h6 {
   margin: 0;
 }
 
+.hne-form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.hne-form-grid .hne-label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.hne-capacity-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
 
 .hne-input, .hne-select, .hne-textarea {
   width: 100%;
@@ -428,4 +446,169 @@ h1, h2, h3, h4, h5, h6 {
 
 .animate-fade-in {
   animation: fadeIn 0.3s ease forwards;
+}
+
+/* Modal dialogs */
+.hne-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.56);
+  backdrop-filter: blur(3px);
+  animation: fadeIn 0.18s ease-out;
+}
+
+.hne-modal {
+  width: min(100%, 620px);
+  max-height: min(760px, calc(100vh - 40px));
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--bg-card);
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.28);
+}
+
+.hne-modal.hne-setup-modal {
+  width: min(100%, 480px);
+  border-radius: 16px;
+}
+
+.hne-modal-header,
+.hne-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border);
+}
+
+.hne-modal-title { font-size: 18px; }
+.hne-modal-subtitle { margin-top: 3px; color: var(--text-secondary); font-size: 12px; }
+
+.hne-modal-close {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.hne-modal-close:hover { background: var(--bg-subtle); color: var(--text-primary); }
+.hne-modal-close:disabled { cursor: not-allowed; opacity: 0.55; }
+
+.hne-modal-body {
+  max-height: calc(min(760px, 100vh - 40px) - 88px);
+  overflow-y: auto;
+  padding: 22px;
+}
+
+.hne-setup-modal .hne-modal-header { padding: 16px 18px; }
+.hne-setup-modal .hne-modal-body { padding: 18px; }
+
+.hne-setup-modal .hne-input,
+.hne-setup-modal .hne-select,
+.hne-setup-modal .hne-textarea {
+  border-color: #CBD5E1;
+  background: var(--bg-input);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(148, 163, 184, 0.08);
+}
+
+.hne-setup-modal .hne-input:hover,
+.hne-setup-modal .hne-select:hover,
+.hne-setup-modal .hne-textarea:hover {
+  border-color: #94A3B8;
+}
+
+.hne-setup-modal .hne-input:focus,
+.hne-setup-modal .hne-select:focus,
+.hne-setup-modal .hne-textarea:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(168, 28, 36, 0.12);
+}
+
+.hne-setup-modal .hne-check-option input {
+  accent-color: var(--brand-crimson);
+  outline: 1px solid #CBD5E1;
+  outline-offset: 1px;
+  border-radius: 3px;
+}
+
+[data-theme='dark'] .hne-setup-modal .hne-input,
+[data-theme='dark'] .hne-setup-modal .hne-select,
+[data-theme='dark'] .hne-setup-modal .hne-textarea {
+  border-color: #3B465A;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.24), 0 0 0 1px rgba(124, 138, 165, 0.08);
+}
+
+[data-theme='dark'] .hne-setup-modal .hne-check-option input {
+  outline-color: #56647A;
+}
+
+/* Hotel Setup needs a more explicit grid because its master-data tables have compact cells. */
+.hne-setup-table-card .hne-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid #94A3B8;
+  border-radius: var(--radius-md);
+}
+
+.hne-setup-table-card .hne-table th,
+.hne-setup-table-card .hne-table td {
+  border-right: 1px solid #CBD5E1 !important;
+  border-bottom: 1px solid #CBD5E1 !important;
+}
+
+.hne-setup-table-card .hne-table th:last-child,
+.hne-setup-table-card .hne-table td:last-child {
+  border-right: 0;
+}
+
+.hne-setup-table-card .hne-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.hne-setup-table-card .hne-table th {
+  background: var(--bg-subtle);
+}
+
+.hne-setup-table-card .hne-table thead tr:first-child th:first-child {
+  border-top-left-radius: calc(var(--radius-md) - 1px);
+}
+
+.hne-setup-table-card .hne-table thead tr:first-child th:last-child {
+  border-top-right-radius: calc(var(--radius-md) - 1px);
+}
+
+.hne-setup-table-card .hne-table tbody tr:last-child td:first-child {
+  border-bottom-left-radius: calc(var(--radius-md) - 1px);
+}
+
+.hne-setup-table-card .hne-table tbody tr:last-child td:last-child {
+  border-bottom-right-radius: calc(var(--radius-md) - 1px);
+}
+
+[data-theme='dark'] .hne-setup-table-card .hne-table th,
+[data-theme='dark'] .hne-setup-table-card .hne-table td {
+  border-color: #52617A !important;
+}
+
+.hne-modal-footer { border-top: 1px solid var(--border); border-bottom: 0; }
+
+@media (max-width: 560px) {
+  .hne-modal-backdrop { padding: 10px; }
+  .hne-modal { max-height: calc(100vh - 20px); border-radius: var(--radius-lg); }
+  .hne-modal-header, .hne-modal-body, .hne-modal-footer { padding: 16px; }
+  .hne-modal-body { max-height: calc(100vh - 20px - 80px); }
+  .hne-capacity-grid { grid-template-columns: 1fr; }
 }

@@ -8,6 +8,8 @@ interface DualCalendarPickerProps {
   onChange: (newDate: string) => void;
   minDate?: string;
   required?: boolean;
+  showBsIcon?: boolean;
+  showBsBadge?: boolean;
   className?: string;
 }
 
@@ -17,6 +19,8 @@ export const DualCalendarPicker: React.FC<DualCalendarPickerProps> = ({
   onChange,
   minDate,
   required = false,
+  showBsIcon = true,
+  showBsBadge = true,
   className = ''
 }) => {
   const dualInfo = formatDualDate(value || new Date());
@@ -28,7 +32,7 @@ export const DualCalendarPicker: React.FC<DualCalendarPickerProps> = ({
           <Calendar size={14} color="var(--primary-orange)" />
           <span>{label}</span>
         </label>
-        <span
+        {showBsBadge && <span
           style={{
             fontSize: 11,
             fontWeight: 700,
@@ -41,8 +45,8 @@ export const DualCalendarPicker: React.FC<DualCalendarPickerProps> = ({
             gap: 4
           }}
         >
-          <Sparkles size={10} /> BS: {dualInfo.bsFormatted}
-        </span>
+          {showBsIcon && <Sparkles size={10} />} BS: {dualInfo.bsFormatted}
+        </span>}
       </div>
 
       <div style={{ position: 'relative' }}>

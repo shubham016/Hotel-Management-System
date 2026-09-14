@@ -1,4 +1,4 @@
-import type { SetupData } from './types';
+import type { Room, SetupData } from './types';
 
 type ApiResponse<T> = { success: boolean; data: T; error?: string; details?: Record<string, string[]> };
 
@@ -17,20 +17,15 @@ async function setupRequest<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function loadHotelSetup(): Promise<SetupData> {
-  const [floors, roomTypes, rooms] = await Promise.all([
-    setupRequest<SetupData['floors']>('floors'),
-    setupRequest<SetupData['roomTypes']>('room_types'),
-    setupRequest<SetupData['rooms']>('rooms')
-  ]);
-  return { floors, roomTypes, rooms };
+  return setupRequest<SetupData>('hotel_setup');
 }
 
-export function saveSetupRecord(resource: string, key: string, data: unknown, id?: string | null) {
-  return setupRequest(`${resource}${id ? `?id=${id}` : ''}`, { method: id ? 'PATCH' : 'POST', body: JSON.stringify({ [key]: data }) });
+export function saveSetupRecord<T>(resource: string, key: string, data: unknown, id?: string | null) {
+  return setupRequest<T>(`${resource}${id ? `?id=${id}` : ''}`, { method: id ? 'PATCH' : 'POST', body: JSON.stringify({ [key]: data }) });
 }
 
-export function createRoomBatch(data: unknown) {
-  return setupRequest('rooms/bulk', { method: 'POST', body: JSON.stringify({ rooms: data }) });
+export function createRoomBatch(data: unknown): Promise<Room[]> {
+  return setupRequest<Room[]>('rooms/bulk', { method: 'POST', body: JSON.stringify({ rooms: data }) });
 }
 
 export function deleteSetupRecord(resource: string, id: string) {

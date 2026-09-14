@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_12_000004) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_14_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -561,6 +561,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_12_000004) do
     t.boolean "active", default: true, null: false
     t.jsonb "amenities", default: [], null: false
     t.decimal "base_price", precision: 12, scale: 2, null: false
+    t.integer "bed_count", default: 1, null: false
     t.string "code", null: false
     t.datetime "created_at", null: false
     t.text "description"
@@ -576,6 +577,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_12_000004) do
     t.index ["property_id", "setup_managed"], name: "index_room_types_on_property_id_and_setup_managed"
     t.index ["property_id", "slug"], name: "index_room_types_on_property_id_and_slug", unique: true
     t.index ["property_id"], name: "index_room_types_on_property_id"
+    t.check_constraint "bed_count > 0", name: "room_types_positive_bed_count"
   end
 
   create_table "rooms", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
