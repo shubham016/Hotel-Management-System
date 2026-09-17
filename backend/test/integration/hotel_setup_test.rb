@@ -27,6 +27,7 @@ class HotelSetupTest < ActionDispatch::IntegrationTest
         name: "Twin Room",
         code: "TWIN",
         base_price: 3_500,
+        bed_category: "Twin",
         bed_count: 2,
         max_adults: 2,
         max_children: 0,
@@ -39,6 +40,7 @@ class HotelSetupTest < ActionDispatch::IntegrationTest
     room_type = RoomType.find(response.parsed_body.dig("data", "id"))
     assert_equal 2, response.parsed_body.dig("data", "bed_count")
     assert_equal 2, room_type.bed_count
+    assert_equal "Twin", room_type.bed_category
   end
 
   test "setup snapshot returns all master data in one request" do
@@ -48,6 +50,7 @@ class HotelSetupTest < ActionDispatch::IntegrationTest
       code: "TWIN",
       slug: "twin-room",
       base_price: 3_500,
+      bed_category: "Twin",
       bed_count: 2,
       max_adults: 2,
       max_children: 0,
@@ -61,6 +64,7 @@ class HotelSetupTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_equal 1, response.parsed_body.dig("data", "floors").length
     assert_equal 2, response.parsed_body.dig("data", "roomTypes", 0, "bed_count")
+    assert_equal "Twin", response.parsed_body.dig("data", "roomTypes", 0, "bed_category")
     assert_equal "101", response.parsed_body.dig("data", "rooms", 0, "roomNumber")
   end
 
@@ -70,6 +74,7 @@ class HotelSetupTest < ActionDispatch::IntegrationTest
       code: "DLX",
       slug: "deluxe-room",
       base_price: 4_200,
+      bed_category: "King",
       bed_count: 1,
       max_adults: 2,
       max_children: 1,
@@ -78,11 +83,64 @@ class HotelSetupTest < ActionDispatch::IntegrationTest
     )
 
     patch "/api/v1/room_types/#{room_type.id}", params: {
-      room_type: { bed_count: 3 }
+      room_type: { bed_category: "Triple", bed_count: 3 }
     }, headers: @headers, as: :json
 
     assert_response :success
     assert_equal 3, response.parsed_body.dig("data", "bed_count")
     assert_equal 3, room_type.reload.bed_count
+    assert_equal "Triple", room_type.bed_category
+  end
+
+  test "room category capacity uses zero for a blank adult or child value" do
+    post "/api/v1/room_types", params: {
+      room_type: {
+        name: "Adults Only Room",
+        code: "ADULTS-ONLY",
+        base_price: 3_000,
+        bed_category: "Double",
+        bed_count: 1,
+        max_adults: 2,
+        max_children: "",
+        amenities: [],
+        active: true
+      }
+    }, headers: @headers, as: :json
+
+    assert_response :created
+    room_type = RoomType.find(response.parsed_body.dig("data", "id"))
+    assert_equal 2, response.parsed_body.dig("data", "max_occupancy")
+    assert_equal 2, room_type.max_occupancy
+    assert_equal 0, room_type.max_children
+
+    patch "/api/v1/room_types/#{room_type.id}", params: {
+      room_type: { max_adults: "", max_children: 3 }
+    }, headers: @headers, as: :json
+
+    assert_response :success
+    assert_equal 3, response.parsed_body.dig("data", "max_occupancy")
+    assert_equal 3, room_type.reload.max_occupancy
+    assert_equal 0, room_type.max_adults
+  end
+
+  test "all rooms on a floor can be updated together from persisted values" do
+    original_type = @property.room_types.create!(name: "Standard", code: "STD", slug: "standard", base_price: 2_000, bed_category: "Double", setup_managed: true)
+    new_type = @property.room_types.create!(name: "Deluxe", code: "DLX", slug: "deluxe", base_price: 3_000, bed_category: "King", setup_managed: true)
+    rooms = %w[101 102].map { |number| @property.rooms.create!(room_type: original_type, room_number: number, floor: 1, setup_managed: true) }
+
+    patch "/api/v1/rooms/floor/1", params: {
+      rooms: { floor: 2, room_type_id: new_type.id, status: "VACANT_DIRTY", smoking: true }
+    }, headers: @headers, as: :json
+
+    assert_response :success
+    assert_equal 2, response.parsed_body["data"].length
+    rooms.each do |room|
+      room.reload
+      assert_equal 2, room.floor
+      assert_equal new_type.id, room.room_type_id
+      assert_equal "VACANT_DIRTY", room.status
+      assert room.smoking
+    end
+    assert_equal rooms.map(&:id).sort, response.parsed_body["data"].pluck("id").sort
   end
 end

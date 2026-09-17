@@ -1,4 +1,4 @@
-import type { Room, SetupData } from './types';
+import type { BulkRoomUpdateForm, Room, SetupData } from './types';
 
 type ApiResponse<T> = { success: boolean; data: T; error?: string; details?: Record<string, string[]> };
 
@@ -34,4 +34,9 @@ export function deleteSetupRecord(resource: string, id: string) {
 
 export function deleteRoomsOnFloor(floor: number) {
   return setupRequest(`rooms/floor/${floor}`, { method: 'DELETE' });
+}
+
+export function updateRoomsOnFloor(floor: number, data: BulkRoomUpdateForm): Promise<Room[]> {
+  const changes = Object.fromEntries(Object.entries(data).filter(([, value]) => value !== ''));
+  return setupRequest<Room[]>(`rooms/floor/${floor}`, { method: 'PATCH', body: JSON.stringify({ rooms: changes }) });
 }

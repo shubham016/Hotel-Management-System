@@ -13,14 +13,18 @@ module Api
 
           rooms_count = Integer(params[:roomsCount].presence || 1)
           adults_count = Integer(params[:adultsCount].presence || 1)
-          room_types = property.room_types.where(active: true)
+          children_count = Integer(params[:childrenCount].presence || 0)
+          room_types = property.room_types.setup_managed.where(active: true).includes(:rate_plans)
           room_types = room_types.where(code: params[:roomTypeCode].to_s.upcase) if params[:roomTypeCode].present?
 
           results = room_types.filter_map do |room_type|
+            next if adults_count > room_type.max_adults * rooms_count
+            next if children_count > room_type.max_children * rooms_count
+
             available = Availability::RoomInventory.available_count(property:, room_type:, check_in_date:, check_out_date:)
             next if available < rooms_count
 
-            rate_plan = property.rate_plans.find_by(room_type:, active: true)
+            rate_plan = room_type.rate_plans.find(&:active?)
             quote = Pricing::RoomQuote.call(
               property:,
               room_type:,
@@ -31,9 +35,11 @@ module Api
               adults_count:,
               add_on_codes: []
             )
+            physical_rooms = Availability::RoomInventory.available_rooms(property:, room_type:, check_in_date:, check_out_date:)
             {
-              roomType: room_type.as_json(only: %i[id name code slug description amenities bed_count max_adults max_children max_occupancy]),
+              roomType: room_type.as_json(only: %i[id name code slug description base_price bed_category amenities bed_count max_adults max_children max_occupancy]),
               availableRooms: available,
+              rooms: physical_rooms.map { |room| serialize_room(room, room_type) },
               quote: quote_payload(quote)
             }
           end
@@ -44,6 +50,17 @@ module Api
         end
 
         private
+
+        def serialize_room(room, room_type)
+          {
+            id: room.id,
+            roomNumber: room.room_number,
+            floor: room.floor,
+            status: room.status,
+            roomType: room_type.name,
+            roomTypeCode: room_type.code
+          }
+        end
 
         def quote_payload(quote)
           {

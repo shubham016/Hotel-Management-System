@@ -6,28 +6,25 @@ import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
 import { DualCalendarPicker } from '@/components/ui/DualCalendarPicker';
 import { formatDualDate } from '@/lib/nepali-calendar';
+import { createBooking, loadBookingAvailability } from './api';
+import { DEFAULT_ROOM_IMAGE, PROPERTY_CODE, ROOM_IMAGES } from './constants';
+import type { AvailabilityOption, BookingConfirmation } from './types';
 
 export default function BookPage() {
   const searchParams = useSearchParams();
   const isEmbeddedBooking = searchParams.get('embedded') === 'true';
+  const bookingSource = isEmbeddedBooking || searchParams.get('source') === 'WALK_IN' ? 'WALK_IN' : 'DIRECT_WEB';
   const today = new Date().toISOString().split('T')[0];
   const tomorrow = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [checkInDate, setCheckInDate] = useState(today);
-  const [checkOutDate, setCheckOutDate] = useState(tomorrow);
-  const [adults, setAdults] = useState('2');
-  const [children, setChildren] = useState('0');
-  const [selectedRoomCode, setSelectedRoomCode] = useState('LUX-01');
+  const [checkInDate, setCheckInDate] = useState(searchParams.get('checkIn') || today);
+  const [checkOutDate, setCheckOutDate] = useState(searchParams.get('checkOut') || tomorrow);
+  const [adults, setAdults] = useState(searchParams.get('adults') || '2');
+  const [children, setChildren] = useState(searchParams.get('children') || '0');
+  const [selectedRoomCode, setSelectedRoomCode] = useState(searchParams.get('type') || '');
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
-  const [physicalRooms, setPhysicalRooms] = useState<Array<{
-    id: string;
-    roomNumber: string;
-    floor: number;
-    status: string;
-    roomType: string;
-    roomTypeCode: string;
-  }>>([]);
+  const [availability, setAvailability] = useState<AvailabilityOption[]>([]);
   const [roomsLoading, setRoomsLoading] = useState(false);
   const [roomsError, setRoomsError] = useState('');
   
@@ -49,64 +46,33 @@ export default function BookPage() {
 
   // Booking Confirmation State
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [confirmationData, setConfirmationData] = useState<any>(null);
+  const [confirmationData, setConfirmationData] = useState<BookingConfirmation | null>(null);
 
-  const roomsCatalog: Record<string, { name: string; price: number; desc: string; img: string }> = {
-    'LUX-01': {
-      name: 'Luxury Room',
-      price: 5500,
-      desc: 'Climate-control AC, 60 Mbps NT Fiber Net WiFi, Cable TV, mineral water, and premium bath amenities.',
-      img: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=600&q=80'
-    },
-    'DLX-01': {
-      name: 'Deluxe Room',
-      price: 4200,
-      desc: 'Spacious Deluxe room equipped with individual climate control AC, LED Cable TV, and work desk.',
-      img: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=600&q=80'
-    },
-    'FAM-01': {
-      name: 'Family Room',
-      price: 6500,
-      desc: 'Expansive room for families with 2 double beds, modern bath, and daily housekeeping.',
-      img: 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&w=600&q=80'
-    },
-    'HNY-01': {
-      name: 'Honeymoon Room',
-      price: 7000,
-      desc: 'Specially decorated romantic suite with climate control AC, luxury furnishings, and bathtub.',
-      img: 'https://images.unsplash.com/photo-1566665797739-1674de7a421a?auto=format&fit=crop&w=600&q=80'
-    },
-    'STD-AC': {
-      name: 'Standard (AC) Room',
-      price: 3200,
-      desc: 'Comfortable air-conditioned standard room with double bed, attached bath, and fiber WiFi.',
-      img: 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=600&q=80'
-    },
-    'STD-01': {
-      name: 'Standard Room',
-      price: 2200,
-      desc: 'Clean, comfortable, and economical non-AC room with ceiling fan, attached bathroom, and free fiber WiFi.',
-      img: 'https://images.unsplash.com/photo-1598928506311-c55ded91a20c?auto=format&fit=crop&w=600&q=80'
-    }
-  };
-
-  const selectedRoom = roomsCatalog[selectedRoomCode] || roomsCatalog['LUX-01'];
-  const selectablePhysicalRooms = physicalRooms.filter((room) => room.roomTypeCode === selectedRoomCode);
+  const roomsCatalog = Object.fromEntries(availability.map((option) => [option.roomType.code, {
+    name: option.roomType.name,
+    price: option.quote.nightlyRate,
+    desc: option.roomType.description || `${option.roomType.bed_category} bed category · ${option.availableRooms} room(s) available`,
+    img: ROOM_IMAGES[option.roomType.code] || DEFAULT_ROOM_IMAGE
+  }]));
+  const selectedOption = availability.find((option) => option.roomType.code === selectedRoomCode);
+  const selectedRoom = roomsCatalog[selectedRoomCode] || { name: 'Select a room category', price: 0, desc: '', img: DEFAULT_ROOM_IMAGE };
+  const selectablePhysicalRooms = selectedOption?.rooms || [];
 
   useEffect(() => {
-    if (!isEmbeddedBooking || !checkInDate || !checkOutDate || checkOutDate <= checkInDate) return;
+    if (!checkInDate || !checkOutDate || checkOutDate <= checkInDate) {
+      setAvailability([]);
+      setSelectedRoomId(null);
+      return;
+    }
 
     const controller = new AbortController();
     setRoomsLoading(true);
     setRoomsError('');
     setSelectedRoomId(null);
-    fetch(`/api/pms/rooms?availableOnly=true&checkInDate=${encodeURIComponent(checkInDate)}&checkOutDate=${encodeURIComponent(checkOutDate)}`, {
-      signal: controller.signal
-    })
-      .then((response) => response.json())
-      .then((json) => {
-        if (json.success) setPhysicalRooms(json.data);
-        else setRoomsError(json.error || 'Unable to load available rooms.');
+    loadBookingAvailability({ propertyCode: PROPERTY_CODE, checkInDate, checkOutDate, adultsCount: Number(adults), childrenCount: Number(children), signal: controller.signal })
+      .then((options) => {
+        setAvailability(options);
+        setSelectedRoomCode((current) => options.some((option) => option.roomType.code === current) ? current : options[0]?.roomType.code || '');
       })
       .catch((error) => {
         if (error.name !== 'AbortError') setRoomsError('Unable to load available rooms.');
@@ -116,7 +82,7 @@ export default function BookPage() {
       });
 
     return () => controller.abort();
-  }, [isEmbeddedBooking, checkInDate, checkOutDate]);
+  }, [checkInDate, checkOutDate, adults, children]);
 
   // Financial Calculations
   const nights = Math.max(1, Math.ceil((new Date(checkOutDate).getTime() - new Date(checkInDate).getTime()) / (1000 * 60 * 60 * 24)));
@@ -137,15 +103,13 @@ export default function BookPage() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('/api/pms/reservations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          propertyCode: 'HNE-BTW',
+      if (!selectedRoomId) throw new Error('Select an available room number before continuing.');
+      const confirmation = await createBooking({
+          propertyCode: PROPERTY_CODE,
           checkInDate,
           checkOutDate,
           roomTypeCode: selectedRoomCode,
-          roomId: isEmbeddedBooking ? selectedRoomId : undefined,
+          roomId: selectedRoomId,
           roomsCount: 1,
           adultsCount: parseInt(adults),
           childrenCount: parseInt(children),
@@ -161,32 +125,24 @@ export default function BookPage() {
             AIRPORT_TRANSFER: addons.airportTransfer,
             SPA: addons.mountainSpa
           },
-          source: 'DIRECT_WEB'
-        })
+          source: bookingSource
       });
-
-      const data = await response.json();
-      if (data.success) {
-        setConfirmationData(data.data);
-        setStep(3);
-        if (isEmbeddedBooking && window.parent !== window) {
-          window.parent.postMessage({ type: 'hne:booking-created', reservation: data.data }, window.location.origin);
-        }
-      } else {
-        alert(data.error || 'Failed to create reservation.');
+      setConfirmationData(confirmation);
+      setStep(3);
+      if (isEmbeddedBooking && window.parent !== window) {
+        window.parent.postMessage({ type: 'hne:booking-created', reservation: confirmation }, window.location.origin);
       }
     } catch (err) {
-      console.error(err);
-      alert('The reservation service is currently unavailable. No booking was created.');
+      alert(err instanceof Error ? err.message : 'The reservation service is currently unavailable. No booking was created.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div style={{ padding: isEmbeddedBooking ? '24px' : '40px 24px 80px', maxWidth: 1200, margin: '0 auto' }}>
+    <div style={{ padding: '40px 24px 80px', maxWidth: 1200, margin: '0 auto' }}>
       {/* Title */}
-      {!isEmbeddedBooking && <div style={{ textAlign: 'center', marginBottom: 36 }}>
+      <div style={{ textAlign: 'center', marginBottom: 36 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary-orange)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
           Direct Online Booking
         </div>
@@ -194,10 +150,10 @@ export default function BookPage() {
         <p style={{ fontSize: 14.5, color: 'var(--text-secondary)' }}>
           Best Rate Guarantee • Instant Confirmation • Zero Booking Fees
         </p>
-      </div>}
+      </div>
 
       {/* Progress Tracker */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginBottom: isEmbeddedBooking ? 24 : 40 }}>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginBottom: 40 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: step >= 1 ? 'var(--primary-orange)' : 'var(--text-muted)', fontWeight: 700, fontSize: 14 }}>
           <span style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: step >= 1 ? 'var(--primary-orange)' : '#E5E7EB', color: step >= 1 ? '#FFFFFF' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>1</span>
           <span>Room Selection</span>
@@ -226,8 +182,8 @@ export default function BookPage() {
                   minDate={today}
                   onChange={(val) => setCheckInDate(val)}
                   required
-                  showBsIcon={!isEmbeddedBooking}
-                  showBsBadge={!isEmbeddedBooking}
+                  showBsIcon={false}
+                  showBsBadge={false}
                 />
                 <DualCalendarPicker
                   label="Check-Out Date"
@@ -235,8 +191,8 @@ export default function BookPage() {
                   minDate={checkInDate}
                   onChange={(val) => setCheckOutDate(val)}
                   required
-                  showBsIcon={!isEmbeddedBooking}
-                  showBsBadge={!isEmbeddedBooking}
+                  showBsIcon={false}
+                  showBsBadge={false}
                 />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -262,6 +218,7 @@ export default function BookPage() {
 
             <Card title="2. Select Room Category">
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {!roomsLoading && !roomsError && availability.length === 0 && <div style={{ padding: '12px 14px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--danger-light)', color: 'var(--danger-red)', fontSize: 13 }}>No room categories are available for these dates and guest counts.</div>}
                 {Object.entries(roomsCatalog).map(([code, room]) => {
                   const isSelected = selectedRoomCode === code;
                   return (
@@ -299,8 +256,7 @@ export default function BookPage() {
               </div>
             </Card>
 
-            {isEmbeddedBooking && (
-              <Card title="3. Select Exact Room Number">
+            <Card title="3. Select Exact Room Number">
                 {roomsLoading ? (
                   <div style={{ padding: '14px 0', color: 'var(--text-muted)', fontSize: 13 }}>Loading available rooms…</div>
                 ) : roomsError ? (
@@ -308,7 +264,7 @@ export default function BookPage() {
                 ) : selectablePhysicalRooms.length === 0 ? (
                   <div style={{ padding: '14px 0', color: 'var(--text-muted)', fontSize: 13 }}>No {selectedRoom.name} rooms are available for these dates.</div>
                 ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 10 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 10 }}>
                     {selectablePhysicalRooms.map((room) => {
                       const isSelected = selectedRoomId === room.id;
                       return (
@@ -317,20 +273,25 @@ export default function BookPage() {
                           type="button"
                           onClick={() => setSelectedRoomId(room.id)}
                           aria-pressed={isSelected}
-                          style={{ padding: '12px 10px', borderRadius: 'var(--radius-md)', border: `2px solid ${isSelected ? 'var(--primary-orange)' : 'var(--border)'}`, backgroundColor: isSelected ? 'var(--primary-orange-light)' : 'var(--bg-card)', color: 'var(--text-primary)', cursor: 'pointer', textAlign: 'left' }}
+                          aria-label={`Select room ${room.roomNumber}, available`}
+                          className="hne-room-choice"
                         >
-                          <div style={{ fontSize: 16, fontWeight: 800 }}>Room {room.roomNumber}</div>
-                          <div style={{ marginTop: 3, fontSize: 11, color: 'var(--text-secondary)' }}>Floor {room.floor} · {room.status === 'RESERVED' ? 'Available for dates' : 'Ready'}</div>
+                          <div className="hne-room-choice-header">
+                            <span>Room {room.roomNumber}</span>
+                            <span className="hne-room-choice-icon" aria-hidden="true">
+                              {isSelected ? <CheckCircle2 size={16} strokeWidth={2.5} /> : <BedDouble size={15} />}
+                            </span>
+                          </div>
+                          <div className="hne-room-choice-status">Available</div>
                         </button>
                       );
                     })}
                   </div>
                 )}
                 <p style={{ marginTop: 12, fontSize: 11.5, color: 'var(--text-muted)' }}>The selected room number will be assigned to this reservation and shown as Reserved on the dashboard room board.</p>
-              </Card>
-            )}
+            </Card>
 
-            <Card title={`${isEmbeddedBooking ? '4' : '3'}. Optional Add-On Experiences`}>
+            <Card title="4. Optional Add-On Experiences">
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', fontSize: 13.5 }}>
                   <input
@@ -422,7 +383,7 @@ export default function BookPage() {
               <Button
                 variant="primary"
                 size="lg"
-                disabled={isEmbeddedBooking && !selectedRoomId}
+                disabled={roomsLoading || !selectedRoomId}
                 style={{ width: '100%', boxShadow: 'var(--shadow-glow)' }}
                 onClick={() => setStep(2)}
               >

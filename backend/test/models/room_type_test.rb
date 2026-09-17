@@ -12,6 +12,7 @@ class RoomTypeTest < ActiveSupport::TestCase
       code: "INVALID-BEDS",
       slug: "invalid-beds",
       base_price: 1_000,
+      bed_category: "Single",
       bed_count: 0,
       max_adults: 2,
       max_children: 0,

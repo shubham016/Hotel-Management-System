@@ -11,10 +11,11 @@ class ReservationsTest < ActionDispatch::IntegrationTest
       base_price: 4_000,
       max_adults: 2,
       max_children: 1,
-      max_occupancy: 3
+      max_occupancy: 3,
+      setup_managed: true
     )
-    @property.rooms.create!(room_type: @room_type, room_number: "101")
-    @second_room = @property.rooms.create!(room_type: @room_type, room_number: "102")
+    @first_room = @property.rooms.create!(room_type: @room_type, room_number: "101", setup_managed: true)
+    @second_room = @property.rooms.create!(room_type: @room_type, room_number: "102", setup_managed: true)
     @property.rate_plans.create!(room_type: @room_type, name: "Room Only", code: "EP-DLX", price_modifier: 0)
     @role = @company.roles.create!(name: "SUPER_ADMIN", system: true)
     @user = @company.users.create!(
@@ -74,7 +75,7 @@ class ReservationsTest < ActionDispatch::IntegrationTest
     assert_equal "ROOM_UNAVAILABLE", response.parsed_body["code"]
   end
 
-  test "admin booking can assign an exact available room" do
+  test "website and front desk share exact-room inventory until checkout" do
     post "/api/v1/reservations", params: valid_payload.merge(
       roomId: @second_room.id,
       phone: "+977-9800000003"
@@ -83,17 +84,50 @@ class ReservationsTest < ActionDispatch::IntegrationTest
     assert_response :created
     body = response.parsed_body
     reservation = Reservation.find(body.dig("data", "id"))
+    assert_equal "DIRECT_WEB", reservation.source
     assert_equal @second_room.id, reservation.reservation_rooms.first.room_id
     assert_equal @second_room.room_number, body.dig("data", "roomNumber")
     assert_equal "RESERVED", @second_room.reload.status
 
     post "/api/v1/reservations", params: valid_payload.merge(
       roomId: @second_room.id,
-      phone: "+977-9800000004"
+      phone: "+977-9800000004",
+      source: "WALK_IN"
     ), as: :json
 
     assert_response :conflict
     assert_equal "ROOM_UNAVAILABLE", response.parsed_body["code"]
+
+    post "/api/v1/folio", params: {
+      operation: "SETTLE_AND_CHECKOUT",
+      folioId: reservation.folio.id,
+      settlementMethod: "CASH"
+    }, headers: auth_headers(auth_token), as: :json
+    assert_response :success, response.body
+    assert_equal "CHECKED_OUT", reservation.reload.status
+
+    post "/api/v1/reservations", params: valid_payload.merge(
+      roomId: @second_room.id,
+      phone: "+977-9800000005",
+      source: "WALK_IN"
+    ), as: :json
+    assert_response :created
+    assert_equal "WALK_IN", Reservation.find(response.parsed_body.dig("data", "id")).source
+  end
+
+  test "public availability returns exact rooms and removes a reserved room" do
+    get "/api/v1/availability?propertyCode=#{@property.code}&checkInDate=#{@check_in.iso8601}&checkOutDate=#{@check_out.iso8601}&adultsCount=2&childrenCount=0"
+
+    assert_response :success, response.body
+    assert_equal [ @first_room.id, @second_room.id ], response.parsed_body.dig("data", 0, "rooms").pluck("id")
+
+    post "/api/v1/reservations", params: valid_payload.merge(roomId: @first_room.id), as: :json
+    assert_response :created
+
+    get "/api/v1/availability?propertyCode=#{@property.code}&checkInDate=#{@check_in.iso8601}&checkOutDate=#{@check_out.iso8601}&adultsCount=2&childrenCount=0"
+
+    assert_response :success
+    assert_equal [ @second_room.id ], response.parsed_body.dig("data", 0, "rooms").pluck("id")
   end
 
   test "protected reservation lifecycle supports modify assign checkin extend transfer and cancel" do

@@ -76,6 +76,32 @@ module Api
           raise ApiError.new("Floor must be a whole number", status: :unprocessable_content, code: "INVALID_FLOOR")
         end
 
+        def update_floor
+          source_floor = Integer(params.require(:floor))
+          rooms = default_property.rooms.setup_managed.where(floor: source_floor).by_floor_and_room_number
+          raise ApiError.new("No setup-managed rooms found on this floor", status: :not_found, code: "NOT_FOUND") unless rooms.exists?
+
+          attributes = bulk_update_params
+          raise ApiError.new("Choose at least one room setting to update", status: :unprocessable_content, code: "NO_CHANGES") if attributes.empty?
+          ensure_setup_room_type!(attributes[:room_type_id]) if attributes[:room_type_id].present?
+          protected_changes = attributes.slice(:room_type_id, :status, :active)
+          active_bookings = ReservationRoom.joins(:reservation).where(room: rooms, reservations: { status: Reservation::ACTIVE_STATUSES }).exists?
+          if protected_changes.present? && active_bookings
+            raise ApiError.new("Room category, status, or active state cannot be changed in bulk while this floor has active reservations", status: :conflict, code: "ACTIVE_RESERVATIONS")
+          end
+
+          updated_rooms = Room.transaction do
+            rooms.map do |room|
+              room.update!(attributes)
+              room.reload
+            end
+          end
+          audit!("ROOM_SETUP", "UPDATE_BULK", "RoomBatch", updated_rooms.first.id, new_values: { room_ids: updated_rooms.map(&:id), source_floor:, changes: attributes.to_h })
+          render json: { success: true, data: updated_rooms.map { |room| serialize(room) }, count: updated_rooms.length }
+        rescue ArgumentError, TypeError
+          raise ApiError.new("Floor must be a whole number", status: :unprocessable_content, code: "INVALID_FLOOR")
+        end
+
         private
 
         def serialize(room)
@@ -99,12 +125,17 @@ module Api
           params.require(:rooms).permit(:start_room_number, :quantity, :floor, :room_type_id, :active, :smoking, :accessible)
         end
 
+        def bulk_update_params
+          params.require(:rooms).permit(:floor, :room_type_id, :status, :active, :smoking, :accessible)
+        end
+
         def ensure_setup_room_type!(room_type_id = room_params[:room_type_id])
           default_property.room_types.setup_managed.find(room_type_id)
         end
 
         def authorize_request!
           return authorize!("ROOM_SETUP", "create") if action_name == "bulk_create"
+          return authorize!("ROOM_SETUP", "update") if action_name == "update_floor"
           return authorize!("ROOM_SETUP", "delete") if action_name == "destroy_floor"
 
           super

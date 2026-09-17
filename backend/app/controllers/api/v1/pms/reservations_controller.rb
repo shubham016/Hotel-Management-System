@@ -8,7 +8,7 @@ module Api
 
         def index
           property = require_property!
-          reservations = property.reservations.includes(:guest, :folio).order(created_at: :desc).limit(100)
+          reservations = property.reservations.includes(:guest, :folio, reservation_rooms: %i[room room_type]).order(created_at: :desc).limit(100)
           render json: { success: true, data: reservations.map { |reservation| serialize(reservation) } }
         end
 
@@ -148,7 +148,10 @@ module Api
             checkInDate: reservation.check_in_date,
             checkOutDate: reservation.check_out_date,
             guest: { id: reservation.guest_id, name: reservation.guest.full_name, phone: reservation.guest.phone },
+            adultsCount: reservation.adults_count,
+            childrenCount: reservation.children_count,
             grandTotal: reservation.grand_total.to_f,
+            advancePaid: reservation.advance_paid.to_f,
             folioNumber: reservation.folio&.folio_number,
             rooms:
           }

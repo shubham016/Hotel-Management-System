@@ -27,7 +27,7 @@ module Api
         end
 
         def serialize_room_type(room_type)
-          room_type.as_json(only: %i[id name code slug description base_price bed_count max_adults max_children max_occupancy amenities active])
+          room_type.as_json(only: %i[id name code slug description base_price bed_category bed_count max_adults max_children max_occupancy amenities active])
         end
 
         def serialize_room(room)

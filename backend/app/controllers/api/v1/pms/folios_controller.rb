@@ -4,7 +4,7 @@ module Api
       class FoliosController < BackendController
         def create
           folio = default_property.folios.includes(:reservation, :guest, :payments, :folio_items).find(params.require(:folioId))
-          case params.require(:action)
+          case params.require(:operation)
           when "ADD_CHARGE" then add_charge(folio)
           when "RECORD_PAYMENT" then record_payment(folio)
           when "SETTLE_AND_CHECKOUT" then checkout(folio)

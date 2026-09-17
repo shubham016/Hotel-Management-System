@@ -8,6 +8,7 @@ namespace :api do
       resources :rooms, only: %i[index show create update destroy] do
         collection do
           post :bulk_create, path: "bulk"
+          patch "floor/:floor", action: :update_floor, as: :update_floor
           delete "floor/:floor", action: :destroy_floor, as: :floor
         end
       end

@@ -99,7 +99,7 @@ export default function FrontDeskPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'ADD_CHARGE',
+          operation: 'ADD_CHARGE',
           folioId: selectedFolio.id,
           description: chargeDesc || `${chargeModule} Service`,
           amount: parseFloat(chargeAmount),
@@ -133,7 +133,7 @@ export default function FrontDeskPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'RECORD_PAYMENT',
+          operation: 'RECORD_PAYMENT',
           folioId: selectedFolio.id,
           amount: parseFloat(paymentAmount),
           paymentMethod,
@@ -168,7 +168,7 @@ export default function FrontDeskPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'SETTLE_AND_CHECKOUT',
+          operation: 'SETTLE_AND_CHECKOUT',
           folioId: folio.id,
           settlementMethod: 'CASH'
         })
@@ -223,7 +223,7 @@ export default function FrontDeskPage() {
             />
           </div>
 
-          <Link href="/book" className="hne-btn hne-btn-primary hne-btn-sm" style={{ display: 'inline-flex', alignItems: 'center' }}>
+          <Link href="/book?source=WALK_IN" className="hne-btn hne-btn-primary hne-btn-sm" style={{ display: 'inline-flex', alignItems: 'center' }}>
             <Plus size={16} />
             <span>Walk-In / New Booking</span>
           </Link>

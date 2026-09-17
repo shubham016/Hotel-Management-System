@@ -28,7 +28,7 @@ module Api
           room_type = default_property.room_types.setup_managed.find(params[:id])
           RoomType.transaction do
             old_values = audit_values(room_type)
-            room_type.update!(room_type_params)
+            room_type.update!(room_type_params(room_type))
             room_type.reload
             audit!("ROOMS", "UPDATE", "RoomType", room_type.id, old_values:, new_values: audit_values(room_type))
           end
@@ -45,18 +45,22 @@ module Api
         private
 
         def serialize(room_type)
-          room_type.as_json(only: %i[id name code slug description base_price bed_count max_adults max_children max_occupancy amenities active])
+          room_type.as_json(only: %i[id name code slug description base_price bed_category bed_count max_adults max_children max_occupancy amenities active])
         end
 
         def audit_values(room_type)
-          room_type.attributes.slice("name", "code", "base_price", "bed_count", "active")
+          room_type.attributes.slice("name", "code", "base_price", "bed_category", "bed_count", "active")
         end
 
-        def room_type_params
-          permitted = params.require(:room_type).permit(:name, :code, :slug, :description, :base_price, :bed_count, :max_adults, :max_children, :max_occupancy, :active, amenities: [])
+        def room_type_params(room_type = nil)
+          permitted = params.require(:room_type).permit(:name, :code, :slug, :description, :base_price, :bed_category, :bed_count, :max_adults, :max_children, :max_occupancy, :active, amenities: [])
           permitted[:slug] = permitted[:name].to_s.parameterize if permitted[:slug].blank? && permitted[:name].present?
-          if permitted[:max_adults].present? && permitted[:max_children].present?
-            permitted[:max_occupancy] = permitted[:max_adults].to_i + permitted[:max_children].to_i
+          if permitted.key?(:max_adults) || permitted.key?(:max_children)
+            adults = permitted.key?(:max_adults) ? permitted[:max_adults].to_i : (room_type&.max_adults || 0).to_i
+            children = permitted.key?(:max_children) ? permitted[:max_children].to_i : (room_type&.max_children || 0).to_i
+            permitted[:max_adults] = adults
+            permitted[:max_children] = children
+            permitted[:max_occupancy] = adults + children
           end
           permitted
         end

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { BedDouble, Building2, CheckCircle2, ClipboardList, Loader2 } from 'lucide-react';
-import { createRoomBatch, deleteRoomsOnFloor, deleteSetupRecord, loadHotelSetup, saveSetupRecord } from './api';
-import { BLANK_BULK_ROOM, BLANK_FLOOR, BLANK_ROOM, BLANK_ROOM_TYPE } from './constants';
+import { createRoomBatch, deleteRoomsOnFloor, deleteSetupRecord, loadHotelSetup, saveSetupRecord, updateRoomsOnFloor } from './api';
+import { BLANK_BULK_ROOM, BLANK_BULK_ROOM_UPDATE, BLANK_FLOOR, BLANK_ROOM, BLANK_ROOM_TYPE } from './constants';
+import { BulkRoomEditForm } from './components/BulkRoomEditForm';
 import { SetupForm } from './components/SetupForm';
 import { SetupTable } from './components/SetupTable';
-import type { BulkRoomForm, Floor, FloorForm, Room, RoomForm, RoomType, RoomTypeForm, SetupTab } from './types';
+import type { BulkRoomForm, BulkRoomUpdateForm, Floor, FloorForm, Room, RoomForm, RoomType, RoomTypeForm, SetupTab } from './types';
 
 function upsertById<T extends { id: string }>(items: T[], record: T) {
   return items.some((item) => item.id === record.id)
@@ -25,6 +26,8 @@ export default function HotelSetupPage() {
   const [roomTypeForm, setRoomTypeForm] = useState<RoomTypeForm>(BLANK_ROOM_TYPE);
   const [roomForm, setRoomForm] = useState<RoomForm>(BLANK_ROOM);
   const [bulkRoomForm, setBulkRoomForm] = useState<BulkRoomForm>(BLANK_BULK_ROOM);
+  const [bulkRoomUpdateForm, setBulkRoomUpdateForm] = useState<BulkRoomUpdateForm>(BLANK_BULK_ROOM_UPDATE);
+  const [bulkEditingFloor, setBulkEditingFloor] = useState<{ floor: number; name: string; count: number } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -63,6 +66,8 @@ export default function HotelSetupPage() {
     setRoomTypeForm(BLANK_ROOM_TYPE);
     setRoomForm({ ...BLANK_ROOM, floor: floors[0]?.number || 1, room_type_id: roomTypes[0]?.id || '' });
     setBulkRoomForm({ ...BLANK_BULK_ROOM, floor: floors[0]?.number || 1, room_type_id: roomTypes[0]?.id || '' });
+    setBulkRoomUpdateForm(BLANK_BULK_ROOM_UPDATE);
+    setBulkEditingFloor(null);
   };
 
   const switchTab = (nextTab: SetupTab) => {
@@ -123,6 +128,31 @@ export default function HotelSetupPage() {
     }
   };
 
+  const openBulkRoomEdit = (floor: number, name: string, count: number) => {
+    clearForm();
+    setBulkEditingFloor({ floor, name, count });
+    setFormOpen(true);
+  };
+
+  const saveRoomFloorBatch = async () => {
+    if (!bulkEditingFloor) return;
+    if (!window.confirm(`Apply these changes to all ${bulkEditingFloor.count} rooms on ${bulkEditingFloor.name}?`)) return;
+    setSaving(true);
+    setError('');
+    try {
+      const updatedRooms = await updateRoomsOnFloor(bulkEditingFloor.floor, bulkRoomUpdateForm);
+      const updatedById = new Map(updatedRooms.map((room) => [room.id, room]));
+      setRooms((current) => sortRooms(current.map((room) => updatedById.get(room.id) || room)));
+      setNotice(`${updatedRooms.length} rooms updated successfully.`);
+      clearForm();
+      setFormOpen(false);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Unable to update rooms on this floor.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const remove = async (resource: string, id: string, name: string) => {
     if (!window.confirm(`Delete ${name}? This cannot be undone.`)) return;
     setError('');
@@ -174,11 +204,11 @@ export default function HotelSetupPage() {
     <nav aria-label="Hotel setup sections" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><button onClick={() => switchTab('floors')} className={`hne-btn ${tab === 'floors' ? 'hne-btn-primary' : 'hne-btn-secondary'}`}><Building2 size={16} />Floors</button><button onClick={() => switchTab('room_types')} className={`hne-btn ${tab === 'room_types' ? 'hne-btn-primary' : 'hne-btn-secondary'}`}><ClipboardList size={16} />Room Categories</button><button onClick={() => switchTab('rooms')} className={`hne-btn ${tab === 'rooms' ? 'hne-btn-primary' : 'hne-btn-secondary'}`}><BedDouble size={16} />Rooms</button></nav>
     {error && <div role="alert" style={{ padding: 12, borderRadius: 8, background: '#FEF2F2', color: '#991B1B' }}>{error}</div>}
     {notice && <div role="status" style={{ padding: 12, borderRadius: 8, background: '#ECFDF5', color: '#065F46', display: 'flex', gap: 8 }}><CheckCircle2 size={16} />{notice}</div>}
-    {loading ? <div style={{ minHeight: 280, display: 'grid', placeItems: 'center' }}><Loader2 className="hne-spin" /></div> : <SetupTable tab={tab} floors={floors} roomTypes={roomTypes} rooms={rooms} onEditFloor={editFloor} onEditRoomType={editRoomType} onEditRoom={editRoom} onAdd={openNewForm} onRemove={remove} onRemoveFloorRooms={(floor, name, count) => void removeFloorRooms(floor, name, count)} />}
+    {loading ? <div style={{ minHeight: 280, display: 'grid', placeItems: 'center' }}><Loader2 className="hne-spin" /></div> : <SetupTable tab={tab} floors={floors} roomTypes={roomTypes} rooms={rooms} onEditFloor={editFloor} onEditRoomType={editRoomType} onEditRoom={editRoom} onAdd={openNewForm} onRemove={remove} onRemoveFloorRooms={(floor, name, count) => void removeFloorRooms(floor, name, count)} onEditFloorRooms={openBulkRoomEdit} />}
     {formOpen && <div className="hne-modal-backdrop" onClick={() => !saving && closeForm()}>
       <div className="hne-modal hne-setup-modal" role="dialog" aria-modal="true" aria-labelledby="hotel-setup-form-title" onClick={(event) => event.stopPropagation()}>
-        <div className="hne-modal-header"><div><h2 id="hotel-setup-form-title" className="hne-modal-title">{editingId ? 'Edit' : 'Add'} {tab === 'floors' ? 'Floor' : tab === 'room_types' ? 'Room Category' : 'Rooms'}</h2><p className="hne-modal-subtitle">{tab === 'rooms' && !editingId ? 'Create one room or a consecutive room range.' : 'Complete the details below and save your changes.'}</p></div><button type="button" className="hne-modal-close" aria-label="Close form" onClick={closeForm} disabled={saving}>×</button></div>
-        <div className="hne-modal-body"><SetupForm tab={tab} editing={editingId !== null} saving={saving} floors={floors} roomTypes={roomTypes} floorForm={floorForm} roomTypeForm={roomTypeForm} roomForm={roomForm} bulkRoomForm={bulkRoomForm} setFloorForm={setFloorForm} setRoomTypeForm={setRoomTypeForm} setRoomForm={setRoomForm} setBulkRoomForm={setBulkRoomForm} onSave={(resource, key, data) => void save(resource, key, data)} onBulkSave={(data) => void saveRoomBatch(data)} onClear={clearForm} /></div>
+        <div className="hne-modal-header"><div><h2 id="hotel-setup-form-title" className="hne-modal-title">{bulkEditingFloor ? `Edit All Rooms on ${bulkEditingFloor.name}` : `${editingId ? 'Edit' : 'Add'} ${tab === 'floors' ? 'Floor' : tab === 'room_types' ? 'Room Category' : 'Rooms'}`}</h2><p className="hne-modal-subtitle">{bulkEditingFloor ? `Apply shared settings to ${bulkEditingFloor.count} rooms at once.` : tab === 'rooms' && !editingId ? 'Create one room or a consecutive room range.' : 'Complete the details below and save your changes.'}</p></div><button type="button" className="hne-modal-close" aria-label="Close form" onClick={closeForm} disabled={saving}>×</button></div>
+        <div className="hne-modal-body">{bulkEditingFloor ? <BulkRoomEditForm form={bulkRoomUpdateForm} setForm={setBulkRoomUpdateForm} floors={floors} roomTypes={roomTypes} saving={saving} roomCount={bulkEditingFloor.count} onSave={() => void saveRoomFloorBatch()} onCancel={closeForm} /> : <SetupForm tab={tab} editing={editingId !== null} saving={saving} floors={floors} roomTypes={roomTypes} floorForm={floorForm} roomTypeForm={roomTypeForm} roomForm={roomForm} bulkRoomForm={bulkRoomForm} setFloorForm={setFloorForm} setRoomTypeForm={setRoomTypeForm} setRoomForm={setRoomForm} setBulkRoomForm={setBulkRoomForm} onSave={(resource, key, data) => void save(resource, key, data)} onBulkSave={(data) => void saveRoomBatch(data)} onClear={clearForm} />}</div>
       </div>
     </div>}
   </div>;

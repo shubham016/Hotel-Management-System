@@ -161,6 +161,7 @@
 
 [data-theme='dark'] .hne-btn-secondary {
   background-color: var(--bg-card);
+  border-color: #3B465A;
 }
 
 [data-theme='dark'] .hne-table-container,
@@ -258,11 +259,11 @@ h1, h2, h3, h4, h5, h6 {
 .hne-btn-secondary {
   background-color: #FFFFFF;
   color: var(--text-primary);
-  border-color: var(--border);
+  border-color: #CBD5E1;
 }
 .hne-btn-secondary:hover {
   background-color: var(--bg-main);
-  border-color: #D1D5DB;
+  border-color: #94A3B8;
 }
 
 .hne-btn-success {
@@ -291,6 +292,106 @@ h1, h2, h3, h4, h5, h6 {
   padding: 14px 28px;
   font-size: 16px;
   border-radius: var(--radius-lg);
+}
+
+/* Selectable booking-room tile: aligned with the Dashboard Room Board's clean-room palette. */
+.hne-room-choice {
+  min-height: 88px;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 11px;
+  border: 2px solid #86EFAC;
+  border-radius: var(--radius-md);
+  background: #ECFDF5;
+  color: #065F46;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(6, 95, 70, 0.06);
+  transition: border-color var(--transition-fast), background-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.hne-room-choice:hover {
+  border-color: #22C55E;
+  box-shadow: 0 4px 10px rgba(22, 163, 74, 0.12);
+  transform: translateY(-1px);
+}
+
+.hne-room-choice[aria-pressed='true'] {
+  border-color: #16A34A;
+  background: #DCFCE7;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2), 0 4px 10px rgba(22, 163, 74, 0.14);
+}
+
+.hne-room-choice:focus-visible {
+  outline: 3px solid rgba(22, 163, 74, 0.32);
+  outline-offset: 2px;
+}
+
+.hne-room-choice-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.hne-room-choice-icon {
+  width: 25px;
+  height: 25px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: rgba(22, 163, 74, 0.1);
+  color: #15803D;
+}
+
+.hne-room-choice[aria-pressed='true'] .hne-room-choice-icon {
+  background: #16A34A;
+  color: #FFFFFF;
+}
+
+.hne-room-choice-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid rgba(22, 163, 74, 0.22);
+  color: #047857;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.hne-room-choice-status::before {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #16A34A;
+  content: '';
+}
+
+[data-theme='dark'] .hne-room-choice {
+  border-color: #23865E;
+  background: #0D2A20;
+  color: #A7F3D0;
+}
+
+[data-theme='dark'] .hne-room-choice:hover,
+[data-theme='dark'] .hne-room-choice[aria-pressed='true'] {
+  border-color: #4ADE80;
+  background: #123829;
+}
+
+[data-theme='dark'] .hne-room-choice-status {
+  border-top-color: rgba(74, 222, 128, 0.24);
+  color: #6EE7B7;
 }
 
 /* Cards */
