@@ -15,10 +15,10 @@ class DashboardTest < ActionDispatch::IntegrationTest
     )
     UserProperty.create!(user: @user, property: @property)
 
-    @room_type = @property.room_types.create!(name: "Standard", code: "STD-01", slug: "standard", base_price: 2_000, max_adults: 2, max_children: 1, max_occupancy: 3)
-    @property.rooms.create!(room_type: @room_type, room_number: "101", status: "OCCUPIED")
-    @property.rooms.create!(room_type: @room_type, room_number: "102", status: "VACANT_CLEAN")
-    @property.rooms.create!(room_type: @room_type, room_number: "103", status: "VACANT_DIRTY")
+    @room_type = @property.room_types.create!(name: "Standard", code: "STD-01", slug: "standard", base_price: 2_000, max_adults: 2, max_children: 1, max_occupancy: 3, setup_managed: true)
+    @occupied_room = @property.rooms.create!(room_type: @room_type, room_number: "101", status: "OCCUPIED", setup_managed: true)
+    @property.rooms.create!(room_type: @room_type, room_number: "102", status: "VACANT_CLEAN", setup_managed: true)
+    @property.rooms.create!(room_type: @room_type, room_number: "103", status: "VACANT_DIRTY", setup_managed: true)
 
     post "/api/v1/auth/login", params: { email: @user.email, password: "Strong-Test-Password-2026!" }, as: :json
     @token = response.parsed_body.dig("data", "token")
@@ -39,5 +39,60 @@ class DashboardTest < ActionDispatch::IntegrationTest
     assert_equal 7, body.dig("trends", "arrivals").length
     assert_equal 7, body.dig("trends", "revenue").length
     assert_equal 0, body.dig("pos", "ordersToday")
+  end
+
+  test "live guest counters reflect booking, check-in, and checkout statuses" do
+    today = Date.current
+    arriving = create_reservation(status: "CONFIRMED", check_in_date: today, check_out_date: today + 1.day, adults_count: 1)
+    staying = create_reservation(status: "CHECKED_IN", check_in_date: today, check_out_date: today + 1.day, adults_count: 2, children_count: 1)
+    departing = create_reservation(status: "CHECKED_IN", check_in_date: today - 1.day, check_out_date: today, adults_count: 1)
+
+    get "/api/v1/dashboard", headers: auth_headers, as: :json
+
+    assert_response :success
+    assert_equal 1, response.parsed_body.dig("guests", "todayArrivals")
+    assert_equal 1, response.parsed_body.dig("guests", "todayDepartures")
+    assert_equal 4, response.parsed_body.dig("guests", "inHouseGuests")
+    assert_equal 1, response.parsed_body.dig("occupancy", "occupiedRooms")
+
+    departing.update!(status: "CHECKED_OUT", checked_out_at: Time.current)
+    @occupied_room.update!(status: "VACANT_DIRTY")
+
+    get "/api/v1/dashboard", headers: auth_headers, as: :json
+
+    assert_response :success
+    assert_equal 1, response.parsed_body.dig("guests", "todayArrivals")
+    assert_equal 0, response.parsed_body.dig("guests", "todayDepartures")
+    assert_equal 3, response.parsed_body.dig("guests", "inHouseGuests")
+    assert_equal 0, response.parsed_body.dig("occupancy", "occupiedRooms")
+
+    assert arriving.persisted?
+    assert staying.persisted?
+  end
+
+  private
+
+  def auth_headers
+    { "Authorization" => "Bearer #{@token}", "X-Property-Code" => @property.code }
+  end
+
+  def create_reservation(status:, check_in_date:, check_out_date:, adults_count:, children_count: 0)
+    guest = @company.guests.create!(
+      first_name: "Dashboard",
+      last_name: SecureRandom.hex(4),
+      phone: "980000#{rand(1_000..9_999)}"
+    )
+    @property.reservations.create!(
+      guest:,
+      confirmation_number: "DASH-#{SecureRandom.hex(6)}",
+      source: "DIRECT_WEB",
+      status:,
+      check_in_date:,
+      check_out_date:,
+      adults_count:,
+      children_count:,
+      room_total: 0,
+      grand_total: 0
+    )
   end
 end

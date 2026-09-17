@@ -28,7 +28,7 @@ module Availability
       scope = ReservationRoom
         .joins(:reservation)
         .where(room_type:)
-        .where(reservations: { property_id: property.id, status: Reservation::ACTIVE_STATUSES })
+        .where(reservations: { property_id: property.id, status: Reservation::INVENTORY_BLOCKING_STATUSES })
         .where("reservations.check_in_date < ? AND reservations.check_out_date > ?", check_out_date, check_in_date)
       scope = scope.where.not(reservations: { id: exclude_reservation.id }) if exclude_reservation
       scope

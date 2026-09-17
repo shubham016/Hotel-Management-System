@@ -27,7 +27,8 @@ module Api
           recentTransactions: recent_transactions(company),
           housekeeping: housekeeping_stats(rooms),
           pos: pos_stats(property, days),
-          trends: trends(property, company, days)
+          trends: trends(property, company, days),
+          rooms: room_board(rooms)
         }
       end
 
@@ -82,16 +83,16 @@ module Api
       # both for "today" (regardless of whether the guest has actually checked in yet) and
       # for past days in the trend series, using only the current (terminal) status column.
       def arrivals_on(property, day)
-        property.reservations.where(check_in_date: day).where.not(status: %w[CANCELLED NO_SHOW]).count
+        property.reservations.where(check_in_date: day, status: "CONFIRMED").count
       end
 
       def departures_on(property, day)
-        property.reservations.where(check_out_date: day).where.not(status: %w[CANCELLED NO_SHOW]).count
+        property.reservations.where(check_out_date: day, status: "CHECKED_IN").count
       end
 
-      def in_house_on(property, day)
-        property.reservations.where("check_in_date <= ? AND check_out_date > ?", day, day)
-                .where.not(status: %w[CANCELLED NO_SHOW]).count
+      def in_house_on(property, _day)
+        property.reservations.where(status: "CHECKED_IN")
+                .sum("adults_count + children_count")
       end
 
       # Revenue is read from the General Ledger (posted journal lines), not summed ad hoc from
@@ -164,6 +165,17 @@ module Api
           dirty: rooms.where(status: "VACANT_DIRTY").count,
           inspectionRequired: rooms.where(status: "INSPECTION_REQUIRED").count
         }
+      end
+
+      def room_board(rooms)
+        rooms.by_floor_and_room_number.map do |room|
+          {
+            id: room.id,
+            roomNumber: room.room_number,
+            floor: room.floor,
+            status: room.status
+          }
+        end
       end
 
       def pos_stats(property, days)

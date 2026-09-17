@@ -7,6 +7,8 @@ class Guest < ApplicationRecord
   before_validation :normalize_phone
 
   validates :first_name, :last_name, :phone, :normalized_phone, presence: true
+  validates :normalized_phone, length: { in: 7..15 }
+  validates :email, format: { with: URI::MailTo::EMAIL_REGEXP }, allow_blank: true
 
   def full_name
     "#{first_name} #{last_name}".strip

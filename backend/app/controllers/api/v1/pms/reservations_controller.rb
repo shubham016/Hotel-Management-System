@@ -4,6 +4,7 @@ module Api
       class ReservationsController < BaseController
         skip_before_action :authenticate!, only: :create
         skip_before_action :authorize_request!, only: :create
+        before_action :authenticate_if_present!, only: :create
         self.authorization_module_name = "RESERVATIONS"
 
         def index
@@ -60,8 +61,11 @@ module Api
         end
 
         def create
+          authorize_reservation_create! if Current.user
+          create_params = reservation_params
+          create_params[:source] = Current.user ? (create_params[:source].presence || "WALK_IN") : "DIRECT_WEB"
           result = Reservations::Create.call(
-            params: reservation_params,
+            params: create_params,
             request_context: { request_id: request.request_id, ip_address: request.remote_ip }
           )
           render json: {
@@ -87,6 +91,18 @@ module Api
         end
 
         private
+
+        def authorize_reservation_create!
+          role = Current.user.role
+          return if role.name == "SUPER_ADMIN"
+          return if role.allows?("RESERVATIONS", "create") || role.allows?("PMS_FRONTDESK", "create")
+
+          raise ApiError.new("You do not have permission to create reservations", status: :forbidden, code: "FORBIDDEN")
+        end
+
+        def authenticate_if_present!
+          authenticate! if request.authorization.present?
+        end
 
         def reservation_params
           params.permit(

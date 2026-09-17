@@ -47,6 +47,12 @@ class ReservationsTest < ActionDispatch::IntegrationTest
       unit_price: 1_000,
       pricing_unit: "PER_GUEST_PER_NIGHT"
     )
+    @property.service_offerings.create!(
+      code: "SPA",
+      name: "Himalayan Herbal Aroma Therapy (60 Min)",
+      unit_price: 4_000,
+      pricing_unit: "PER_GUEST"
+    )
     @check_in = Date.current + 5.days
     @check_out = @check_in + 2.days
   end
@@ -75,7 +81,7 @@ class ReservationsTest < ActionDispatch::IntegrationTest
     assert_equal "ROOM_UNAVAILABLE", response.parsed_body["code"]
   end
 
-  test "website and front desk share exact-room inventory until checkout" do
+  test "website and front desk share exact-room inventory through scheduled checkout" do
     post "/api/v1/reservations", params: valid_payload.merge(
       roomId: @second_room.id,
       phone: "+977-9800000003"
@@ -93,7 +99,7 @@ class ReservationsTest < ActionDispatch::IntegrationTest
       roomId: @second_room.id,
       phone: "+977-9800000004",
       source: "WALK_IN"
-    ), as: :json
+    ), headers: auth_headers(auth_token), as: :json
 
     assert_response :conflict
     assert_equal "ROOM_UNAVAILABLE", response.parsed_body["code"]
@@ -110,9 +116,47 @@ class ReservationsTest < ActionDispatch::IntegrationTest
       roomId: @second_room.id,
       phone: "+977-9800000005",
       source: "WALK_IN"
-    ), as: :json
+    ), headers: auth_headers(auth_token), as: :json
+
+    assert_response :conflict
+    assert_equal "ROOM_UNAVAILABLE", response.parsed_body["code"]
+
+    post "/api/v1/reservations", params: valid_payload.merge(
+      roomId: @second_room.id,
+      phone: "+977-9800000005",
+      source: "WALK_IN",
+      checkInDate: @check_out.iso8601,
+      checkOutDate: (@check_out + 1.day).iso8601
+    ), headers: auth_headers(auth_token), as: :json
+
     assert_response :created
     assert_equal "WALK_IN", Reservation.find(response.parsed_body.dig("data", "id")).source
+  end
+
+  test "modifying dates rejects a conflict on the already assigned room" do
+    post "/api/v1/reservations", params: valid_payload.merge(
+      roomId: @first_room.id,
+      phone: "+977-9800000021"
+    ), as: :json
+    assert_response :created
+    reservation = Reservation.find(response.parsed_body.dig("data", "id"))
+
+    post "/api/v1/reservations", params: valid_payload.merge(
+      roomId: @first_room.id,
+      phone: "+977-9800000022",
+      checkInDate: @check_out.iso8601,
+      checkOutDate: (@check_out + 1.day).iso8601
+    ), as: :json
+    assert_response :created
+
+    patch "/api/v1/reservations/#{reservation.id}",
+      params: { checkOutDate: (@check_out + 1.day).iso8601 },
+      headers: auth_headers(auth_token),
+      as: :json
+
+    assert_response :conflict
+    assert_equal "ROOM_UNAVAILABLE", response.parsed_body["code"]
+    assert_equal @check_out, reservation.reload.check_out_date
   end
 
   test "public availability returns exact rooms and removes a reserved room" do
@@ -128,6 +172,118 @@ class ReservationsTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_equal [ @second_room.id ], response.parsed_body.dig("data", 0, "rooms").pluck("id")
+  end
+
+  test "public availability quote includes requested add-ons and matches reservation pricing" do
+    get "/api/v1/availability?propertyCode=#{@property.code}&checkInDate=#{@check_in.iso8601}&checkOutDate=#{@check_out.iso8601}&adultsCount=2&childrenCount=0&addOnCodes=BREAKFAST"
+
+    assert_response :success, response.body
+    quote = response.parsed_body.dig("data", 0, "quote")
+    assert_equal 4_000.0, quote["addOnTotal"]
+    assert_equal 12_000.0, quote["subTotal"]
+    assert_equal 1_200.0, quote["serviceCharge"]
+    assert_equal 1_716.0, quote["vatAmount"]
+    assert_equal 14_916.0, quote["grandTotal"]
+  end
+
+  test "per guest add-ons include adults and children" do
+    get "/api/v1/availability?propertyCode=#{@property.code}&checkInDate=#{@check_in.iso8601}&checkOutDate=#{@check_out.iso8601}&adultsCount=2&childrenCount=1&addOnCodes=BREAKFAST"
+
+    assert_response :success, response.body
+    quote = response.parsed_body.dig("data", 0, "quote")
+    assert_equal 6_000.0, quote["addOnTotal"]
+
+    post "/api/v1/reservations", params: valid_payload.merge(
+      childrenCount: 1,
+      phone: "+977-9800000031"
+    ), as: :json
+
+    assert_response :created
+    assert_equal 6_000.0, Reservation.find(response.parsed_body.dig("data", "id")).service_total.to_f
+  end
+
+  test "per person spa pricing and public add-on catalog are dynamic" do
+    get "/api/v1/add_on_catalog?propertyCode=#{@property.code}"
+
+    assert_response :success
+    spa = response.parsed_body["data"].find { |offering| offering["code"] == "SPA" }
+    assert_equal "Himalayan Herbal Aroma Therapy (60 Min)", spa["name"]
+    assert_equal "PER_GUEST", spa["pricingUnit"]
+    assert_equal 4_000.0, spa["unitPrice"]
+
+    get "/api/v1/availability?propertyCode=#{@property.code}&checkInDate=#{@check_in.iso8601}&checkOutDate=#{@check_out.iso8601}&adultsCount=2&childrenCount=1&addOnCodes=SPA"
+
+    assert_response :success, response.body
+    assert_equal 12_000.0, response.parsed_body.dig("data", 0, "quote", "addOnTotal")
+
+    post "/api/v1/reservations", params: valid_payload.merge(
+      addOns: { SPA: true },
+      childrenCount: 1,
+      phone: "+977-9800000032"
+    ), as: :json
+
+    assert_response :created
+    assert_equal 12_000.0, Reservation.find(response.parsed_body.dig("data", "id")).service_total.to_f
+  end
+
+  test "public booking cannot impersonate a staff walk-in source" do
+    post "/api/v1/reservations", params: valid_payload.merge(source: "WALK_IN"), as: :json
+
+    assert_response :created
+    assert_equal "DIRECT_WEB", Reservation.find(response.parsed_body.dig("data", "id")).source
+  end
+
+  test "front desk create permission can submit an authenticated walk-in booking" do
+    role = @company.roles.create!(name: "BOOKING_AGENT", permissions: { "PMS_FRONTDESK" => %w[create] })
+    user = @company.users.create!(
+      role:,
+      email: "booking-agent@example.com",
+      password: "Strong-Test-Password-2026!",
+      password_confirmation: "Strong-Test-Password-2026!",
+      first_name: "Booking",
+      last_name: "Agent"
+    )
+    UserProperty.create!(user:, property: @property)
+
+    token = Authentication::Token.encode(user)
+    post "/api/v1/reservations", params: valid_payload.merge(
+      phone: "+977-9800000033",
+      source: "WALK_IN"
+    ), headers: auth_headers(token), as: :json
+
+    assert_response :created
+    assert_equal "WALK_IN", Reservation.find(response.parsed_body.dig("data", "id")).source
+  end
+
+  test "authenticated user without booking permission cannot create a reservation" do
+    role = @company.roles.create!(name: "READ_ONLY_BOOKINGS", permissions: { "RESERVATIONS" => %w[read] })
+    user = @company.users.create!(
+      role:,
+      email: "read-only-bookings@example.com",
+      password: "Strong-Test-Password-2026!",
+      password_confirmation: "Strong-Test-Password-2026!",
+      first_name: "Read",
+      last_name: "Only"
+    )
+    UserProperty.create!(user:, property: @property)
+
+    token = Authentication::Token.encode(user)
+    post "/api/v1/reservations", params: valid_payload.merge(phone: "+977-9800000034"), headers: auth_headers(token), as: :json
+
+    assert_response :forbidden
+    assert_equal "FORBIDDEN", response.parsed_body["code"]
+  end
+
+  test "reservation rejects invalid guest and add-on data" do
+    post "/api/v1/reservations", params: valid_payload.merge(email: "not-an-email"), as: :json
+    assert_response :unprocessable_content
+
+    post "/api/v1/reservations", params: valid_payload.merge(phone: "123"), as: :json
+    assert_response :unprocessable_content
+
+    post "/api/v1/reservations", params: valid_payload.merge(addOns: { UNKNOWN_SERVICE: true }), as: :json
+    assert_response :unprocessable_content
+    assert_equal "INVALID_ADD_ON", response.parsed_body["code"]
   end
 
   test "protected reservation lifecycle supports modify assign checkin extend transfer and cancel" do

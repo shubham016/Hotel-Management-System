@@ -31,7 +31,7 @@ class HotelSetupTest < ActionDispatch::IntegrationTest
         bed_count: 2,
         max_adults: 2,
         max_children: 0,
-        amenities: ["WiFi"],
+        amenities: [ "WiFi" ],
         active: true
       }
     }, headers: @headers, as: :json
@@ -41,6 +41,47 @@ class HotelSetupTest < ActionDispatch::IntegrationTest
     assert_equal 2, response.parsed_body.dig("data", "bed_count")
     assert_equal 2, room_type.bed_count
     assert_equal "Twin", room_type.bed_category
+  end
+
+  test "public room category catalog returns active setup values without authentication" do
+    active = @property.room_types.create!(
+      name: "Dynamic Family Room",
+      code: "FAMILY",
+      slug: "dynamic-family-room",
+      description: "A description entered in Hotel Setup",
+      base_price: 6_250,
+      bed_category: "Queen",
+      bed_count: 2,
+      max_adults: 3,
+      max_children: 2,
+      max_occupancy: 5,
+      amenities: [ "WiFi", "Balcony" ],
+      setup_managed: true,
+      active: true
+    )
+    @property.room_types.create!(
+      name: "Hidden Room",
+      code: "HIDDEN",
+      slug: "hidden-room",
+      base_price: 1_000,
+      bed_category: "Single",
+      setup_managed: true,
+      active: false
+    )
+
+    get "/api/v1/room_catalog?propertyCode=#{@property.code}"
+
+    assert_response :success
+    assert_equal [ active.id ], response.parsed_body["data"].pluck("id")
+    category = response.parsed_body["data"].first
+    assert_equal "A description entered in Hotel Setup", category["description"]
+    assert_equal 6_250.0, category["base_price"].to_f
+    assert_equal "Queen", category["bed_category"]
+    assert_equal 2, category["bed_count"]
+    assert_equal 3, category["max_adults"]
+    assert_equal 2, category["max_children"]
+    assert_equal 5, category["max_occupancy"]
+    assert_equal [ "WiFi", "Balcony" ], category["amenities"]
   end
 
   test "setup snapshot returns all master data in one request" do

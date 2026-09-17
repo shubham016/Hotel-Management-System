@@ -6,16 +6,37 @@ import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
 import { DualCalendarPicker } from '@/components/ui/DualCalendarPicker';
 import { formatDualDate } from '@/lib/nepali-calendar';
-import { createBooking, loadBookingAvailability } from './api';
+import { createBooking, loadAddOnCatalog, loadBookingAvailability } from './api';
 import { DEFAULT_ROOM_IMAGE, PROPERTY_CODE, ROOM_IMAGES } from './constants';
-import type { AvailabilityOption, BookingConfirmation } from './types';
+import type { AddOnOffering, AvailabilityOption, BookingConfirmation } from './types';
+
+const formatAmount = (amount: number) => amount.toLocaleString('en-IN', {
+  minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+  maximumFractionDigits: 2
+});
+
+const pricingUnitLabel: Record<AddOnOffering['pricingUnit'], string> = {
+  PER_BOOKING: 'per booking',
+  PER_NIGHT: 'per night',
+  PER_GUEST: 'per person',
+  PER_GUEST_PER_NIGHT: 'per guest / night'
+};
 
 export default function BookPage() {
   const searchParams = useSearchParams();
   const isEmbeddedBooking = searchParams.get('embedded') === 'true';
   const bookingSource = isEmbeddedBooking || searchParams.get('source') === 'WALK_IN' ? 'WALK_IN' : 'DIRECT_WEB';
-  const today = new Date().toISOString().split('T')[0];
-  const tomorrow = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const toLocalDateString = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  const now = new Date();
+  const today = toLocalDateString(now);
+  const nextDay = new Date(now);
+  nextDay.setDate(nextDay.getDate() + 1);
+  const tomorrow = toLocalDateString(nextDay);
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [checkInDate, setCheckInDate] = useState(searchParams.get('checkIn') || today);
@@ -28,12 +49,12 @@ export default function BookPage() {
   const [roomsLoading, setRoomsLoading] = useState(false);
   const [roomsError, setRoomsError] = useState('');
   
-  // Add-on services
-  const [addons, setAddons] = useState<{ [key: string]: boolean }>({
-    breakfast: true,
-    airportTransfer: false,
-    mountainSpa: false
-  });
+  // Add-on services are loaded from the backend catalog so future offerings
+  // do not require changes to this booking page.
+  const [addOnOfferings, setAddOnOfferings] = useState<AddOnOffering[]>([]);
+  const [selectedAddOns, setSelectedAddOns] = useState<Record<string, boolean>>({});
+  const [addOnsLoading, setAddOnsLoading] = useState(true);
+  const [addOnsError, setAddOnsError] = useState('');
 
   // Guest Details
   const [firstName, setFirstName] = useState('');
@@ -57,6 +78,25 @@ export default function BookPage() {
   const selectedOption = availability.find((option) => option.roomType.code === selectedRoomCode);
   const selectedRoom = roomsCatalog[selectedRoomCode] || { name: 'Select a room category', price: 0, desc: '', img: DEFAULT_ROOM_IMAGE };
   const selectablePhysicalRooms = selectedOption?.rooms || [];
+  const selectedAddOnCodes = Object.entries(selectedAddOns)
+    .filter(([, selected]) => selected)
+    .map(([code]) => code)
+    .sort();
+  const selectedAddOnKey = selectedAddOnCodes.join(',');
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setAddOnsLoading(true);
+    loadAddOnCatalog(PROPERTY_CODE, controller.signal)
+      .then(setAddOnOfferings)
+      .catch((error: Error) => {
+        if (error.name !== 'AbortError') setAddOnsError(error.message);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setAddOnsLoading(false);
+      });
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     if (!checkInDate || !checkOutDate || checkOutDate <= checkInDate) {
@@ -68,11 +108,11 @@ export default function BookPage() {
     const controller = new AbortController();
     setRoomsLoading(true);
     setRoomsError('');
-    setSelectedRoomId(null);
-    loadBookingAvailability({ propertyCode: PROPERTY_CODE, checkInDate, checkOutDate, adultsCount: Number(adults), childrenCount: Number(children), signal: controller.signal })
+    loadBookingAvailability({ propertyCode: PROPERTY_CODE, checkInDate, checkOutDate, adultsCount: Number(adults), childrenCount: Number(children), addOnCodes: selectedAddOnCodes, signal: controller.signal })
       .then((options) => {
         setAvailability(options);
         setSelectedRoomCode((current) => options.some((option) => option.roomType.code === current) ? current : options[0]?.roomType.code || '');
+        setSelectedRoomId((current) => current && options.some((option) => option.rooms.some((room) => room.id === current)) ? current : null);
       })
       .catch((error) => {
         if (error.name !== 'AbortError') setRoomsError('Unable to load available rooms.');
@@ -82,21 +122,17 @@ export default function BookPage() {
       });
 
     return () => controller.abort();
-  }, [checkInDate, checkOutDate, adults, children]);
+  }, [checkInDate, checkOutDate, adults, children, selectedAddOnKey]);
 
   // Financial Calculations
-  const nights = Math.max(1, Math.ceil((new Date(checkOutDate).getTime() - new Date(checkInDate).getTime()) / (1000 * 60 * 60 * 24)));
-  const roomCost = selectedRoom.price * nights;
-  
-  let addonCost = 0;
-  if (addons.breakfast) addonCost += 1200 * parseInt(adults) * nights;
-  if (addons.airportTransfer) addonCost += 2500;
-  if (addons.mountainSpa) addonCost += 4000;
-
-  const subTotal = roomCost + addonCost;
-  const serviceCharge = Math.round(subTotal * 0.10);
-  const vatAmount = Math.round((subTotal + serviceCharge) * 0.13);
-  const grandTotal = subTotal + serviceCharge + vatAmount;
+  const quote = selectedOption?.quote;
+  const nights = quote?.nights ?? Math.max(1, Math.ceil((new Date(checkOutDate).getTime() - new Date(checkInDate).getTime()) / (1000 * 60 * 60 * 24)));
+  const roomCost = quote?.roomTotal ?? 0;
+  const addonCost = quote?.addOnTotal ?? 0;
+  const subTotal = quote?.subTotal ?? 0;
+  const serviceCharge = quote?.serviceCharge ?? 0;
+  const vatAmount = quote?.vatAmount ?? 0;
+  const grandTotal = quote?.grandTotal ?? 0;
 
   const handleCreateBooking = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,11 +156,7 @@ export default function BookPage() {
           idType,
           idNumber,
           specialRequests,
-          addOns: {
-            BREAKFAST: addons.breakfast,
-            AIRPORT_TRANSFER: addons.airportTransfer,
-            SPA: addons.mountainSpa
-          },
+          addOns: selectedAddOns,
           source: bookingSource
       });
       setConfirmationData(confirmation);
@@ -245,7 +277,7 @@ export default function BookPage() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <h4 style={{ fontSize: 15, fontWeight: 700 }}>{room.name}</h4>
                           <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--primary-orange)' }}>
-                            Rs. {room.price.toLocaleString()}
+                            Rs. {formatAmount(room.price)}
                           </span>
                         </div>
                         <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>{room.desc}</p>
@@ -293,44 +325,27 @@ export default function BookPage() {
 
             <Card title="4. Optional Add-On Experiences">
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', fontSize: 13.5 }}>
-                  <input
-                    type="checkbox"
-                    checked={addons.breakfast}
-                    onChange={(e) => setAddons({ ...addons, breakfast: e.target.checked })}
-                    style={{ width: 18, height: 18, accentColor: 'var(--primary-orange)' }}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600 }}>Daily Mountain Buffet Breakfast</div>
-                    <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Rs. 1,200 per guest / day</div>
-                  </div>
-                </label>
-
-                <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', fontSize: 13.5 }}>
-                  <input
-                    type="checkbox"
-                    checked={addons.airportTransfer}
-                    onChange={(e) => setAddons({ ...addons, airportTransfer: e.target.checked })}
-                    style={{ width: 18, height: 18, accentColor: 'var(--primary-orange)' }}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600 }}>Gautam Buddha Int'l Airport (Bhairahawa) / Butwal Transfer</div>
-                    <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Rs. 2,500 one-way private AC vehicle</div>
-                  </div>
-                </label>
-
-                <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', fontSize: 13.5 }}>
-                  <input
-                    type="checkbox"
-                    checked={addons.mountainSpa}
-                    onChange={(e) => setAddons({ ...addons, mountainSpa: e.target.checked })}
-                    style={{ width: 18, height: 18, accentColor: 'var(--primary-orange)' }}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600 }}>Himalayan Herbal Aroma Therapy (60 Min)</div>
-                    <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Rs. 4,000 per person</div>
-                  </div>
-                </label>
+                {addOnsLoading && <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Loading optional experiences…</div>}
+                {addOnsError && <div style={{ fontSize: 13, color: 'var(--danger-red)' }}>{addOnsError}</div>}
+                {!addOnsLoading && !addOnsError && addOnOfferings.length === 0 && (
+                  <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>No optional experiences are currently available.</div>
+                )}
+                {addOnOfferings.map((offering) => (
+                  <label key={offering.id} style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', fontSize: 13.5 }}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(selectedAddOns[offering.code])}
+                      onChange={(event) => setSelectedAddOns((current) => ({ ...current, [offering.code]: event.target.checked }))}
+                      style={{ width: 18, height: 18, accentColor: 'var(--primary-orange)' }}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600 }}>{offering.name}</div>
+                      <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+                        Rs. {formatAmount(offering.unitPrice)} {pricingUnitLabel[offering.pricingUnit]}
+                      </div>
+                    </div>
+                  </label>
+                ))}
               </div>
             </Card>
           </div>
@@ -347,7 +362,7 @@ export default function BookPage() {
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{selectedRoom.name}</div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    {nights} Night(s) • {adults} Adult(s)
+                    {nights} Night(s) • {adults} Adult(s){Number(children) > 0 ? ` • ${children} Child(ren)` : ''}
                   </div>
                 </div>
               </div>
@@ -355,28 +370,28 @@ export default function BookPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13, borderBottom: '1px solid var(--border)', paddingBottom: 16, marginBottom: 16 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span>Room Charge ({nights} Nights)</span>
-                  <span>Rs. {roomCost.toLocaleString()}</span>
+                  <span>Rs. {formatAmount(roomCost)}</span>
                 </div>
                 {addonCost > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
                     <span>Selected Add-ons</span>
-                    <span>Rs. {addonCost.toLocaleString()}</span>
+                    <span>Rs. {formatAmount(addonCost)}</span>
                   </div>
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
                   <span>Hotel Service Charge (10%)</span>
-                  <span>Rs. {serviceCharge.toLocaleString()}</span>
+                  <span>Rs. {formatAmount(serviceCharge)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
                   <span>VAT (13%)</span>
-                  <span>Rs. {vatAmount.toLocaleString()}</span>
+                  <span>Rs. {formatAmount(vatAmount)}</span>
                 </div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 24 }}>
                 <span style={{ fontSize: 15, fontWeight: 700 }}>Grand Total</span>
                 <span style={{ fontSize: 24, fontWeight: 800, color: 'var(--primary-orange)', fontFamily: 'var(--font-family-display)' }}>
-                  Rs. {grandTotal.toLocaleString()}
+                  Rs. {formatAmount(grandTotal)}
                 </span>
               </div>
 
@@ -456,7 +471,7 @@ export default function BookPage() {
                 Back to Room Selection
               </Button>
               <Button type="submit" variant="primary" size="lg" isLoading={isSubmitting}>
-                Confirm Reservation (Estimated Rs. {grandTotal.toLocaleString()})
+                Confirm Reservation (Estimated Rs. {formatAmount(grandTotal)})
               </Button>
             </div>
           </Card>

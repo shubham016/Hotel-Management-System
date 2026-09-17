@@ -18,6 +18,7 @@ import { StatTile } from '@/components/ui/StatTile';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import Link from '@/lib/router';
+import { BookingModal } from '@/components/booking/BookingModal';
 
 type DashboardData = {
   businessDate: string;
@@ -36,7 +37,7 @@ type RoomBoardRoom = {
   id: string;
   roomNumber: string;
   floor: number;
-  status: 'OCCUPIED' | 'RESERVED' | 'VACANT_CLEAN' | 'VACANT_DIRTY' | 'INSPECTION_REQUIRED' | 'OUT_OF_ORDER';
+  status: 'OCCUPIED' | 'RESERVED' | 'VACANT_CLEAN' | 'VACANT_DIRTY' | 'INSPECTION_REQUIRED' | 'OUT_OF_ORDER' | 'OUT_OF_SERVICE' | 'DUE_OUT';
 };
 
 const initialDashboardData: DashboardData = {
@@ -58,19 +59,20 @@ const roomStatusStyles = {
   VACANT_CLEAN: { label: 'Clean', background: '#ECFDF5', border: '#86EFAC', text: '#047857', muted: '#047857' },
   VACANT_DIRTY: { label: 'Dirty', background: '#FFFBEB', border: '#FBBF24', text: '#B45309', muted: '#B45309' },
   INSPECTION_REQUIRED: { label: 'Inspected', background: '#EFF6FF', border: '#7DD3FC', text: '#0369A1', muted: '#0369A1' },
-  OUT_OF_ORDER: { label: 'Out of Order', background: '#FFF1F2', border: '#FDA4AF', text: '#BE123C', muted: '#BE123C' }
+  OUT_OF_ORDER: { label: 'Out of Order', background: '#FFF1F2', border: '#FDA4AF', text: '#BE123C', muted: '#BE123C' },
+  OUT_OF_SERVICE: { label: 'Out of Service', background: '#F3F4F6', border: '#9CA3AF', text: '#4B5563', muted: '#4B5563' },
+  DUE_OUT: { label: 'Due Out', background: '#FEF2F2', border: '#FCA5A5', text: '#B91C1C', muted: '#B91C1C' }
 } as const;
 
 const roomStatuses = Object.keys(roomStatusStyles) as RoomBoardRoom['status'][];
 
-// Temporary presentation seed. These values intentionally mirror the approved
-// Front Desk Overview design until live dashboard metrics are connected.
-const frontDeskOverview = {
-  arrivals: { value: 1, trend: [2, 6, 5.6, 5.4, 11, 10.4, 10.5] },
-  departures: { value: 0, trend: [10, 10, 8, 5.2, 5.3, 2] },
-  inHouse: { value: 10, trend: [4, 6.5, 6.2, 6, 10.5, 10, 10.2] },
-  occupancy: { value: 20, occupiedRooms: 3, totalRooms: 15 },
-  revenue: { value: 'Rs. 9,819', revPar: 'Rs. 983', trend: [4, 5.5, 5.2, 8.5, 11, 10.2, 10.4] }
+// Decorative tile artwork stays consistent while the values themselves come
+// from the live dashboard API.
+const statTileVisuals = {
+  arrivals: [2, 6, 5.6, 5.4, 11, 10.4, 10.5],
+  departures: [10, 10, 8, 5.2, 5.3, 2],
+  inHouse: [4, 6.5, 6.2, 6, 10.5, 10, 10.2],
+  revenue: [4, 5.5, 5.2, 8.5, 11, 10.2, 10.4]
 } as const;
 
 const floorLabel = (floor: number) => `${floor}${floor === 1 ? 'st' : floor === 2 ? 'nd' : floor === 3 ? 'rd' : 'th'} Floor`;
@@ -88,7 +90,10 @@ function RoomStatusIcon({ status, size = 14 }: { status: RoomBoardRoom['status']
     case 'INSPECTION_REQUIRED':
       return <CheckCircle2 size={size} aria-label="Inspected" />;
     case 'OUT_OF_ORDER':
+    case 'OUT_OF_SERVICE':
       return <Wrench size={size} aria-label="Out of Order" />;
+    case 'DUE_OUT':
+      return <LogOut size={size} aria-label="Due out" />;
     default:
       return null;
   }
@@ -107,11 +112,8 @@ export default function AdminDashboardPage() {
   const [roomStatusError, setRoomStatusError] = useState('');
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
 
-  useEffect(() => {
-    if (didLoadDashboard.current) return;
-    didLoadDashboard.current = true;
-
-    fetch('/api/dashboard?compact=true')
+  const loadDashboard = () => {
+    fetch('/api/dashboard')
       .then((res) => res.json())
       .then((json) => {
         if (json.success) {
@@ -121,17 +123,31 @@ export default function AdminDashboardPage() {
         else setError(json.error || 'Failed to load dashboard');
       })
       .catch(() => setError('Failed to load dashboard'));
+  };
+
+  useEffect(() => {
+    if (didLoadDashboard.current) return;
+    didLoadDashboard.current = true;
+    loadDashboard();
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') loadDashboard();
+    };
+    window.addEventListener('focus', loadDashboard);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    const refreshTimer = window.setInterval(loadDashboard, 30_000);
+    return () => {
+      window.removeEventListener('focus', loadDashboard);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+      window.clearInterval(refreshTimer);
+    };
   }, []);
 
   useEffect(() => {
     const handleBookingCreated = (event: MessageEvent) => {
       if (event.origin !== window.location.origin || event.data?.type !== 'hne:booking-created') return;
 
-      const roomId = event.data.reservation?.roomId;
-      if (!roomId) return;
-      setRooms((currentRooms) => currentRooms.map((room) => (
-        room.id === roomId ? { ...room, status: 'RESERVED' } : room
-      )));
+      loadDashboard();
     };
 
     window.addEventListener('message', handleBookingCreated);
@@ -173,7 +189,7 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const { occupancy, guests, revenue, receivables, arrivals, recentTransactions, housekeeping, pos, trends } = data;
+  const { occupancy, guests, revenue, receivables, arrivals, recentTransactions, housekeeping, pos } = data;
   const visibleRooms = rooms.filter((room) => (
     (selectedRoomFloor === 'ALL' || room.floor === selectedRoomFloor) &&
     (selectedRoomStatus === 'ALL' || room.status === selectedRoomStatus)
@@ -212,43 +228,43 @@ export default function AdminDashboardPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14 }}>
         <StatTile
           label="Arrivals"
-          value={frontDeskOverview.arrivals.value}
+          value={guests.todayArrivals}
           icon={<LogIn size={15} />}
           colorTheme="green"
-          sparkline={[...frontDeskOverview.arrivals.trend]}
+          sparkline={[...statTileVisuals.arrivals]}
         />
 
         <StatTile
           label="Departures"
-          value={frontDeskOverview.departures.value}
+          value={guests.todayDepartures}
           icon={<LogOut size={15} />}
           colorTheme="golden"
-          sparkline={[...frontDeskOverview.departures.trend]}
+          sparkline={[...statTileVisuals.departures]}
         />
 
         <StatTile
           label="In-house"
-          value={frontDeskOverview.inHouse.value}
+          value={guests.inHouseGuests}
           icon={<UsersRound size={15} />}
           colorTheme="green"
-          sparkline={[...frontDeskOverview.inHouse.trend]}
+          sparkline={[...statTileVisuals.inHouse]}
         />
 
         <StatTile
           label="Occupancy"
-          value={`${frontDeskOverview.occupancy.value}%`}
+          value={`${occupancy.occupancyPct}%`}
           icon={<ChartPie size={15} />}
           colorTheme="green"
-          progress={{ pct: frontDeskOverview.occupancy.value, caption: `${frontDeskOverview.occupancy.occupiedRooms} of ${frontDeskOverview.occupancy.totalRooms} rooms` }}
+          progress={{ pct: occupancy.occupancyPct, caption: `${occupancy.occupiedRooms} of ${occupancy.totalRooms} rooms` }}
         />
 
         <StatTile
           label="Revenue"
-          value={frontDeskOverview.revenue.value}
+          value={`Rs. ${revenue.today.total.toLocaleString()}`}
           icon={<WalletCards size={15} />}
           colorTheme="green"
-          caption={<><span>RevPAR</span><br /><span>{frontDeskOverview.revenue.revPar}</span></>}
-          sparkline={[...frontDeskOverview.revenue.trend]}
+          caption={<><span>RevPAR</span><br /><span>Rs. {revenue.revPar.toLocaleString()}</span></>}
+          sparkline={[...statTileVisuals.revenue]}
         />
 
       </div>
@@ -608,39 +624,13 @@ export default function AdminDashboardPage() {
       </div>
 
       {isBookingModalOpen && (
-        <div
-          role="presentation"
-          onMouseDown={() => setIsBookingModalOpen(false)}
-          style={{ position: 'fixed', inset: 0, zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, backgroundColor: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(2px)' }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="new-booking-title"
-            onMouseDown={(event) => event.stopPropagation()}
-            style={{ width: 'min(1180px, 100%)', height: 'min(860px, calc(100vh - 32px))', overflow: 'hidden', border: '1px solid var(--border)', borderRadius: 16, backgroundColor: 'var(--bg-card)', boxShadow: '0 24px 48px -18px rgba(15, 23, 42, 0.42)', display: 'flex', flexDirection: 'column' }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '14px 18px', borderBottom: '1px solid var(--border)' }}>
-              <div>
-                <h2 id="new-booking-title" style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--text-primary)' }}>New Room Booking</h2>
-                <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>Create a reservation without leaving the dashboard.</p>
-              </div>
-              <button
-                type="button"
-                aria-label="Close new booking modal"
-                onClick={() => setIsBookingModalOpen(false)}
-                style={{ width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', borderRadius: 7, background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <iframe
-              title="New room booking"
-              src="/book?embedded=true"
-              style={{ width: '100%', flex: 1, border: 'none', backgroundColor: 'var(--bg-main)' }}
-            />
-          </div>
-        </div>
+        <BookingModal title="New Room Booking" subtitle="Create a reservation without leaving the dashboard." onClose={() => setIsBookingModalOpen(false)}>
+          <iframe
+            title="New room booking"
+            src="/book?embedded=true"
+            style={{ width: '100%', flex: 1, border: 'none', backgroundColor: 'var(--bg-main)' }}
+          />
+        </BookingModal>
       )}
     </div>
   );

@@ -2,6 +2,8 @@ namespace :api do
   namespace :v1 do
     scope module: :hotel do
       get "hotel_setup", to: "hotel_setup#index"
+      get "room_catalog", to: "room_catalog#index"
+      get "add_on_catalog", to: "add_on_catalog#index"
       resources :properties, only: %i[index show]
       resources :floors, only: %i[index create update destroy]
       resources :room_types, only: %i[index show create update destroy]

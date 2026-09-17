@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from '@/lib/router';
-import { Users, Maximize2, Sparkles, Check } from 'lucide-react';
+import { Users, Maximize2, Sparkles } from 'lucide-react';
 
 interface RoomCardProps {
   id: string;
@@ -10,6 +10,8 @@ interface RoomCardProps {
   description: string;
   basePrice: number;
   maxOccupancy: number;
+  maxAdults?: number;
+  maxChildren?: number;
   sizeSqFt?: number;
   bedType?: string;
   viewType?: string;
@@ -25,9 +27,11 @@ export const RoomCard: React.FC<RoomCardProps> = ({
   description,
   basePrice,
   maxOccupancy,
-  sizeSqFt = 360,
-  bedType = '1 King Bed',
-  viewType = 'Mountain View',
+  maxAdults,
+  maxChildren,
+  sizeSqFt,
+  bedType,
+  viewType,
   coverImageUrl = 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=80',
   amenities = [],
   featured
@@ -77,7 +81,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
             <Sparkles size={12} /> Popular Choice
           </div>
         )}
-        <div
+        {viewType && <div
           style={{
             position: 'absolute',
             bottom: 12,
@@ -92,7 +96,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
           }}
         >
           {viewType}
-        </div>
+        </div>}
       </div>
 
       {/* Body */}
@@ -109,24 +113,29 @@ export const RoomCard: React.FC<RoomCardProps> = ({
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 16,
+            gap: 10,
+            flexWrap: 'wrap',
             fontSize: 12.5,
             color: 'var(--text-secondary)',
-            marginBottom: 14,
+            marginBottom: 10,
             paddingBottom: 12,
             borderBottom: '1px solid var(--border)'
           }}
         >
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <Users size={14} color="var(--primary-orange)" /> Up to {maxOccupancy} Guests
+            <Users size={14} color="var(--primary-orange)" /> Up to {maxOccupancy} guests
           </span>
-          <span>•</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          {sizeSqFt && <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <Maximize2 size={14} color="var(--primary-orange)" /> {sizeSqFt} sq.ft
-          </span>
-          <span>•</span>
-          <span>{bedType}</span>
+          </span>}
+          {bedType && <span>{bedType}</span>}
         </div>
+
+        {(maxAdults !== undefined || maxChildren !== undefined) && (
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
+            Maximum {maxAdults ?? 0} adult{maxAdults === 1 ? '' : 's'} and {maxChildren ?? 0} child{maxChildren === 1 ? '' : 'ren'}
+          </div>
+        )}
 
         <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 16, flex: 1 }}>
           {description}

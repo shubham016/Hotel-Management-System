@@ -55,6 +55,10 @@ module Reservations
       raise ApiError.new("Check-out must be after check-in", code: "INVALID_STAY") unless @check_out_date > @check_in_date
       raise ApiError.new("Check-in cannot be in the past", code: "INVALID_STAY") if @check_in_date < Date.current
       raise ApiError.new("At least one room is required", code: "INVALID_OCCUPANCY") unless @rooms_count.positive?
+      raise ApiError.new("At least one adult is required", code: "INVALID_OCCUPANCY") unless @adults_count.positive?
+      raise ApiError.new("Children count cannot be negative", code: "INVALID_OCCUPANCY") if @children_count.negative?
+      unknown_add_ons = add_on_codes - @property.service_offerings.where(active: true).pluck(:code)
+      raise ApiError.new("One or more selected add-ons are invalid", code: "INVALID_ADD_ON", details: unknown_add_ons) if unknown_add_ons.any?
       if @selected_room
         raise ApiError.new("An exact room can only be used for a single-room booking", code: "INVALID_REQUEST") unless @rooms_count == 1
         raise ApiError.new("Selected room does not match the chosen room category", status: :unprocessable_content, code: "ROOM_TYPE_MISMATCH") unless @selected_room.room_type_id == @room_type.id
@@ -84,7 +88,7 @@ module Reservations
       conflict = ReservationRoom
         .joins(:reservation)
         .where(room: @selected_room)
-        .where(reservations: { property_id: @property.id, status: Reservation::ACTIVE_STATUSES })
+        .where(reservations: { property_id: @property.id, status: Reservation::INVENTORY_BLOCKING_STATUSES })
         .where("reservations.check_in_date < ? AND reservations.check_out_date > ?", @check_out_date, @check_in_date)
         .exists?
       raise ApiError.new("The selected room is no longer available for these dates", status: :conflict, code: "ROOM_UNAVAILABLE") if conflict
@@ -123,6 +127,7 @@ module Reservations
         check_out_date: @check_out_date,
         rooms_count: @rooms_count,
         adults_count: @adults_count,
+        children_count: @children_count,
         add_on_codes:
       )
     end

@@ -1,5 +1,5 @@
 class ServiceOffering < ApplicationRecord
-  PRICING_UNITS = %w[PER_BOOKING PER_NIGHT PER_GUEST_PER_NIGHT].freeze
+  PRICING_UNITS = %w[PER_BOOKING PER_NIGHT PER_GUEST PER_GUEST_PER_NIGHT].freeze
 
   belongs_to :property
 

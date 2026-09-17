@@ -1,7 +1,8 @@
 import React, { Suspense, lazy } from 'react';
-import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import { Location, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import PublicLayout from '@/layouts/PublicLayout';
 import AdminLayout from '@/layouts/AdminLayout';
+import { BookingModal } from '@/components/booking/BookingModal';
 
 const Home = lazy(() => import('@/pages/public/home/page'));
 const About = lazy(() => import('@/pages/public/about/page'));
@@ -36,7 +37,12 @@ const AuditLogs = lazy(() => import('@/pages/admin/audit-logs/page'));
 const fallback = <div style={{ minHeight: '40vh', display: 'grid', placeItems: 'center', color: 'var(--text-secondary)' }}>Loading…</div>;
 
 export default function App() {
-  return <Suspense fallback={fallback}><Routes>
+  const location = useLocation();
+  const navigate = useNavigate();
+  const backgroundLocation = (location.state as { backgroundLocation?: Location } | null)?.backgroundLocation;
+  const showBookingModal = Boolean(backgroundLocation && location.pathname === '/book');
+
+  return <Suspense fallback={fallback}><Routes location={backgroundLocation || location}>
     <Route element={<PublicLayout><Outlet /></PublicLayout>}>
       <Route path="/" element={<Home />} /><Route path="/about" element={<About />} /><Route path="/rooms" element={<Rooms />} /><Route path="/dining" element={<Dining />} /><Route path="/banquet" element={<Banquet />} /><Route path="/offers" element={<Offers />} /><Route path="/contact" element={<Contact />} /><Route path="/book" element={<Book />} />
     </Route>
@@ -49,5 +55,12 @@ export default function App() {
       <Route path="cms/pages" element={<CmsPages />} /><Route path="cms/hotel-setup" element={<HotelSetup />} /><Route path="settings" element={<Settings />} /><Route path="audit-logs" element={<AuditLogs />} />
     </Route>
     <Route path="*" element={<div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', textAlign: 'center' }}><div><h1>404</h1><p>This page could not be found.</p></div></div>} />
-  </Routes></Suspense>;
+  </Routes>
+  {showBookingModal && (
+    <BookingModal title="Book a Room" subtitle="Check live availability and create a secure direct reservation." onClose={() => navigate(-1)}>
+      <div style={{ flex: 1, overflowY: 'auto', backgroundColor: 'var(--bg-main)' }}>
+        <Book />
+      </div>
+    </BookingModal>
+  )}</Suspense>;
 }

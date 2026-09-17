@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { RoomCard } from '@/components/public/RoomCard';
-import { Sparkles, BedDouble, ShieldCheck, Wifi, Coffee, Tv } from 'lucide-react';
-import Link from '@/lib/router';
+import { BedDouble, ShieldCheck, Wifi } from 'lucide-react';
+import { loadPublicRoomTypes, roomTypeToCard, type PublicRoomType } from '@/lib/room-catalog';
 
 export default function RoomsPage() {
+  const [roomTypes, setRoomTypes] = useState<PublicRoomType[]>([]);
+  const [roomsLoading, setRoomsLoading] = useState(true);
+  const [roomsError, setRoomsError] = useState('');
   const [pageInfo, setPageInfo] = useState({
     heroHeading: 'Rooms & Suites Catalog',
     heroSubheading: '43 SALEABLE ROOMS • 4 FLOORS',
@@ -11,6 +14,14 @@ export default function RoomsPage() {
   });
 
   useEffect(() => {
+    const controller = new AbortController();
+    loadPublicRoomTypes(controller.signal)
+      .then(setRoomTypes)
+      .catch((error: Error) => {
+        if (error.name !== 'AbortError') setRoomsError(error.message);
+      })
+      .finally(() => setRoomsLoading(false));
+
     fetch('/api/cms/pages?slug=rooms')
       .then(res => res.json())
       .then(data => {
@@ -23,100 +34,10 @@ export default function RoomsPage() {
         }
       })
       .catch(console.error);
+    return () => controller.abort();
   }, []);
 
-  const allRooms = [
-    {
-      id: 'room-1',
-      name: 'Luxury Room',
-      code: 'LUX-01',
-      slug: 'luxury-room',
-      description: 'Sophisticated luxury accommodation featuring climate-control AC, 60 Mbps NT Fiber Net WiFi, Cable TV, mineral water, and premium amenities. Total: 8 rooms.',
-      basePrice: 5500,
-      maxOccupancy: 2,
-      sizeSqFt: 380,
-      bedType: '1 King Bed',
-      viewType: 'City & Garden View',
-      coverImageUrl: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=80',
-      amenities: ['Climate Control AC', '60 Mbps NT Fiber Net WiFi', 'Cable TV', 'Drinking Water', 'Room Service'],
-      featured: true
-    },
-    {
-      id: 'room-2',
-      name: 'Deluxe Room',
-      code: 'DLX-01',
-      slug: 'deluxe-room',
-      description: 'Spacious Deluxe room equipped with individual climate control AC, LED Cable TV, high-speed fiber internet, and work desk. Total: 12 rooms.',
-      basePrice: 4200,
-      maxOccupancy: 2,
-      sizeSqFt: 320,
-      bedType: '1 Queen Bed',
-      viewType: 'City View',
-      coverImageUrl: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80',
-      amenities: ['Climate Control AC', 'High-Speed Fiber Net', 'LED Cable TV', 'Hot & Cold Shower', 'Tea/Coffee Station'],
-      featured: true
-    },
-    {
-      id: 'room-3',
-      name: 'Family Room',
-      code: 'FAM-01',
-      slug: 'family-room',
-      description: 'Expansive family room designed for comfortable group stays with multiple double beds, modern attached bath, and daily housekeeping. Total: 6 rooms.',
-      basePrice: 6500,
-      maxOccupancy: 4,
-      sizeSqFt: 520,
-      bedType: '2 Double Beds',
-      viewType: 'City View',
-      coverImageUrl: 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&w=800&q=80',
-      amenities: ['2 Double Beds', 'Free Fiber WiFi', 'Cable TV', 'Attached Modern Bath', 'Daily Housekeeping'],
-      featured: false
-    },
-    {
-      id: 'room-4',
-      name: 'Honeymoon Room',
-      code: 'HNY-01',
-      slug: 'honeymoon-room',
-      description: 'Specially decorated romantic suite with climate control AC, luxury furnishings, attached bathtub, and complimentary welcome beverage. Total: 3 rooms.',
-      basePrice: 7000,
-      maxOccupancy: 2,
-      sizeSqFt: 420,
-      bedType: '1 King Bed',
-      viewType: 'Mountain & City View',
-      coverImageUrl: 'https://images.unsplash.com/photo-1566665797739-1674de7a421a?auto=format&fit=crop&w=800&q=80',
-      amenities: ['Climate Control AC', 'Bathtub & Shower', 'Romantic Décor', 'Wine & Treats', 'Free Fiber WiFi'],
-      featured: true
-    },
-    {
-      id: 'room-5',
-      name: 'Standard AC Room',
-      code: 'STD-AC',
-      slug: 'standard-ac',
-      description: 'Comfortable air-conditioned standard room offering great value with essential modern amenities and clean attached bath. Total: 8 rooms.',
-      basePrice: 3200,
-      maxOccupancy: 2,
-      sizeSqFt: 280,
-      bedType: '1 Double Bed',
-      viewType: 'City View',
-      coverImageUrl: 'https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?auto=format&fit=crop&w=800&q=80',
-      amenities: ['Climate Control AC', 'Free Fiber WiFi', 'Cable TV', 'Attached Bath', 'Room Service'],
-      featured: false
-    },
-    {
-      id: 'room-6',
-      name: 'Standard Non-AC Room',
-      code: 'STD-NAC',
-      slug: 'standard-non-ac',
-      description: 'Budget-friendly standard room featuring ceiling fan, attached bathroom, high-speed fiber internet, and Cable TV. Total: 6 rooms.',
-      basePrice: 2200,
-      maxOccupancy: 2,
-      sizeSqFt: 250,
-      bedType: '1 Double Bed',
-      viewType: 'Courtyard View',
-      coverImageUrl: 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=800&q=80',
-      amenities: ['Ceiling Fan', 'Free Fiber WiFi', 'Cable TV', 'Drinking Water', 'Attached Bath'],
-      featured: false
-    }
-  ];
+  const dynamicRooms = roomTypes.map(roomTypeToCard);
 
   return (
     <div style={{ backgroundColor: '#FFFFFF' }}>
@@ -172,7 +93,7 @@ export default function RoomsPage() {
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <BedDouble size={20} color="var(--brand-crimson)" />
-            <span style={{ fontWeight: 700, fontSize: 15 }}>Total 43 Saleable Keys (6 Categories)</span>
+            <span style={{ fontWeight: 700, fontSize: 15 }}>{roomTypes.length} Active Room {roomTypes.length === 1 ? 'Category' : 'Categories'}</span>
           </div>
           <div style={{ display: 'flex', gap: 20, fontSize: 13, color: 'var(--text-secondary)' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -185,8 +106,11 @@ export default function RoomsPage() {
         </div>
 
         {/* Room Cards Grid */}
+        {roomsLoading && <div style={{ padding: 24, color: 'var(--text-muted)' }}>Loading room categories…</div>}
+        {roomsError && <div style={{ padding: 24, color: 'var(--danger-red)' }}>{roomsError}</div>}
+        {!roomsLoading && !roomsError && dynamicRooms.length === 0 && <div style={{ padding: 24, color: 'var(--text-muted)' }}>No active room categories are currently available.</div>}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 32 }}>
-          {allRooms.map((room) => (
+          {dynamicRooms.map((room) => (
             <RoomCard key={room.id} {...room} />
           ))}
         </div>

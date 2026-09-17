@@ -70,7 +70,7 @@ owner_role.update!(
     "TASKS" => %w[read create],
     "SESSIONS" => %w[read],
     "ITEMS" => %w[read create],
-    "RESERVATIONS" => %w[read update cancel assign_room check_in extend_stay transfer_room],
+    "RESERVATIONS" => %w[read create update cancel assign_room check_in extend_stay transfer_room],
     "PMS_FRONTDESK" => %w[read create check_in extend_stay transfer_room],
     "FOLIOS" => %w[create],
     "CHECKOUT" => %w[create],
@@ -89,8 +89,8 @@ manager_role.update!(
   permissions: {
     "DASHBOARD" => %w[read],
     "ROOMS" => %w[read update],
-    "PMS_FRONTDESK" => %w[read],
-    "RESERVATIONS" => %w[read]
+    "PMS_FRONTDESK" => %w[read create],
+    "RESERVATIONS" => %w[read create]
   }
 )
 
@@ -100,8 +100,8 @@ front_desk_staff_role.update!(
   permissions: {
     "DASHBOARD" => %w[read],
     "ROOMS" => %w[read update],
-    "PMS_FRONTDESK" => %w[read],
-    "RESERVATIONS" => %w[read]
+    "PMS_FRONTDESK" => %w[read create],
+    "RESERVATIONS" => %w[read create]
   }
 )
 
@@ -205,7 +205,7 @@ end
 [
   { code: "BREAKFAST", name: "Breakfast", unit_price: 1_200, pricing_unit: "PER_GUEST_PER_NIGHT" },
   { code: "AIRPORT_TRANSFER", name: "Airport Transfer", unit_price: 2_500, pricing_unit: "PER_BOOKING" },
-  { code: "SPA", name: "Wellness Experience", unit_price: 4_000, pricing_unit: "PER_BOOKING" }
+  { code: "SPA", name: "Himalayan Herbal Aroma Therapy (60 Min)", unit_price: 4_000, pricing_unit: "PER_GUEST" }
 ].each do |attributes|
   offering = property.service_offerings.find_or_initialize_by(code: attributes[:code])
   offering.update!(attributes.merge(taxable: true, active: true))

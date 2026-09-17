@@ -14,7 +14,7 @@ module Pricing
       :tax_lines
     )
 
-    def self.call(property:, room_type:, rate_plan:, check_in_date:, check_out_date:, rooms_count:, adults_count:, add_on_codes:)
+    def self.call(property:, room_type:, rate_plan:, check_in_date:, check_out_date:, rooms_count:, adults_count:, children_count: 0, add_on_codes:)
       new(
         property:,
         room_type:,
@@ -23,11 +23,12 @@ module Pricing
         check_out_date:,
         rooms_count:,
         adults_count:,
+        children_count:,
         add_on_codes:
       ).call
     end
 
-    def initialize(property:, room_type:, rate_plan:, check_in_date:, check_out_date:, rooms_count:, adults_count:, add_on_codes:)
+    def initialize(property:, room_type:, rate_plan:, check_in_date:, check_out_date:, rooms_count:, adults_count:, children_count:, add_on_codes:)
       @property = property
       @room_type = room_type
       @rate_plan = rate_plan
@@ -35,6 +36,7 @@ module Pricing
       @check_out_date = check_out_date
       @rooms_count = rooms_count
       @adults_count = adults_count
+      @children_count = children_count
       @add_on_codes = Array(add_on_codes).map { |code| code.to_s.upcase }.uniq
     end
 
@@ -70,7 +72,8 @@ module Pricing
       @property.service_offerings.where(active: true, code: @add_on_codes).order(:code).map do |offering|
         quantity = case offering.pricing_unit
         when "PER_NIGHT" then nights
-        when "PER_GUEST_PER_NIGHT" then nights * @adults_count
+        when "PER_GUEST" then @adults_count + @children_count
+        when "PER_GUEST_PER_NIGHT" then nights * (@adults_count + @children_count)
         else 1
         end
 

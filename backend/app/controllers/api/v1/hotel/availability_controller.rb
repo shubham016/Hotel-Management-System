@@ -14,6 +14,7 @@ module Api
           rooms_count = Integer(params[:roomsCount].presence || 1)
           adults_count = Integer(params[:adultsCount].presence || 1)
           children_count = Integer(params[:childrenCount].presence || 0)
+          add_on_codes = params[:addOnCodes].to_s.split(",").map(&:strip).reject(&:blank?)
           room_types = property.room_types.setup_managed.where(active: true).includes(:rate_plans)
           room_types = room_types.where(code: params[:roomTypeCode].to_s.upcase) if params[:roomTypeCode].present?
 
@@ -33,7 +34,8 @@ module Api
               check_out_date:,
               rooms_count:,
               adults_count:,
-              add_on_codes: []
+              children_count:,
+              add_on_codes:
             )
             physical_rooms = Availability::RoomInventory.available_rooms(property:, room_type:, check_in_date:, check_out_date:)
             {
@@ -67,6 +69,7 @@ module Api
             nights: quote.nights,
             nightlyRate: quote.nightly_rate.to_f,
             roomTotal: quote.room_total.to_f,
+            addOnTotal: quote.add_on_total.to_f,
             subTotal: quote.sub_total.to_f,
             serviceCharge: quote.service_charge.to_f,
             vatAmount: quote.vat_amount.to_f,

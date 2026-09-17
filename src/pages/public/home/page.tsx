@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from '@/lib/router';
 import {
   Sparkles,
@@ -19,56 +19,25 @@ import {
 import { HeroBanner } from '@/components/public/HeroBanner';
 import { BookingWidget } from '@/components/public/BookingWidget';
 import { RoomCard } from '@/components/public/RoomCard';
+import { loadPublicRoomTypes, roomTypeToCard, type PublicRoomType } from '@/lib/room-catalog';
 
 export default function HomePage() {
-  const sampleRooms = [
-    {
-      id: 'room-1',
-      name: 'Luxury Room',
-      code: 'LUX-01',
-      slug: 'luxury-room',
-      description: 'Sophisticated luxury accommodation featuring climate-control AC, 60 Mbps NT Fiber Net WiFi, Cable TV, mineral water, and premium amenities.',
-      basePrice: 5500,
-      maxOccupancy: 2,
-      sizeSqFt: 380,
-      bedType: '1 King Bed',
-      viewType: 'City & Garden View',
-      coverImageUrl: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=80',
-      amenities: ['Climate Control AC', '60 Mbps NT Fiber Net WiFi', 'Cable TV', 'Mineral Water', 'Room Service'],
-      featured: true
-    },
-    {
-      id: 'room-2',
-      name: 'Deluxe Room',
-      code: 'DLX-01',
-      slug: 'deluxe-room',
-      description: 'Spacious Deluxe room equipped with individual climate control AC, LED Cable TV, high-speed fiber internet, and work desk.',
-      basePrice: 4200,
-      maxOccupancy: 2,
-      sizeSqFt: 320,
-      bedType: '1 Queen Bed',
-      viewType: 'City View',
-      coverImageUrl: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80',
-      amenities: ['Climate Control AC', 'High-Speed Fiber Net', 'LED Cable TV', 'Hot & Cold Shower', 'Tea/Coffee Station'],
-      featured: true
-    },
-    {
-      id: 'room-3',
-      name: 'Family Room',
-      code: 'FAM-01',
-      slug: 'family-room',
-      description: 'Expansive family room designed for comfortable group stays with multiple double beds, modern attached bath, and daily housekeeping.',
-      basePrice: 6500,
-      maxOccupancy: 4,
-      sizeSqFt: 520,
-      bedType: '2 Double Beds',
-      viewType: 'City View',
-      coverImageUrl: 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&w=800&q=80',
-      amenities: ['2 Double Beds', 'Free Fiber WiFi', 'Cable TV', 'Attached Modern Bath', 'Daily Housekeeping'],
-      featured: false
-    }
-  ];
+  const [roomTypes, setRoomTypes] = useState<PublicRoomType[]>([]);
+  const [roomsLoading, setRoomsLoading] = useState(true);
+  const [roomsError, setRoomsError] = useState('');
 
+  useEffect(() => {
+    const controller = new AbortController();
+    loadPublicRoomTypes(controller.signal)
+      .then(setRoomTypes)
+      .catch((error: Error) => {
+        if (error.name !== 'AbortError') setRoomsError(error.message);
+      })
+      .finally(() => setRoomsLoading(false));
+    return () => controller.abort();
+  }, []);
+
+  const dynamicRooms = roomTypes.slice(0, 3).map(roomTypeToCard);
   const testimonials = [
     {
       name: 'Pooja Bhattarai',
@@ -226,16 +195,19 @@ export default function HomePage() {
               <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--brand-crimson)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
                 Accommodations
               </div>
-              <h2 style={{ fontSize: 'clamp(24px, 3vw, 34px)' }}>Explore Our 43 Saleable Rooms</h2>
+              <h2 style={{ fontSize: 'clamp(24px, 3vw, 34px)' }}>Explore Our Rooms & Suites</h2>
             </div>
             <Link href="/rooms" className="hne-btn hne-btn-secondary">
-              <span>View All 6 Categories</span>
+              <span>View All {roomTypes.length} {roomTypes.length === 1 ? 'Category' : 'Categories'}</span>
               <ArrowRight size={16} />
             </Link>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 30 }}>
-            {sampleRooms.map((room) => (
+            {roomsLoading && <div style={{ color: 'var(--text-muted)' }}>Loading room categories…</div>}
+            {roomsError && <div style={{ color: 'var(--danger-red)' }}>{roomsError}</div>}
+            {!roomsLoading && !roomsError && dynamicRooms.length === 0 && <div style={{ color: 'var(--text-muted)' }}>No active room categories are currently available.</div>}
+            {dynamicRooms.map((room) => (
               <RoomCard key={room.id} {...room} />
             ))}
           </div>

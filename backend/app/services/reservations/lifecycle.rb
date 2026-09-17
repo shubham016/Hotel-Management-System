@@ -42,7 +42,8 @@ module Reservations
         ensure_type_availability!(@room_type, @rooms_count)
         clear_assignments_if_room_type_changed!
         resize_reservation_rooms!
-        quote = build_quote(@check_in_date, @check_out_date, @room_type, @rate_plan, @rooms_count, @adults_count)
+        ensure_assigned_rooms_available!(@check_in_date, @check_out_date)
+        quote = build_quote(@check_in_date, @check_out_date, @room_type, @rate_plan, @rooms_count, @adults_count, @children_count)
 
         @reservation.update!(
           rate_plan: @rate_plan,
@@ -130,7 +131,7 @@ module Reservations
         rooms_count = @reservation.reservation_rooms.count
         lock_inventory!(room_type)
         ensure_assigned_rooms_available_until!(new_check_out)
-        quote = build_quote(@reservation.check_in_date, new_check_out, room_type, @reservation.rate_plan, rooms_count, @reservation.adults_count)
+        quote = build_quote(@reservation.check_in_date, new_check_out, room_type, @reservation.rate_plan, rooms_count, @reservation.adults_count, @reservation.children_count)
         @reservation.reservation_rooms.update_all(nights: quote.nights, updated_at: Time.current)
         @reservation.update!(
           check_out_date: new_check_out,
@@ -239,7 +240,7 @@ module Reservations
       @reservation.reservation_rooms.update_all(nightly_rate: quote.nightly_rate, nights: quote.nights, updated_at: Time.current)
     end
 
-    def build_quote(check_in_date, check_out_date, room_type, rate_plan, rooms_count, adults_count)
+    def build_quote(check_in_date, check_out_date, room_type, rate_plan, rooms_count, adults_count, children_count)
       Pricing::RoomQuote.call(
         property: @property,
         room_type:,
@@ -248,6 +249,7 @@ module Reservations
         check_out_date:,
         rooms_count:,
         adults_count:,
+        children_count:,
         add_on_codes: []
       )
     end
@@ -271,11 +273,19 @@ module Reservations
       end
     end
 
+    def ensure_assigned_rooms_available!(check_in_date, check_out_date)
+      @reservation.reservation_rooms.includes(:room).each do |reservation_room|
+        next unless reservation_room.room
+
+        ensure_room_available!(reservation_room.room, check_in_date, check_out_date)
+      end
+    end
+
     def ensure_room_available!(room, check_in_date, check_out_date)
       conflict = ReservationRoom
         .joins(:reservation)
         .where(room:)
-        .where(reservations: { property_id: @property.id, status: Reservation::ACTIVE_STATUSES })
+        .where(reservations: { property_id: @property.id, status: Reservation::INVENTORY_BLOCKING_STATUSES })
         .where.not(reservations: { id: @reservation.id })
         .where("reservations.check_in_date < ? AND reservations.check_out_date > ?", check_out_date, check_in_date)
         .exists?

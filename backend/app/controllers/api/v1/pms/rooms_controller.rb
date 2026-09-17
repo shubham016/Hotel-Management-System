@@ -55,7 +55,7 @@ module Api
 
           conflicting_ids = ReservationRoom
             .joins(:reservation)
-            .where(reservations: { property_id: property.id, status: Reservation::ACTIVE_STATUSES })
+            .where(reservations: { property_id: property.id, status: Reservation::INVENTORY_BLOCKING_STATUSES })
             .where("reservations.check_in_date < ? AND reservations.check_out_date > ?", check_out, check_in)
             .where.not(room_id: nil)
             .select(:room_id)
