@@ -593,3 +593,82 @@ The user asked for a connected set of Hotel New Era PMS corrections: prevent ove
 
 ---
 
+## Archived Session Notes: 2026-09-09
+
+### Reference and delivered work
+
+- `D:\Laravel Projects\kamra-pms-develop` was used only as a visual/workflow reference (not as an HNE data source). Useful reference files were its shell, stat-card, launcher, and dashboard screenshots; HNE branding, Nepal localization, data, and authorization remain independent.
+- Development login was made faster with a development/test-only bcrypt-cost initializer and `BCRYPT_COST: 8`; the local seeded administrator is `admin@hotelnewera.com` / `ChangeMe-Admin-2026!` unless changed locally.
+- Dashboard KPI tiles were restyled around the Kamra stat-card/sparkline pattern. The session's static presentation values were Arrivals 1, Departures 0, In-house 10, Occupancy 20% / 3 of 15, Revenue Rs. 9,819, and RevPAR Rs. 983; the Orders tile was removed.
+- Room Board was changed from one-click cycling to an explicit status modal with Clean, Dirty, Inspected, Occupied, and Out of Order choices, an Update status confirmation, and visible errors. The unselected Occupied contrast issue was fixed.
+- Admin shell received a 240px sidebar, app switcher, app-launcher page, `ADMIN_APPS`, and a visual-only property selector for Butwal/Kathmandu/Pokhara. It does not change the Rails property context.
+
+### Cautions and validation
+
+- Do not run a production build while the development server shares the same build cache. Stop the server first if cache cleanup is needed, and delete only this project's generated frontend cache before restarting.
+- The referenced SajhiloStay URL was not publicly accessible; do not extract private data without authorized access.
+- Type checking passed and the dashboard returned HTTP 200 at the end of that session.
+
+---
+
+## Archived Session Notes: 2026-09-11
+
+- Login/dashboard delay was reduced by reusing display-only session profile data, using compact dashboard API data, and adding an admin loading state.
+- Dashboard New Booking gained deliberate physical-room selection. Rails validates and reserves the selected exact room atomically, and Room Board refreshes after creation.
+- Rails development logging changed from verbose debug output to info level to reduce local Docker/bind-mount delay.
+- Nepali calendar conversion was replaced with `@inicrea/bikram-sambat-core`; verified example: 2026-09-11 AD = 26 Bhadra 2083 / 2083-05-26 BS / fiscal year 2083/84.
+- CMS Media Library was implemented with per-company/property Active Storage persistence, authenticated list/upload/delete APIs, audit records, JPG/PNG/WebP/GIF validation, a 10 MB limit, and a CMS Builder choose-or-upload workflow. Local migrations `20260911000001_create_cms_media_library` and `20260911000002_create_active_storage_variant_records` were applied.
+- Type checking and authenticated media upload/list/public-request/delete verification passed. Public-page Suspense boundaries remained an existing build concern at that time; production media must use durable object storage.
+
+---
+
+## Archived Session Notes: 2026-09-12 and 2026-09-14
+
+- Frontend migrated from Next.js to React/Vite while Rails remained the JSON API backend. Work was reorganized into domain-first route folders, including Hotel Setup under `src/pages/admin/cms/hotel-setup/`.
+- Hotel Setup gained live Rails CRUD for floors, room categories, individual rooms, bulk room ranges, and floor-wide managed-room deletion. Legacy seed inventory was excluded from Hotel Setup and Room Board; managed room ordering and floor presentation were improved.
+- Owner uses `ROOM_SETUP`; Manager and Front Desk Staff use `ROOMS` for permitted operational updates. Room Category amenities, capacity handling, blank numeric inputs, and later `bed_count` were improved end to end.
+- The consolidated authenticated `/api/v1/hotel_setup` endpoint replaced three setup loads. Writes are transactional, reload persisted values, audit changes, and update the UI from authoritative API responses.
+- Hotel Setup CRUD was redesigned into compact modal forms. The embedded New Room Booking date display was simplified.
+- Validation recorded: type checking, production frontend build, Rails integration tests, health endpoints, and room-category persistence checks passed at their respective session points.
+- Do not create a Git commit unless the user explicitly asks. Continue applying the invariant: submitted value = persisted database value = API response = displayed value.
+
+---
+
+## Archived Session Notes: 2026-09-17
+
+- Exact-room reservation protection was strengthened across public and staff channels, including assigned-room date modification checks and scheduled checkout-exclusive availability windows.
+- Public Home and Rooms cards became live Room Category data consumers. Saved category name, code, description, pricing, bed data, capacity, and amenities flow from database to API to UI. The browser favicon uses `public/images/favicon_logo.png`.
+- Admin Dashboard values became live and refresh on focus, visibility, booking creation, and every 30 seconds. Decorative visual elements remain intentionally fixed.
+- Add-on pricing and catalog work: `PER_GUEST_PER_NIGHT` includes adults plus children; active add-ons load dynamically; `PER_GUEST` was added; SPA became Himalayan Herbal Aroma Therapy at Rs. 4,000 per person; local migrations `20260917000001_set_spa_pricing_per_guest` and `20260917000002_grant_operational_booking_permissions` were applied.
+- Staff booking authorization accepts Reservation-create or Front-Desk-create authority. The reported validation included a full Rails suite, focused pricing/permission checks, RuboCop, frontend build, and TypeScript checks.
+
+---
+
+## Record Entry: 2026-09-18 (Reservation Workflow, Booking Sources, and Pagination)
+
+### Delivered
+
+- Reservation workflow now starts new bookings as `INQUIRY`, presented as **Pending**. Pending inventory blocks the selected room/date window and assigned exact rooms display as Reserved.
+- Reception verifies the arriving guest through the Reservations Matrix or Front Desk and presses **Check In**. The persisted lifecycle becomes `CHECKED_IN`, the UI labels it **Confirmed / Checked In**, and Room Board updates Reserved to Occupied automatically. Checkout changes the reservation to `CHECKED_OUT` and its room to `VACANT_DIRTY`.
+- Legacy un-checked-in `CONFIRMED` reservations were migrated to `INQUIRY` so they correctly appear as Pending. Staff may check in on the scheduled arrival date through the checkout date; early or expired stays receive an explicit validation message.
+- Removed the separate staff confirmation control. Room Board lifecycle statuses Reserved, Occupied, and Due Out cannot be manually overwritten; only housekeeping/maintenance statuses are editable. Backend protection also rejects manual status changes for rooms tied to active reservation lifecycle records.
+- Reservations Matrix supports live search by guest name, phone, confirmation number, and ID number; staff can Check In or Cancel eligible reservations. It now paginates at 10 reservations per page with Previous, Next, page-number controls, and search/filter pagination reset.
+- Added Booking Source as field 5 in the shared `/book` form, including Admin Dashboard embedded New Room Booking and Front Desk booking entry. Supported sources are Walk-In, Online, Phone, Travel Agency, and Partner Hotel. The Rails controller preserves the selected source, the model validates it, the database default is Online, and legacy source values were standardized.
+
+### Local migrations applied
+
+1. `20260918000001_grant_reservation_confirmation_permissions`
+2. `20260918000002_grant_front_desk_checkin_permission`
+3. `20260918000003_convert_legacy_confirmed_reservations_to_pending`
+4. `20260918000004_standardize_reservation_booking_sources`
+
+### Validation
+
+- Frontend TypeScript checking passed after the reservation, source, and pagination changes.
+- Rails lifecycle/controllers passed Ruby syntax checks; route verification confirmed the reservation check-in and Front Desk routes.
+
+### Documentation rule
+
+- Do not create new `SESSION_*.md` files. When the user asks to save changes, add the record to this `docs/CONVERSATION.md` file unless the user explicitly asks for a different documentation location.
+
+---
