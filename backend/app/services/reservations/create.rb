@@ -143,8 +143,10 @@ module Reservations
         guest:,
         rate_plan: @rate_plan,
         confirmation_number:,
-        source: @params[:source].presence || "DIRECT_WEB",
-        status: "CONFIRMED",
+        source: @params[:source].presence || "ONLINE",
+        # Every source creates a held, pending-confirmation booking. Reception
+        # verifies the guest and explicitly confirms it from Reservations.
+        status: "INQUIRY",
         check_in_date: @check_in_date,
         check_out_date: @check_out_date,
         adults_count: @adults_count,

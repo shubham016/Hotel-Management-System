@@ -65,6 +65,7 @@ const roomStatusStyles = {
 } as const;
 
 const roomStatuses = Object.keys(roomStatusStyles) as RoomBoardRoom['status'][];
+const manuallyManagedRoomStatuses: RoomBoardRoom['status'][] = ['VACANT_CLEAN', 'VACANT_DIRTY', 'INSPECTION_REQUIRED', 'OUT_OF_ORDER', 'OUT_OF_SERVICE'];
 
 // Decorative tile artwork stays consistent while the values themselves come
 // from the live dashboard API.
@@ -273,7 +274,7 @@ export default function AdminDashboardPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap', borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
           <div>
             <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>Room Board</h2>
-            <p style={{ marginTop: 2, fontSize: 12, color: 'var(--text-secondary)' }}>Click a vacant room to advance its housekeeping status.</p>
+            <p style={{ marginTop: 2, fontSize: 12, color: 'var(--text-secondary)' }}>Booking, check-in, and checkout update Reserved, Occupied, and Dirty automatically. Use a room tile only for housekeeping or maintenance updates.</p>
           </div>
           <Link href="/admin/pms/rooms" style={{ color: 'var(--primary-orange)', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>
             Manage rooms →
@@ -322,13 +323,14 @@ export default function AdminDashboardPage() {
                   {visibleRooms.filter((room) => room.floor === floor).map((room) => {
                     const style = roomStatusStyles[room.status];
                     const isUpdating = updatingRoomId === room.id;
+                    const isLifecycleManaged = ['RESERVED', 'OCCUPIED', 'DUE_OUT'].includes(room.status);
                     return (
                       <button
                         key={room.id}
                         type="button"
-                        onClick={() => openRoomStatusEditor(room)}
-                        disabled={isUpdating}
-                        title={`Update room ${room.roomNumber} status`}
+                        onClick={() => !isLifecycleManaged && openRoomStatusEditor(room)}
+                        disabled={isUpdating || isLifecycleManaged}
+                        title={isLifecycleManaged ? `Room ${room.roomNumber} is updated by the booking lifecycle` : `Update room ${room.roomNumber} housekeeping or maintenance status`}
                         style={{
                           minHeight: 66,
                           padding: '9px 8px',
@@ -337,8 +339,8 @@ export default function AdminDashboardPage() {
                           background: style.background,
                           color: style.text,
                           textAlign: 'left',
-                          cursor: isUpdating ? 'wait' : 'pointer',
-                          opacity: isUpdating ? 0.6 : 1,
+                          cursor: isUpdating || isLifecycleManaged ? 'not-allowed' : 'pointer',
+                          opacity: isUpdating || isLifecycleManaged ? 0.75 : 1,
                           boxShadow: room.status === 'OCCUPIED' ? '0 1px 0 rgba(7, 91, 70, 0.2)' : 'none'
                         }}
                       >
@@ -433,7 +435,7 @@ export default function AdminDashboardPage() {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 18 }}>
-              {roomStatuses.map((status) => {
+              {manuallyManagedRoomStatuses.map((status) => {
                 const statusStyle = roomStatusStyles[status];
                 const isSelected = pendingRoomStatus === status;
                 const isOccupied = status === 'OCCUPIED';
@@ -468,7 +470,7 @@ export default function AdminDashboardPage() {
         {/* Left Column: Front Desk Live Queue */}
         <Card
           title="Today's Expected Arrivals"
-          subtitle="Confirmed reservations checking in today"
+          subtitle="Pending reservations scheduled to arrive today"
           action={
             <Link href="/admin/pms/frontdesk" className="hne-btn hne-btn-secondary hne-btn-sm">
               Open Front Desk

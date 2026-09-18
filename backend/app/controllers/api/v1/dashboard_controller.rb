@@ -83,7 +83,7 @@ module Api
       # both for "today" (regardless of whether the guest has actually checked in yet) and
       # for past days in the trend series, using only the current (terminal) status column.
       def arrivals_on(property, day)
-        property.reservations.where(check_in_date: day, status: "CONFIRMED").count
+        property.reservations.where(check_in_date: day, status: %w[INQUIRY CONFIRMED]).count
       end
 
       def departures_on(property, day)
@@ -133,7 +133,7 @@ module Api
 
       def arrivals(property, today)
         property.reservations.includes(:guest, reservation_rooms: :room)
-                .where(status: "CONFIRMED", check_in_date: today)
+                .where(status: %w[INQUIRY CONFIRMED], check_in_date: today)
                 .order(:created_at).limit(5).map do |reservation|
           rr = reservation.reservation_rooms.first
           {

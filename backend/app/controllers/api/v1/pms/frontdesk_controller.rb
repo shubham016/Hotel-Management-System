@@ -7,9 +7,9 @@ module Api
         def show
           property = default_property
           folios = property.folios.includes(:guest, :folio_items, :payments, reservation: { reservation_rooms: %i[room room_type] })
-                           .where(status: %w[OPEN SETTLED]).order(created_at: :desc)
+                           .joins(:reservation).where(status: %w[OPEN SETTLED], reservations: { status: "CHECKED_IN" }).order(created_at: :desc)
           arrivals = property.reservations.includes(:guest, :folio, reservation_rooms: %i[room room_type])
-                             .where(status: "CONFIRMED").order(:check_in_date)
+                             .where(status: %w[INQUIRY CONFIRMED], check_in_date: Date.current).order(:check_in_date)
           render json: { success: true, folios: folios.map { |f| serialize_folio(f) }, arrivals: arrivals.map { |r| serialize_arrival(r) } }
         end
 

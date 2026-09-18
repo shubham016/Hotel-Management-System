@@ -18,6 +18,7 @@ function destination(input: string, init?: RequestInit) {
     '/api/v1/pos/menu-items': '/api/v1/pos/menu_items'
   };
   path = aliases[path] || path;
+  if (path.startsWith('/api/v1/pms/reservations/')) path = path.replace('/api/v1/pms/reservations/', '/api/v1/reservations/');
   if (path.startsWith('/api/v1/setup/')) path = path.replace('/api/v1/setup/', '/api/v1/');
 
   const method = (init?.method || 'GET').toUpperCase();

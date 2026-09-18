@@ -8,7 +8,7 @@ import { DualCalendarPicker } from '@/components/ui/DualCalendarPicker';
 import { formatDualDate } from '@/lib/nepali-calendar';
 import { createBooking, loadAddOnCatalog, loadBookingAvailability } from './api';
 import { DEFAULT_ROOM_IMAGE, PROPERTY_CODE, ROOM_IMAGES } from './constants';
-import type { AddOnOffering, AvailabilityOption, BookingConfirmation } from './types';
+import type { AddOnOffering, AvailabilityOption, BookingConfirmation, BookingSource } from './types';
 
 const formatAmount = (amount: number) => amount.toLocaleString('en-IN', {
   minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
@@ -22,10 +22,21 @@ const pricingUnitLabel: Record<AddOnOffering['pricingUnit'], string> = {
   PER_GUEST_PER_NIGHT: 'per guest / night'
 };
 
+const bookingSourceOptions: Array<{ value: BookingSource; label: string }> = [
+  { value: 'WALK_IN', label: 'Walk-In' },
+  { value: 'ONLINE', label: 'Online' },
+  { value: 'PHONE', label: 'Phone' },
+  { value: 'TRAVEL_AGENCY', label: 'Travel Agency' },
+  { value: 'PARTNER_HOTEL', label: 'Partner Hotel' }
+];
+
 export default function BookPage() {
   const searchParams = useSearchParams();
   const isEmbeddedBooking = searchParams.get('embedded') === 'true';
-  const bookingSource = isEmbeddedBooking || searchParams.get('source') === 'WALK_IN' ? 'WALK_IN' : 'DIRECT_WEB';
+  const requestedSource = searchParams.get('source') as BookingSource | null;
+  const initialBookingSource: BookingSource = bookingSourceOptions.some((option) => option.value === requestedSource)
+    ? requestedSource as BookingSource
+    : isEmbeddedBooking ? 'WALK_IN' : 'ONLINE';
   const toLocalDateString = (date: Date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -64,6 +75,7 @@ export default function BookPage() {
   const [idType, setIdType] = useState('Citizenship');
   const [idNumber, setIdNumber] = useState('');
   const [specialRequests, setSpecialRequests] = useState('');
+  const [bookingSource, setBookingSource] = useState<BookingSource>(initialBookingSource);
 
   // Booking Confirmation State
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -348,6 +360,15 @@ export default function BookPage() {
                 ))}
               </div>
             </Card>
+
+            <Card title="5. Booking Source">
+              <div className="hne-form-group" style={{ marginBottom: 0 }}>
+                <label className="hne-label" htmlFor="booking-source">Booking Source *</label>
+                <select id="booking-source" className="hne-select" value={bookingSource} onChange={(event) => setBookingSource(event.target.value as BookingSource)}>
+                  {bookingSourceOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </div>
+            </Card>
           </div>
 
           {/* Right: Real-time Price Summary & Proceed */}
@@ -489,10 +510,10 @@ export default function BookPage() {
               <CheckCircle2 size={32} />
             </div>
 
-            <Badge variant="success" style={{ marginBottom: 12 }}>Booking Confirmed & Synchronized in PMS</Badge>
+            <Badge variant="orange" style={{ marginBottom: 12 }}>Booking Request Received & Reserved in PMS</Badge>
             <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8 }}>Thank You, {confirmationData.guestName}!</h2>
             <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 24 }}>
-              Your reservation has been created directly in our Hotel Management System. A confirmation summary has been registered under:
+              Your room has been held in our Hotel Management System. Our team will verify the booking details and confirm it under:
             </p>
 
             <div style={{ backgroundColor: 'var(--bg-main)', borderRadius: 'var(--radius-lg)', padding: 24, textAlign: 'left', marginBottom: 28, border: '1px solid var(--border)' }}>

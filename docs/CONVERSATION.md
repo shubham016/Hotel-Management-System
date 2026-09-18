@@ -573,4 +573,23 @@ Start from `PROJECT_HANDOFF.md` → "Resume Here" section, then `docs/plans/IMPL
 
 
 
+## Record Entry: 2026-09-17 (PMS Inventory, Dynamic Public Catalog, Add-On Pricing, and Dashboard Authorization)
+
+### User Prompt / Input
+The user asked for a connected set of Hotel New Era PMS corrections: prevent overlapping exact-room bookings, make Hotel Setup Room Category values appear on the public site, use the supplied favicon, make dashboard values dynamic without changing the fixed visual icons/sparklines, correct children and spa add-on pricing, make optional experiences dynamic, and resolve the dashboard booking permission error.
+
+### Delivered
+1. **Exact-room availability**: added inventory-blocking status handling and exact-room validation during reservation modification. Early checkout no longer releases the original date window for rebooking; cancellation still releases it. The date interval remains checkout-exclusive, so a new stay can begin on the scheduled checkout date.
+2. **Public room categories**: introduced read-only `GET /api/v1/room_catalog` and changed the public Home/Rooms cards to fetch active, setup-managed category data. Saved Room Category fields now flow from database to API to public card.
+3. **Favicon**: `index.html` now serves `/images/favicon_logo.png` as the browser-tab icon.
+4. **Dashboard**: removed hard-coded stat values. The dashboard loads full Rails metrics, includes room-board data in the complete response, refreshes on focus, visibility, dashboard booking, and a 30-second interval. Decorative stat visuals intentionally remain fixed. Semantics are explicit: confirmed = Arrival/Reserved; checked-in = In-house/Occupied; checked-out = removed from physical occupancy.
+5. **Pricing and add-ons**: `PER_GUEST_PER_NIGHT` now uses adults plus children. Added `PER_GUEST`, migrated SPA to that pricing unit, and supplied a public `GET /api/v1/add_on_catalog` endpoint. The React booking page renders active offerings dynamically instead of hard-coding breakfast, airport transfer, and spa.
+6. **Authorization**: authenticated reservation creation now permits either Reservation-create or Front-Desk-create authority. Migration `20260917000002_grant_operational_booking_permissions` updates OWNER, MANAGER, and FRONT_DESK_STAFF records; public unauthenticated booking remains supported and read-only staff remain forbidden.
+
+### Validation
+- Full Rails test suite: 33 runs, 192 assertions, 0 failures.
+- Added regression coverage for early checkout inventory protection, assigned-room date modification conflicts, dashboard status counters, child-inclusive add-ons, SPA per-person pricing, dynamic add-on catalog, and staff booking permissions.
+- Changed backend files pass RuboCop; production frontend build and TypeScript check pass.
+
+---
 

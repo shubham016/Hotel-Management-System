@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_17_000002) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_18_000004) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -510,7 +510,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_17_000002) do
     t.uuid "rate_plan_id"
     t.decimal "room_total", precision: 14, scale: 2, null: false
     t.decimal "service_total", precision: 14, scale: 2, default: "0.0", null: false
-    t.string "source", default: "DIRECT_WEB", null: false
+    t.string "source", default: "ONLINE", null: false
     t.text "special_requests"
     t.string "status", default: "CONFIRMED", null: false
     t.decimal "tax_total", precision: 14, scale: 2, default: "0.0", null: false

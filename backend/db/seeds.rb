@@ -89,8 +89,8 @@ manager_role.update!(
   permissions: {
     "DASHBOARD" => %w[read],
     "ROOMS" => %w[read update],
-    "PMS_FRONTDESK" => %w[read create],
-    "RESERVATIONS" => %w[read create]
+    "PMS_FRONTDESK" => %w[read create check_in],
+    "RESERVATIONS" => %w[read create update cancel]
   }
 )
 
@@ -100,8 +100,8 @@ front_desk_staff_role.update!(
   permissions: {
     "DASHBOARD" => %w[read],
     "ROOMS" => %w[read update],
-    "PMS_FRONTDESK" => %w[read create],
-    "RESERVATIONS" => %w[read create]
+    "PMS_FRONTDESK" => %w[read create check_in],
+    "RESERVATIONS" => %w[read create update cancel]
   }
 )
 

@@ -1,8 +1,11 @@
 class Reservation < ApplicationRecord
   ACTIVE_STATUSES = %w[CONFIRMED CHECKED_IN].freeze
-  INVENTORY_BLOCKING_STATUSES = (ACTIVE_STATUSES + %w[CHECKED_OUT]).freeze
+  # A booking awaiting staff confirmation still holds its requested inventory;
+  # otherwise the same room could be sold to someone else before reception
+  # verifies the guest's details.
+  INVENTORY_BLOCKING_STATUSES = (ACTIVE_STATUSES + %w[INQUIRY CHECKED_OUT]).freeze
   STATUSES = %w[INQUIRY CONFIRMED CHECKED_IN CHECKED_OUT CANCELLED NO_SHOW].freeze
-  SOURCES = %w[DIRECT_WEB WALK_IN PHONE EMAIL OTA CORPORATE TRAVEL_AGENT].freeze
+  SOURCES = %w[WALK_IN ONLINE PHONE TRAVEL_AGENCY PARTNER_HOTEL].freeze
 
   belongs_to :property
   belongs_to :guest

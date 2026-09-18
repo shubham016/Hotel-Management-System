@@ -234,7 +234,7 @@ export default function FrontDeskPage() {
       {arrivals.length > 0 && (
         <div style={{ backgroundColor: 'var(--brand-gold-light)', border: '1px solid var(--brand-gold)', borderRadius: 'var(--radius-md)', padding: '16px 20px' }}>
           <div style={{ fontWeight: 800, fontSize: 14.5, color: 'var(--brand-gold-hover)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <UserCheck size={18} /> Today's Confirmed Arrivals Awaiting Check-In ({arrivals.length})
+            <UserCheck size={18} /> Today's Pending Arrivals Awaiting Check-In ({arrivals.length})
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
             {arrivals.map((arr) => (

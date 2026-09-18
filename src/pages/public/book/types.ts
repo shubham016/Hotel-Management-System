@@ -18,4 +18,6 @@ export type AvailabilityOption = {
 
 export type BookingConfirmation = { id: string; confirmationNumber: string; folioNumber: string; guestName: string; roomName: string; roomId: string; roomNumber: string; checkInDate: string; checkOutDate: string; nights: number; subTotal: number; serviceCharge: number; vatAmount: number; grandTotal: number; paymentStatus: string };
 
-export type BookingPayload = { propertyCode: string; checkInDate: string; checkOutDate: string; roomTypeCode: string; roomId: string; roomsCount: number; adultsCount: number; childrenCount: number; firstName: string; lastName: string; email: string; phone: string; idType: string; idNumber: string; specialRequests: string; addOns: Record<string, boolean>; source: 'DIRECT_WEB' | 'WALK_IN' };
+export type BookingSource = 'WALK_IN' | 'ONLINE' | 'PHONE' | 'TRAVEL_AGENCY' | 'PARTNER_HOTEL';
+
+export type BookingPayload = { propertyCode: string; checkInDate: string; checkOutDate: string; roomTypeCode: string; roomId: string; roomsCount: number; adultsCount: number; childrenCount: number; firstName: string; lastName: string; email: string; phone: string; idType: string; idNumber: string; specialRequests: string; addOns: Record<string, boolean>; source: BookingSource };

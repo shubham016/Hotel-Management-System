@@ -80,6 +80,16 @@ The public booking workflow and administration modules communicate with Rails th
 
 ## Resume Here (2026-09-09 session end)
 
+## Session Update - 2026-09-17
+
+- The public Room and Home catalog cards are live from Hotel Setup Room Categories through `GET /api/v1/room_catalog`; do not restore the old hard-coded category arrays.
+- The booking page's Optional Add-On Experiences are live from `GET /api/v1/add_on_catalog`. It supports `PER_BOOKING`, `PER_NIGHT`, `PER_GUEST`, and `PER_GUEST_PER_NIGHT`; guest-based pricing includes adults and children.
+- SPA is now `PER_GUEST` (Rs. 4,000 per person) via migration `20260917000001_set_spa_pricing_per_guest`.
+- Dashboard stat values are live. The visual stat icons/sparklines are deliberately fixed; data refreshes on focus, visibility, dashboard booking, and every 30 seconds. A reservation is an Arrival/Reserved room, while only a checked-in guest contributes to In-house and Occupancy.
+- Embedded dashboard bookings use authenticated staff permissions. `20260917000002_grant_operational_booking_permissions` grants booking-create permission to OWNER, MANAGER, and FRONT_DESK_STAFF. The create endpoint accepts either `RESERVATIONS:create` or `PMS_FRONTDESK:create`.
+- Browser favicon points to `public/images/favicon_logo.png`.
+- Validation after this session: full Rails suite 33 runs / 192 assertions / 0 failures; changed backend files pass RuboCop; production frontend build passes.
+
 ### Reference project
 
 Use `D:\Laravel Projects\kamra-pms-develop` as the local design and workflow reference for future Hotel New Era work. Copy its interaction and layout patterns selectively, but keep Hotel New Era's React/Vite + Rails architecture, Nepal localization, and own branding/data.

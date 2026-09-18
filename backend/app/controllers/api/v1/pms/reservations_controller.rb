@@ -63,7 +63,9 @@ module Api
         def create
           authorize_reservation_create! if Current.user
           create_params = reservation_params
-          create_params[:source] = Current.user ? (create_params[:source].presence || "WALK_IN") : "DIRECT_WEB"
+          # Keep the source selected in the booking form. Staff entries default
+          # to Walk-In; direct website entries default to Online.
+          create_params[:source] = create_params[:source].presence || (Current.user ? "WALK_IN" : "ONLINE")
           result = Reservations::Create.call(
             params: create_params,
             request_context: { request_id: request.request_id, ip_address: request.remote_ip }
@@ -163,7 +165,13 @@ module Api
             source: reservation.source,
             checkInDate: reservation.check_in_date,
             checkOutDate: reservation.check_out_date,
-            guest: { id: reservation.guest_id, name: reservation.guest.full_name, phone: reservation.guest.phone },
+            guest: {
+              id: reservation.guest_id,
+              name: reservation.guest.full_name,
+              phone: reservation.guest.phone,
+              idType: reservation.guest.id_type,
+              idNumber: reservation.guest.id_number
+            },
             adultsCount: reservation.adults_count,
             childrenCount: reservation.children_count,
             grandTotal: reservation.grand_total.to_f,

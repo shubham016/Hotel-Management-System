@@ -65,7 +65,7 @@ module Reservations
     end
 
     def cancel
-      ensure_status!("CONFIRMED", "Only confirmed reservations can be cancelled before check-in")
+      ensure_status_in!([ "INQUIRY", "CONFIRMED" ], "Only pending or confirmed reservations can be cancelled before check-in")
       old_values = snapshot
 
       Reservation.transaction do
@@ -100,7 +100,11 @@ module Reservations
     end
 
     def check_in
-      ensure_status!("CONFIRMED", "Reservation is not ready for check-in")
+      # Reception's verification at arrival is the confirmation step. Keep the
+      # persisted CHECKED_IN state so in-house guests and checkout remain
+      # operationally distinct, while the UI presents it as confirmed/check-in.
+      ensure_status_in!([ "INQUIRY", "CONFIRMED" ], "Reservation is not ready for check-in")
+      ensure_check_in_date!
       old_values = snapshot
 
       Reservation.transaction do
@@ -328,6 +332,22 @@ module Reservations
       return if @reservation.status == status
 
       raise ApiError.new(message, status: :conflict, code: "INVALID_RESERVATION_STATUS")
+    end
+
+    def ensure_status_in!(statuses, message)
+      return if @reservation.status.in?(statuses)
+
+      raise ApiError.new(message, status: :conflict, code: "INVALID_RESERVATION_STATUS")
+    end
+
+    def ensure_check_in_date!
+      return if Date.current.between?(@reservation.check_in_date, @reservation.check_out_date)
+
+      if Date.current < @reservation.check_in_date
+        raise ApiError.new("This reservation can be checked in from #{@reservation.check_in_date}", status: :conflict, code: "CHECKIN_NOT_OPEN")
+      end
+
+      raise ApiError.new("This reservation ended on #{@reservation.check_out_date}. Extend or rebook the stay before check-in.", status: :conflict, code: "STAY_EXPIRED")
     end
 
     def parse_date!(value)

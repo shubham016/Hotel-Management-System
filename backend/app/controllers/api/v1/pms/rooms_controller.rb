@@ -4,7 +4,7 @@ module Api
       class RoomsController < BackendController
         self.authorization_module_name = "ROOMS"
 
-        OPERATIONAL_STATUSES = %w[OCCUPIED RESERVED VACANT_CLEAN VACANT_DIRTY INSPECTION_REQUIRED].freeze
+        MANUAL_STATUSES = %w[VACANT_CLEAN VACANT_DIRTY INSPECTION_REQUIRED OUT_OF_ORDER OUT_OF_SERVICE].freeze
 
         def index
           property = default_property
@@ -32,7 +32,8 @@ module Api
           property = default_property
           room = params[:id] == "lookup" ? property.rooms.find_by!(room_number: params.require(:roomNumber)) : property.rooms.find(params[:id])
           raise ApiError.new("This room is not managed through Hotel Setup", status: :not_found, code: "NOT_FOUND") unless room.setup_managed?
-          ensure_operational_status_permission!(params.require(:status))
+          ensure_manual_status!(params.require(:status))
+          ensure_not_lifecycle_managed!(room)
           old_status = room.status
           room.update!(status: params.require(:status), maintenance_notes: params[:maintenanceNotes].presence)
           audit!("PMS_ROOMS", "UPDATE", "Room", room.id, old_values: { status: old_status }, new_values: { status: room.status })
@@ -41,11 +42,16 @@ module Api
 
         private
 
-        def ensure_operational_status_permission!(status)
-          return unless Current.user.role.name.in?(%w[MANAGER FRONT_DESK_STAFF])
-          return if status.in?(OPERATIONAL_STATUSES)
+        def ensure_manual_status!(status)
+          return if status.in?(MANUAL_STATUSES)
 
-          raise ApiError.new("Your role may only set Occupied, Reserved, Clean, Dirty, or Inspected status", status: :forbidden, code: "FORBIDDEN")
+          raise ApiError.new("Occupied, Reserved, and Due Out are set only by the reservation and front-desk workflow", status: :unprocessable_content, code: "LIFECYCLE_MANAGED_STATUS")
+        end
+
+        def ensure_not_lifecycle_managed!(room)
+          return unless room.reservation_rooms.joins(:reservation).where(reservations: { status: %w[INQUIRY CONFIRMED CHECKED_IN] }).exists?
+
+          raise ApiError.new("This room is managed by an active reservation. Use reservation confirmation, check-in, checkout, or cancellation instead.", status: :conflict, code: "LIFECYCLE_MANAGED_ROOM")
         end
 
         def available_rooms(rooms, property)

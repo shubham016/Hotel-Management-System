@@ -85,7 +85,7 @@ class DashboardTest < ActionDispatch::IntegrationTest
     @property.reservations.create!(
       guest:,
       confirmation_number: "DASH-#{SecureRandom.hex(6)}",
-      source: "DIRECT_WEB",
+      source: "ONLINE",
       status:,
       check_in_date:,
       check_out_date:,

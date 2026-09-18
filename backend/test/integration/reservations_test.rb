@@ -90,7 +90,7 @@ class ReservationsTest < ActionDispatch::IntegrationTest
     assert_response :created
     body = response.parsed_body
     reservation = Reservation.find(body.dig("data", "id"))
-    assert_equal "DIRECT_WEB", reservation.source
+    assert_equal "ONLINE", reservation.source
     assert_equal @second_room.id, reservation.reservation_rooms.first.room_id
     assert_equal @second_room.room_number, body.dig("data", "roomNumber")
     assert_equal "RESERVED", @second_room.reload.status
@@ -140,6 +140,8 @@ class ReservationsTest < ActionDispatch::IntegrationTest
     ), as: :json
     assert_response :created
     reservation = Reservation.find(response.parsed_body.dig("data", "id"))
+
+    reservation.update!(status: "CONFIRMED")
 
     post "/api/v1/reservations", params: valid_payload.merge(
       roomId: @first_room.id,
@@ -230,7 +232,7 @@ class ReservationsTest < ActionDispatch::IntegrationTest
     post "/api/v1/reservations", params: valid_payload.merge(source: "WALK_IN"), as: :json
 
     assert_response :created
-    assert_equal "DIRECT_WEB", Reservation.find(response.parsed_body.dig("data", "id")).source
+    assert_equal "ONLINE", Reservation.find(response.parsed_body.dig("data", "id")).source
   end
 
   test "front desk create permission can submit an authenticated walk-in booking" do
@@ -293,6 +295,8 @@ class ReservationsTest < ActionDispatch::IntegrationTest
     assert_response :created
     reservation = Reservation.find(response.parsed_body.dig("data", "id"))
 
+    reservation.update!(status: "CONFIRMED")
+
     patch "/api/v1/reservations/#{reservation.id}",
       params: { checkOutDate: (@check_out + 1.day).iso8601, adultsCount: 1 },
       headers: auth_headers(token),
@@ -307,6 +311,9 @@ class ReservationsTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_equal "RESERVED", @second_room.reload.status
 
+    # A guest may be checked in only on their scheduled arrival date.
+    reservation.update!(check_in_date: Date.current, check_out_date: Date.current + 2.days)
+
     patch "/api/v1/reservations/#{reservation.id}/check-in",
       params: { roomId: @second_room.id },
       headers: auth_headers(token),
@@ -316,11 +323,11 @@ class ReservationsTest < ActionDispatch::IntegrationTest
     assert_equal "OCCUPIED", @second_room.reload.status
 
     patch "/api/v1/reservations/#{reservation.id}/extend-stay",
-      params: { checkOutDate: (@check_out + 2.days).iso8601 },
+      params: { checkOutDate: (Date.current + 3.days).iso8601 },
       headers: auth_headers(token),
       as: :json
     assert_response :success
-    assert_equal @check_out + 2.days, reservation.reload.check_out_date
+    assert_equal Date.current + 3.days, reservation.reload.check_out_date
 
     clean_room = @property.rooms.create!(room_type: @room_type, room_number: "103")
     patch "/api/v1/reservations/#{reservation.id}/transfer-room",
@@ -401,7 +408,7 @@ class ReservationsTest < ActionDispatch::IntegrationTest
       email: "aarav@example.com",
       phone: "+977-9800000001",
       addOns: { BREAKFAST: true },
-      source: "DIRECT_WEB"
+      source: "ONLINE"
     }
   end
 end
