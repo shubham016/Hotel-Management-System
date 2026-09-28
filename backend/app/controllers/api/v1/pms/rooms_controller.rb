@@ -23,7 +23,10 @@ module Api
               occupied: data.count { |room| room[:status] == "OCCUPIED" },
               vacantDirty: data.count { |room| room[:status] == "VACANT_DIRTY" },
               inspectionNeeded: data.count { |room| room[:status] == "INSPECTION_REQUIRED" },
-              outOfOrder: data.count { |room| room[:status] == "OUT_OF_ORDER" }
+              outOfOrder: data.count { |room| room[:status] == "OUT_OF_ORDER" },
+              outOfService: data.count { |room| room[:status] == "OUT_OF_SERVICE" },
+              reserved: data.count { |room| room[:status] == "RESERVED" },
+              dueOut: data.count { |room| room[:status] == "DUE_OUT" }
             }
           }
         end
@@ -72,7 +75,7 @@ module Api
         end
 
         def serialize(room)
-          active = room.reservation_rooms.find { |rr| rr.reservation.status.in?(Reservation::ACTIVE_STATUSES) }&.reservation
+          active = room.reservation_rooms.find { |rr| rr.reservation.status.in?(%w[INQUIRY CONFIRMED CHECKED_IN]) }&.reservation
           {
             id: room.id,
             roomNumber: room.room_number,
@@ -82,7 +85,6 @@ module Api
             roomTypeCode: room.room_type.code,
             basePrice: room.room_type.base_price.to_f,
             amenities: room.room_type.amenities,
-            viewType: "City View",
             activeGuest: active ? {
               id: active.guest.id,
               name: active.guest.full_name,

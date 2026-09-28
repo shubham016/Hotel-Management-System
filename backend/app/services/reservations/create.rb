@@ -23,6 +23,7 @@ module Reservations
         reservation = create_reservation!(guest, quote)
         folio = create_folio!(reservation, guest, quote)
         create_audit_log!(reservation, quote)
+        Reservations::NotifyFrontDesk.call(reservation:) if reservation.source == "ONLINE"
 
         Result.new(reservation:, folio:, quote:)
       end
@@ -230,5 +231,6 @@ module Reservations
         ip_address: @request_context[:ip_address]
       )
     end
+
   end
 end

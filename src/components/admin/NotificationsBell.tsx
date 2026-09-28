@@ -26,9 +26,7 @@ export const NotificationsBell: React.FC = () => {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
-  const [loaded, setLoaded] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const didInitialLoad = useRef(false);
 
   const load = () => {
     fetch('/api/notifications')
@@ -38,15 +36,28 @@ export const NotificationsBell: React.FC = () => {
           setItems(json.notifications);
           setUnreadCount(json.unreadCount);
         }
-        setLoaded(true);
       })
-      .catch(() => setLoaded(true));
+      .catch(() => {});
   };
 
   useEffect(() => {
-    if (didInitialLoad.current) return;
-    didInitialLoad.current = true;
     load();
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') load();
+    };
+    const refreshAfterBooking = (event: MessageEvent) => {
+      if (event.origin === window.location.origin && event.data?.type === 'hne:booking-created') load();
+    };
+    window.addEventListener('focus', load);
+    window.addEventListener('message', refreshAfterBooking);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    const timer = window.setInterval(refreshWhenVisible, 15_000);
+    return () => {
+      window.removeEventListener('focus', load);
+      window.removeEventListener('message', refreshAfterBooking);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+      window.clearInterval(timer);
+    };
   }, []);
 
   useEffect(() => {
@@ -60,8 +71,8 @@ export const NotificationsBell: React.FC = () => {
   }, []);
 
   const handleOpen = () => {
+    if (!open) load();
     setOpen((o) => !o);
-    if (!loaded) load();
   };
 
   const handleSelect = async (item: NotificationItem) => {
@@ -82,6 +93,7 @@ export const NotificationsBell: React.FC = () => {
     <div ref={wrapperRef} style={{ position: 'relative' }}>
       <button
         onClick={handleOpen}
+        aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
         style={{
           position: 'relative',
           width: 36,

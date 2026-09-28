@@ -3,7 +3,7 @@ module Api
     module Housekeeping
       class TasksController < BackendController
         def index
-          rooms = default_property.rooms.includes(:room_type, :housekeeping_tasks).order(:floor, :room_number)
+          rooms = default_property.rooms.active.setup_managed.includes(:room_type, :housekeeping_tasks).order(:floor, :room_number)
           dirty = rooms.select { |room| room.status.in?(%w[VACANT_DIRTY INSPECTION_REQUIRED OUT_OF_ORDER]) }
           render json: {
             success: true,
@@ -13,7 +13,7 @@ module Api
         end
 
         def create
-          room = default_property.rooms.find(params.require(:roomId))
+          room = default_property.rooms.active.setup_managed.find(params.require(:roomId))
           raise ApiError.new("Invalid housekeeping action", status: :bad_request, code: "INVALID_ACTION") unless params.require(:action) == "MARK_CLEAN"
 
           room.housekeeping_tasks.create!(task_type: "CLEANING", status: "COMPLETED", assigned_to: params[:housekeeperName].presence || "Sita Thapa", completed_at: Time.current)

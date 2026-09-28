@@ -3,7 +3,7 @@ namespace :api do
     resource :dashboard, only: :show, controller: :dashboard
 
     scope module: :pms do
-      resources :reservations, only: %i[index show create update] do
+      resources :reservations, only: %i[index show create update destroy] do
         member do
           patch :cancel
           patch :assign_room, path: "assign-room"
@@ -16,6 +16,12 @@ namespace :api do
       patch "pms/rooms/:id", to: "rooms#update"
       resource :frontdesk, only: %i[show create], controller: :frontdesk
       resource :folio, only: :create, controller: :folios
+      resources :payment_requests, only: %i[create show] do
+        member do
+          post :start
+          post :verify
+        end
+      end
       resource :checkout, only: :create, controller: :checkout
       resource :night_audit, only: %i[show create], path: "night-audit", controller: :night_audit
     end

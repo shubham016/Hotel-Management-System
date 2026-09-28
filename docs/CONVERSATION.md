@@ -672,3 +672,28 @@ The user asked for a connected set of Hotel New Era PMS corrections: prevent ove
 - Do not create new `SESSION_*.md` files. When the user asks to save changes, add the record to this `docs/CONVERSATION.md` file unless the user explicitly asks for a different documentation location.
 
 ---
+
+## Record Entry: 2026-09-28 (PMS Folios, Stay Extensions, Booking Review, and Archival)
+
+### Delivered
+
+- Reservations Matrix now reviews guest identity, room, dates, and total before check-in. Checked-out bookings remain viewable, while deletion uses an audited archive state instead of removing reservation, folio, payment, or accounting evidence.
+- Staff with reservation-delete permission can archive unused bookings. Active bookings with payments are protected until a refund workflow is completed; unpaid checked-in bookings release the room as Vacant Dirty, and completed stays retain their closed folio and General Ledger history.
+- Front Desk supports focused folio links from Reservations, printable invoices, validated extra charges, supported payment methods, overpayment prevention, checkout settlement, and balanced checkout journal posting.
+- Stay extension accepts additional whole nights plus a required reason, checks exact-room availability, preserves and reprices booking add-ons, recalculates the authoritative folio totals, and records the extension details in the audit log.
+- Folio mutations lock the folio row during charges, payments, and checkout to protect against concurrent overpayment or double settlement. Service Charge and VAT are derived from stored tax snapshots and displayed separately.
+- PMS Rooms, Housekeeping, Night Audit, POS room posting, and Dashboard consistently use active setup-managed inventory. Room lifecycle counts include Reserved, Due Out, and Out of Service, and the dashboard separates overdue arrivals/departures from today's schedule.
+
+### Migration
+
+- `20260921000001_grant_reservation_delete_permission` is applied locally and grants reservation archival permission to OWNER, MANAGER, and FRONT_DESK_STAFF.
+
+### Validation
+
+- Frontend TypeScript check passed.
+- Production Vite build passed (1,639 modules transformed).
+- Focused reservation integration suite passed: 17 runs, 161 assertions, 0 failures.
+- Full Rails suite passed: 37 runs, 279 assertions, 0 failures.
+- Changed PMS Ruby files passed syntax checks and RuboCop.
+
+---

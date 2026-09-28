@@ -74,7 +74,9 @@ module Api
         {
           todayArrivals: arrivals_on(property, today),
           todayDepartures: departures_on(property, today),
-          inHouseGuests: in_house.sum(:adults_count) + in_house.sum(:children_count)
+          inHouseGuests: in_house.sum(:adults_count) + in_house.sum(:children_count),
+          overdueArrivals: property.reservations.where(status: %w[INQUIRY CONFIRMED]).where("check_in_date < ?", today).count,
+          overdueDepartures: in_house.where("check_out_date < ?", today).count
         }
       end
 
@@ -83,11 +85,11 @@ module Api
       # both for "today" (regardless of whether the guest has actually checked in yet) and
       # for past days in the trend series, using only the current (terminal) status column.
       def arrivals_on(property, day)
-        property.reservations.where(check_in_date: day, status: %w[INQUIRY CONFIRMED]).count
+        property.reservations.where(check_in_date: day).where.not(status: %w[CANCELLED NO_SHOW ARCHIVED]).count
       end
 
       def departures_on(property, day)
-        property.reservations.where(check_out_date: day, status: "CHECKED_IN").count
+        property.reservations.where(check_out_date: day).where.not(status: %w[CANCELLED NO_SHOW ARCHIVED]).count
       end
 
       def in_house_on(property, _day)

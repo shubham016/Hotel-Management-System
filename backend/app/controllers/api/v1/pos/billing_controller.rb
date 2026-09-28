@@ -58,7 +58,7 @@ module Api
         end
 
         def post_to_room(property, lines, taxes, sub, tax, grand, idempotency_key)
-          room = property.rooms.includes(reservation_rooms: { reservation: :folio }).find_by!(room_number: params[:roomNumber])
+          room = property.rooms.active.setup_managed.includes(reservation_rooms: { reservation: :folio }).find_by!(room_number: params[:roomNumber])
           reservation = room.reservation_rooms.map(&:reservation).find { |res| res.status == "CHECKED_IN" }
           folio = reservation&.folio
           raise ApiError.new("No active in-house open folio found for Room ##{params[:roomNumber]}", status: :bad_request, code: "FOLIO_NOT_FOUND") unless folio&.status == "OPEN"

@@ -9,7 +9,7 @@ module Api
 
         def index
           property = require_property!
-          reservations = property.reservations.includes(:guest, :folio, reservation_rooms: %i[room room_type]).order(created_at: :desc).limit(100)
+          reservations = property.reservations.where.not(status: "ARCHIVED").includes(:guest, :folio, reservation_rooms: %i[room room_type]).order(created_at: :desc).limit(100)
           render json: { success: true, data: reservations.map { |reservation| serialize(reservation) } }
         end
 
@@ -30,6 +30,12 @@ module Api
           authorize!("RESERVATIONS", "cancel")
           reservation = Reservations::Lifecycle.cancel(reservation:, params: lifecycle_params)
           render json: { success: true, data: serialize(reservation) }
+        end
+
+        def destroy
+          reservation = require_property!.reservations.where.not(status: "ARCHIVED").includes(:guest, :folio, reservation_rooms: %i[room room_type]).find(params[:id])
+          reservation = Reservations::Lifecycle.archive(reservation:, params: { reason: "Deleted by staff from Reservations Matrix" })
+          render json: { success: true, message: "Booking removed from the Reservations Matrix", data: { id: reservation.id } }
         end
 
         def assign_room
@@ -63,9 +69,9 @@ module Api
         def create
           authorize_reservation_create! if Current.user
           create_params = reservation_params
-          # Keep the source selected in the booking form. Staff entries default
-          # to Walk-In; direct website entries default to Online.
-          create_params[:source] = create_params[:source].presence || (Current.user ? "WALK_IN" : "ONLINE")
+          # Only authenticated staff may select an operational booking source.
+          # Public callers are always website bookings and cannot impersonate a walk-in.
+          create_params[:source] = Current.user ? (create_params[:source].presence || "WALK_IN") : "ONLINE"
           result = Reservations::Create.call(
             params: create_params,
             request_context: { request_id: request.request_id, ip_address: request.remote_ip }
@@ -142,7 +148,8 @@ module Api
             :childrenCount,
             :specialRequests,
             :roomId,
-            :reason
+            :reason,
+            :additionalNights
           )
         end
 
@@ -176,6 +183,7 @@ module Api
             childrenCount: reservation.children_count,
             grandTotal: reservation.grand_total.to_f,
             advancePaid: reservation.advance_paid.to_f,
+            folioId: reservation.folio&.id,
             folioNumber: reservation.folio&.folio_number,
             rooms:
           }

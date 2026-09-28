@@ -4,8 +4,9 @@ module Api
       class NightAuditController < BackendController
         def show
           property = default_property
-          total_rooms = property.rooms.where(active: true).count
-          occupied_rooms = property.rooms.where(status: "OCCUPIED").count
+          rooms = property.rooms.active.setup_managed
+          total_rooms = rooms.count
+          occupied_rooms = rooms.where(status: "OCCUPIED").count
           open_folios = property.folios.where(status: "OPEN")
           render json: {
             success: true,
@@ -37,7 +38,13 @@ module Api
               unit_price: nightly,
               sub_total: nightly,
               tax_amount: sc + vat,
-              total_amount: total
+              total_amount: total,
+              calculation_snapshot: {
+                taxes: [
+                  { code: "SERVICE_CHARGE", rate: 10, amount: sc },
+                  { code: "VAT", rate: 13, amount: vat }
+                ]
+              }
             )
             folio.update!(
               sub_total: folio.sub_total + nightly,

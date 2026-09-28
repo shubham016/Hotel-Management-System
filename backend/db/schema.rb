@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_18_000004) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_28_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -399,6 +399,28 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_18_000004) do
     t.index ["user_id"], name: "index_password_reset_tokens_on_user_id"
   end
 
+  create_table "payment_requests", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.decimal "amount", precision: 14, scale: 2, null: false
+    t.datetime "created_at", null: false
+    t.datetime "expires_at", null: false
+    t.uuid "folio_id", null: false
+    t.string "gateway"
+    t.string "gateway_reference"
+    t.string "gateway_transaction_id"
+    t.string "gateway_url"
+    t.string "kind", null: false
+    t.uuid "payment_id"
+    t.string "public_token", null: false
+    t.string "status", default: "PENDING", null: false
+    t.datetime "updated_at", null: false
+    t.index ["folio_id"], name: "index_payment_requests_on_folio_id"
+    t.index ["gateway", "gateway_reference"], name: "index_payment_requests_on_gateway_and_gateway_reference", unique: true, where: "(gateway_reference IS NOT NULL)"
+    t.index ["gateway", "gateway_transaction_id"], name: "index_payment_requests_on_gateway_and_gateway_transaction_id", unique: true, where: "(gateway_transaction_id IS NOT NULL)"
+    t.index ["payment_id"], name: "index_payment_requests_on_payment_id"
+    t.index ["public_token"], name: "index_payment_requests_on_public_token", unique: true
+    t.check_constraint "amount > 0::numeric", name: "payment_requests_positive_amount"
+  end
+
   create_table "payments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.decimal "amount", precision: 14, scale: 2, null: false
     t.datetime "created_at", null: false
@@ -724,6 +746,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_18_000004) do
   add_foreign_key "menu_items", "restaurants"
   add_foreign_key "notifications", "users"
   add_foreign_key "password_reset_tokens", "users"
+  add_foreign_key "payment_requests", "folios"
+  add_foreign_key "payment_requests", "payments"
   add_foreign_key "payments", "folios"
   add_foreign_key "properties", "companies"
   add_foreign_key "purchase_order_items", "inventory_items"

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, Trash2 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import Link from '@/lib/router';
 import { formatDualDate } from '@/lib/nepali-calendar';
-import { loadReservations, updateReservationStatus } from './api';
+import { deleteReservation, loadReservations, updateReservationStatus } from './api';
 import type { Reservation } from './types';
+import { ReservationReviewModal } from './components/ReservationReviewModal';
 
 const PAGE_SIZE = 10;
 
@@ -17,9 +18,15 @@ export default function ReservationsPage() {
   const [error, setError] = useState('');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [reviewingReservation, setReviewingReservation] = useState<Reservation | null>(null);
 
   useEffect(() => {
-    loadReservations().then(setReservations).catch((reason) => setError(reason instanceof Error ? reason.message : 'Unable to load reservations.')).finally(() => setLoading(false));
+    loadReservations().then((loadedReservations) => {
+      setReservations(loadedReservations);
+      const reservationId = new URLSearchParams(window.location.search).get('reservation');
+      const linkedReservation = loadedReservations.find((item) => item.id === reservationId);
+      if (linkedReservation) setReviewingReservation(linkedReservation);
+    }).catch((reason) => setError(reason instanceof Error ? reason.message : 'Unable to load reservations.')).finally(() => setLoading(false));
   }, []);
 
   const query = searchTerm.toLowerCase();
@@ -35,9 +42,11 @@ export default function ReservationsPage() {
   const replaceReservation = (updated: Reservation) => setReservations((current) => current.map((reservation) => reservation.id === updated.id ? updated : reservation));
 
   const checkInReservation = async (reservation: Reservation) => {
-    if (!window.confirm(`Verify ${reservation.guest.name}'s details and check them in to Room ${reservation.rooms[0]?.roomNumber || 'the assigned room'}?`)) return;
     setUpdatingId(reservation.id); setError('');
-    try { replaceReservation(await updateReservationStatus(reservation.id, 'check-in', { roomId: reservation.rooms[0]?.roomId })); }
+    try {
+      replaceReservation(await updateReservationStatus(reservation.id, 'check-in', { roomId: reservation.rooms[0]?.roomId }));
+      setReviewingReservation(null);
+    }
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to check in reservation.'); }
     finally { setUpdatingId(null); }
   };
@@ -49,6 +58,24 @@ export default function ReservationsPage() {
     try { replaceReservation(await updateReservationStatus(reservation.id, 'cancel', { reason })); }
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to cancel reservation.'); }
     finally { setUpdatingId(null); }
+  };
+
+  const removeReservation = async (reservation: Reservation) => {
+    const operationalEffect = reservation.status === 'CHECKED_IN'
+      ? '\nThe occupied room will be released as Vacant Dirty. An active booking with payments cannot be deleted until it is refunded.'
+      : reservation.status === 'CHECKED_OUT'
+        ? '\nThe closed folio, payments, and General Ledger history will remain preserved.'
+        : '';
+    if (!window.confirm(`Delete booking ${reservation.confirmationNumber} for ${reservation.guest.name}?\n\nIt will disappear from this list, but its audit history will be preserved.${operationalEffect}`)) return;
+    setUpdatingId(reservation.id); setError('');
+    try {
+      const deletedId = await deleteReservation(reservation.id);
+      setReservations((current) => current.filter((item) => item.id !== deletedId));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to delete booking.');
+    } finally {
+      setUpdatingId(null);
+    }
   };
 
   const statusLabel = (status: string) => status === 'INQUIRY' ? 'PENDING' : status === 'CHECKED_IN' ? 'CONFIRMED / CHECKED IN' : status.replaceAll('_', ' ');
@@ -76,9 +103,11 @@ export default function ReservationsPage() {
             <td><div style={{ fontWeight: 700 }}>Rs. {reservation.grandTotal.toLocaleString()}</div><div style={{ fontSize: 11, color: 'var(--green)' }}>Adv: Rs. {reservation.advancePaid.toLocaleString()}</div></td>
             <td><Badge variant={reservation.status === 'CHECKED_IN' ? 'success' : reservation.status === 'CONFIRMED' ? 'orange' : 'neutral'}>{statusLabel(reservation.status)}</Badge></td>
             <td><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {['INQUIRY', 'CONFIRMED'].includes(reservation.status) && <button type="button" onClick={() => checkInReservation(reservation)} disabled={updatingId === reservation.id} className="hne-btn hne-btn-primary hne-btn-sm" style={{ fontSize: 11.5 }}>{updatingId === reservation.id ? 'Saving…' : 'Check In'}</button>}
+              {['INQUIRY', 'CONFIRMED'].includes(reservation.status) && <button type="button" onClick={() => setReviewingReservation(reservation)} disabled={updatingId === reservation.id} className="hne-btn hne-btn-primary hne-btn-sm" style={{ fontSize: 11.5 }}>Review & Check In</button>}
               {['INQUIRY', 'CONFIRMED'].includes(reservation.status) && <button type="button" onClick={() => cancelReservation(reservation)} disabled={updatingId === reservation.id} className="hne-btn hne-btn-secondary hne-btn-sm" style={{ fontSize: 11.5 }}>{updatingId === reservation.id ? 'Saving…' : 'Cancel'}</button>}
-              {['CHECKED_IN', 'CHECKED_OUT'].includes(reservation.status) && <Link href="/admin/pms/frontdesk" className="hne-btn hne-btn-secondary hne-btn-sm" style={{ fontSize: 11.5 }}>Inspect Folio</Link>}
+              <button type="button" onClick={() => removeReservation(reservation)} disabled={updatingId === reservation.id} className="hne-btn hne-btn-danger hne-btn-sm" style={{ fontSize: 11.5, paddingInline: 8 }} title="Delete booking"><Trash2 size={13} /> Delete</button>
+              {reservation.status === 'CHECKED_IN' && <Link href={`/admin/pms/frontdesk?folio=${encodeURIComponent(reservation.folioNumber || '')}`} className="hne-btn hne-btn-secondary hne-btn-sm" style={{ fontSize: 11.5 }}>Inspect Folio / Extend Stay</Link>}
+              {reservation.status === 'CHECKED_OUT' && <button type="button" onClick={() => setReviewingReservation(reservation)} className="hne-btn hne-btn-secondary hne-btn-sm" style={{ fontSize: 11.5 }}>View Booking</button>}
             </div></td>
           </tr>;
         })}
@@ -93,5 +122,9 @@ export default function ReservationsPage() {
         </div>
       </div>}
     </Card>
+    {reviewingReservation && <ReservationReviewModal reservation={reviewingReservation} saving={updatingId === reviewingReservation.id} onClose={() => setReviewingReservation(null)} onCheckIn={() => checkInReservation(reviewingReservation)} onPaymentComplete={() => loadReservations().then((updated) => {
+      setReservations(updated);
+      setReviewingReservation(updated.find((item) => item.id === reviewingReservation.id) || null);
+    }).catch((reason) => setError(reason instanceof Error ? reason.message : 'Unable to refresh booking.'))} />}
   </div>;
 }

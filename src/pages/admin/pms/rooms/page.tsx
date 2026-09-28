@@ -9,29 +9,33 @@ export default function RoomsManagementPage() {
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('ALL');
   const [rooms, setRooms] = useState<any[]>([]);
   const [summary, setSummary] = useState<any>({
-    totalRooms: 43,
+    totalRooms: 0,
     vacantClean: 0,
     occupied: 0,
     vacantDirty: 0,
     inspectionNeeded: 0,
-    outOfOrder: 0
+    outOfOrder: 0,
+    outOfService: 0,
+    reserved: 0,
+    dueOut: 0
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
+  const [error, setError] = useState('');
 
-  const fetchRooms = async () => {
+  const fetchRooms = async (showLoading = true) => {
     try {
-      setIsLoading(true);
+      if (showLoading) setIsLoading(true);
+      setError('');
       const res = await fetch('/api/pms/rooms');
       const json = await res.json();
-      if (json.success) {
-        setRooms(json.data);
-        if (json.summary) setSummary(json.summary);
-      }
+      if (!res.ok || !json.success) throw new Error(json.error || 'Unable to load rooms.');
+      setRooms(json.data || []);
+      if (json.summary) setSummary(json.summary);
     } catch (err) {
-      console.error('Failed to load rooms:', err);
+      setError(err instanceof Error ? err.message : 'Unable to load rooms.');
     } finally {
-      setIsLoading(false);
+      if (showLoading) setIsLoading(false);
     }
   };
 
@@ -39,24 +43,23 @@ export default function RoomsManagementPage() {
     fetchRooms();
   }, []);
 
-  const updateRoomStatus = async (roomNumber: string, newStatus: string) => {
+  const updateRoomStatus = async (roomId: string, newStatus: string) => {
     try {
-      setIsUpdating(roomNumber);
+      setIsUpdating(roomId);
+      setError('');
       const res = await fetch('/api/pms/rooms', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roomNumber, status: newStatus })
+        body: JSON.stringify({ roomId, status: newStatus })
       });
       const json = await res.json();
       if (json.success) {
-        setRooms(prev => prev.map(r => r.roomNumber === roomNumber ? { ...r, status: newStatus } : r));
-        // Refresh summary
-        fetchRooms();
+        await fetchRooms(false);
       } else {
-        alert(json.error || 'Failed to update room status');
+        setError(json.error || 'Failed to update room status');
       }
     } catch (err: any) {
-      alert(err.message || 'Error updating status');
+      setError(err.message || 'Error updating status');
     } finally {
       setIsUpdating(null);
     }
@@ -67,6 +70,7 @@ export default function RoomsManagementPage() {
     const statusMatch = selectedStatusFilter === 'ALL' || r.status === selectedStatusFilter;
     return floorMatch && statusMatch;
   });
+  const floors = Array.from(new Set(rooms.map((room) => room.floor as number))).sort((a, b) => a - b);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -75,6 +79,9 @@ export default function RoomsManagementPage() {
       case 'VACANT_DIRTY': return { bg: '#FFFBEB', border: '#FDE68A', text: '#D97706', label: 'Vacant Dirty' };
       case 'INSPECTION_REQUIRED': return { bg: '#EFF6FF', border: '#BFDBFE', text: '#2563EB', label: 'Inspect' };
       case 'OUT_OF_ORDER': return { bg: '#F3F4F6', border: '#D1D5DB', text: '#6B7280', label: 'Out of Order' };
+      case 'OUT_OF_SERVICE': return { bg: '#F8FAFC', border: '#94A3B8', text: '#475569', label: 'Out of Service' };
+      case 'RESERVED': return { bg: '#FFF7ED', border: '#FDBA74', text: '#C2410C', label: 'Reserved' };
+      case 'DUE_OUT': return { bg: '#FEF2F2', border: '#FCA5A5', text: '#B91C1C', label: 'Due Out' };
       default: return { bg: '#F9FAFB', border: '#E5E7EB', text: '#374151', label: status };
     }
   };
@@ -84,29 +91,31 @@ export default function RoomsManagementPage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 800 }}>43 Room Live Status Matrix</h1>
+          <h1 style={{ fontSize: 24, fontWeight: 800 }}>{summary.totalRooms} Room Live Status Matrix</h1>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
             Real-time PostgreSQL room occupancy, live housekeeping status updates, and floor-wise matrix
           </p>
         </div>
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <Button variant="secondary" size="sm" onClick={fetchRooms} disabled={isLoading}>
+          <Button variant="secondary" size="sm" onClick={() => fetchRooms()} disabled={isLoading}>
             <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} /> Refresh Grid
           </Button>
 
           {/* Floor Filter */}
-          {['ALL', 1, 2, 3, 4].map((fl) => (
+          {(['ALL', ...floors] as const).map((fl) => (
             <button
               key={fl.toString()}
               onClick={() => setSelectedFloor(fl as any)}
               className={`hne-btn ${selectedFloor === fl ? 'hne-btn-primary' : 'hne-btn-secondary'} hne-btn-sm`}
             >
-              {fl === 'ALL' ? 'All (43)' : `Floor ${fl}`}
+              {fl === 'ALL' ? `All (${summary.totalRooms})` : `Floor ${fl}`}
             </button>
           ))}
         </div>
       </div>
+
+      {error && <div role="alert" style={{ padding: 12, borderRadius: 8, background: 'var(--danger-light)', color: 'var(--danger-red)' }}>{error}</div>}
 
       {/* Status Summary Bar */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12 }}>
@@ -164,18 +173,34 @@ export default function RoomsManagementPage() {
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Out of Order</div>
         </div>
+
+        <div onClick={() => setSelectedStatusFilter(selectedStatusFilter === 'RESERVED' ? 'ALL' : 'RESERVED')} className="hne-card" style={{ padding: 14, textAlign: 'center', borderLeft: '4px solid #C2410C', backgroundColor: '#FFFFFF', cursor: 'pointer' }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#C2410C' }}>{summary.reserved}</div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Reserved</div>
+        </div>
+
+        <div onClick={() => setSelectedStatusFilter(selectedStatusFilter === 'DUE_OUT' ? 'ALL' : 'DUE_OUT')} className="hne-card" style={{ padding: 14, textAlign: 'center', borderLeft: '4px solid #B91C1C', backgroundColor: '#FFFFFF', cursor: 'pointer' }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#B91C1C' }}>{summary.dueOut}</div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Due Out</div>
+        </div>
+
+        <div onClick={() => setSelectedStatusFilter(selectedStatusFilter === 'OUT_OF_SERVICE' ? 'ALL' : 'OUT_OF_SERVICE')} className="hne-card" style={{ padding: 14, textAlign: 'center', borderLeft: '4px solid #475569', backgroundColor: '#FFFFFF', cursor: 'pointer' }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#475569' }}>{summary.outOfService}</div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Out of Service</div>
+        </div>
       </div>
 
       {/* Room Grid */}
       {isLoading ? (
         <div style={{ padding: 60, textAlign: 'center', color: 'var(--text-secondary)' }}>
-          Loading live 43-room matrix from PostgreSQL...
+          Loading live room matrix from PostgreSQL...
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 18 }}>
           {filteredRooms.map((room) => {
             const sc = getStatusColor(room.status);
-            const updatingThis = isUpdating === room.roomNumber;
+            const updatingThis = isUpdating === room.id;
+            const lifecycleManaged = ['RESERVED', 'OCCUPIED', 'DUE_OUT'].includes(room.status);
 
             return (
               <div
@@ -222,7 +247,7 @@ export default function RoomsManagementPage() {
                     {room.roomType}
                   </div>
                   <div style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>
-                    Rs. {room.basePrice.toLocaleString()} / night • {room.viewType}
+                    Rs. {room.basePrice.toLocaleString()} / night
                   </div>
 
                   {room.activeGuest && (
@@ -240,8 +265,8 @@ export default function RoomsManagementPage() {
                 {/* Status Action Switcher */}
                 <div style={{ borderTop: `1px solid ${sc.border}`, paddingTop: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   <button
-                    onClick={() => updateRoomStatus(room.roomNumber, 'VACANT_CLEAN')}
-                    disabled={updatingThis}
+                    onClick={() => updateRoomStatus(room.id, 'VACANT_CLEAN')}
+                    disabled={updatingThis || lifecycleManaged}
                     style={{
                       fontSize: 10.5,
                       fontWeight: 700,
@@ -250,14 +275,14 @@ export default function RoomsManagementPage() {
                       border: '1px solid #16A34A',
                       backgroundColor: '#FFFFFF',
                       color: '#16A34A',
-                      cursor: 'pointer'
+                      cursor: lifecycleManaged ? 'not-allowed' : 'pointer'
                     }}
                   >
                     Clean
                   </button>
                   <button
-                    onClick={() => updateRoomStatus(room.roomNumber, 'VACANT_DIRTY')}
-                    disabled={updatingThis}
+                    onClick={() => updateRoomStatus(room.id, 'VACANT_DIRTY')}
+                    disabled={updatingThis || lifecycleManaged}
                     style={{
                       fontSize: 10.5,
                       fontWeight: 700,
@@ -266,14 +291,14 @@ export default function RoomsManagementPage() {
                       border: '1px solid #D97706',
                       backgroundColor: '#FFFFFF',
                       color: '#D97706',
-                      cursor: 'pointer'
+                      cursor: lifecycleManaged ? 'not-allowed' : 'pointer'
                     }}
                   >
                     Dirty
                   </button>
                   <button
-                    onClick={() => updateRoomStatus(room.roomNumber, 'INSPECTION_REQUIRED')}
-                    disabled={updatingThis}
+                    onClick={() => updateRoomStatus(room.id, 'INSPECTION_REQUIRED')}
+                    disabled={updatingThis || lifecycleManaged}
                     style={{
                       fontSize: 10.5,
                       fontWeight: 700,
@@ -282,14 +307,14 @@ export default function RoomsManagementPage() {
                       border: '1px solid #2563EB',
                       backgroundColor: '#FFFFFF',
                       color: '#2563EB',
-                      cursor: 'pointer'
+                      cursor: lifecycleManaged ? 'not-allowed' : 'pointer'
                     }}
                   >
                     Inspect
                   </button>
                   <button
-                    onClick={() => updateRoomStatus(room.roomNumber, 'OUT_OF_ORDER')}
-                    disabled={updatingThis}
+                    onClick={() => updateRoomStatus(room.id, 'OUT_OF_ORDER')}
+                    disabled={updatingThis || lifecycleManaged}
                     style={{
                       fontSize: 10.5,
                       fontWeight: 700,
@@ -298,7 +323,7 @@ export default function RoomsManagementPage() {
                       border: '1px solid #6B7280',
                       backgroundColor: '#FFFFFF',
                       color: '#6B7280',
-                      cursor: 'pointer'
+                      cursor: lifecycleManaged ? 'not-allowed' : 'pointer'
                     }}
                   >
                     OOO

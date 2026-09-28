@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   UsersRound,
   BedDouble,
@@ -23,7 +23,7 @@ import { BookingModal } from '@/components/booking/BookingModal';
 type DashboardData = {
   businessDate: string;
   occupancy: { totalRooms: number; occupiedRooms: number; vacantRooms: number; occupancyPct: number };
-  guests: { todayArrivals: number; todayDepartures: number; inHouseGuests: number };
+  guests: { todayArrivals: number; todayDepartures: number; inHouseGuests: number; overdueArrivals: number; overdueDepartures: number };
   revenue: { today: { room: number; fnb: number; banquet: number; total: number }; adr: number; revPar: number };
   receivables: { pendingReceivables: number };
   arrivals: { confirmationNumber: string; guestName: string; room: string; adults: number; balanceDue: number }[];
@@ -43,7 +43,7 @@ type RoomBoardRoom = {
 const initialDashboardData: DashboardData = {
   businessDate: new Date().toISOString().slice(0, 10),
   occupancy: { totalRooms: 0, occupiedRooms: 0, vacantRooms: 0, occupancyPct: 0 },
-  guests: { todayArrivals: 0, todayDepartures: 0, inHouseGuests: 0 },
+  guests: { todayArrivals: 0, todayDepartures: 0, inHouseGuests: 0, overdueArrivals: 0, overdueDepartures: 0 },
   revenue: { today: { room: 0, fnb: 0, banquet: 0, total: 0 }, adr: 0, revPar: 0 },
   receivables: { pendingReceivables: 0 },
   arrivals: [],
@@ -101,7 +101,6 @@ function RoomStatusIcon({ status, size = 14 }: { status: RoomBoardRoom['status']
 }
 
 export default function AdminDashboardPage() {
-  const didLoadDashboard = useRef(false);
   const [data, setData] = useState<DashboardData>(initialDashboardData);
   const [error, setError] = useState<string | null>(null);
   const [rooms, setRooms] = useState<RoomBoardRoom[]>([]);
@@ -118,6 +117,7 @@ export default function AdminDashboardPage() {
       .then((res) => res.json())
       .then((json) => {
         if (json.success) {
+          setError(null);
           setData((current) => ({ ...current, ...json }));
           if (Array.isArray(json.rooms)) setRooms(json.rooms);
         }
@@ -127,8 +127,6 @@ export default function AdminDashboardPage() {
   };
 
   useEffect(() => {
-    if (didLoadDashboard.current) return;
-    didLoadDashboard.current = true;
     loadDashboard();
 
     const refreshWhenVisible = () => {
@@ -232,6 +230,7 @@ export default function AdminDashboardPage() {
           value={guests.todayArrivals}
           icon={<LogIn size={15} />}
           colorTheme="green"
+          caption={guests.overdueArrivals > 0 ? `${guests.overdueArrivals} overdue pending` : 'Scheduled today'}
           sparkline={[...statTileVisuals.arrivals]}
         />
 
@@ -240,6 +239,7 @@ export default function AdminDashboardPage() {
           value={guests.todayDepartures}
           icon={<LogOut size={15} />}
           colorTheme="golden"
+          caption={guests.overdueDepartures > 0 ? `${guests.overdueDepartures} overdue checkout` : 'Scheduled today'}
           sparkline={[...statTileVisuals.departures]}
         />
 

@@ -19,6 +19,7 @@ class DashboardTest < ActionDispatch::IntegrationTest
     @occupied_room = @property.rooms.create!(room_type: @room_type, room_number: "101", status: "OCCUPIED", setup_managed: true)
     @property.rooms.create!(room_type: @room_type, room_number: "102", status: "VACANT_CLEAN", setup_managed: true)
     @property.rooms.create!(room_type: @room_type, room_number: "103", status: "VACANT_DIRTY", setup_managed: true)
+    @property.rooms.create!(room_type: @room_type, room_number: "LEGACY-999", status: "OCCUPIED", setup_managed: false)
 
     post "/api/v1/auth/login", params: { email: @user.email, password: "Strong-Test-Password-2026!" }, as: :json
     @token = response.parsed_body.dig("data", "token")
@@ -39,6 +40,15 @@ class DashboardTest < ActionDispatch::IntegrationTest
     assert_equal 7, body.dig("trends", "arrivals").length
     assert_equal 7, body.dig("trends", "revenue").length
     assert_equal 0, body.dig("pos", "ordersToday")
+
+    get "/api/v1/pms/rooms", headers: { "Authorization" => "Bearer #{@token}", "X-Property-Code" => @property.code }, as: :json
+    assert_response :success
+    room_payload = response.parsed_body
+    assert_equal body.dig("occupancy", "totalRooms"), room_payload.dig("summary", "totalRooms")
+    assert_equal body.dig("occupancy", "occupiedRooms"), room_payload.dig("summary", "occupied")
+    assert_equal body["rooms"].map { |room| [ room["id"], room["status"] ] }.sort,
+      room_payload["data"].map { |room| [ room["id"], room["status"] ] }.sort
+    assert_not room_payload["data"].any? { |room| room["roomNumber"] == "LEGACY-999" }
   end
 
   test "live guest counters reflect booking, check-in, and checkout statuses" do
@@ -50,9 +60,11 @@ class DashboardTest < ActionDispatch::IntegrationTest
     get "/api/v1/dashboard", headers: auth_headers, as: :json
 
     assert_response :success
-    assert_equal 1, response.parsed_body.dig("guests", "todayArrivals")
+    assert_equal 2, response.parsed_body.dig("guests", "todayArrivals")
     assert_equal 1, response.parsed_body.dig("guests", "todayDepartures")
     assert_equal 4, response.parsed_body.dig("guests", "inHouseGuests")
+    assert_equal 0, response.parsed_body.dig("guests", "overdueArrivals")
+    assert_equal 0, response.parsed_body.dig("guests", "overdueDepartures")
     assert_equal 1, response.parsed_body.dig("occupancy", "occupiedRooms")
 
     departing.update!(status: "CHECKED_OUT", checked_out_at: Time.current)
@@ -61,13 +73,27 @@ class DashboardTest < ActionDispatch::IntegrationTest
     get "/api/v1/dashboard", headers: auth_headers, as: :json
 
     assert_response :success
-    assert_equal 1, response.parsed_body.dig("guests", "todayArrivals")
-    assert_equal 0, response.parsed_body.dig("guests", "todayDepartures")
+    assert_equal 2, response.parsed_body.dig("guests", "todayArrivals")
+    assert_equal 1, response.parsed_body.dig("guests", "todayDepartures")
     assert_equal 3, response.parsed_body.dig("guests", "inHouseGuests")
     assert_equal 0, response.parsed_body.dig("occupancy", "occupiedRooms")
 
     assert arriving.persisted?
     assert staying.persisted?
+  end
+
+  test "dashboard exposes overdue arrivals and departures separately from today's schedule" do
+    today = Date.current
+    create_reservation(status: "INQUIRY", check_in_date: today - 2.days, check_out_date: today - 1.day, adults_count: 1)
+    create_reservation(status: "CHECKED_IN", check_in_date: today - 3.days, check_out_date: today - 1.day, adults_count: 1)
+
+    get "/api/v1/dashboard", headers: auth_headers, as: :json
+
+    assert_response :success
+    assert_equal 0, response.parsed_body.dig("guests", "todayArrivals")
+    assert_equal 0, response.parsed_body.dig("guests", "todayDepartures")
+    assert_equal 1, response.parsed_body.dig("guests", "overdueArrivals")
+    assert_equal 1, response.parsed_body.dig("guests", "overdueDepartures")
   end
 
   private

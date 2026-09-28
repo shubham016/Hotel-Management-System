@@ -10,6 +10,10 @@ module Reservations
       new(reservation:, params:).cancel
     end
 
+    def self.archive(reservation:, params:)
+      new(reservation:, params:).archive
+    end
+
     def self.assign_room(reservation:, params:)
       new(reservation:, params:).assign_room
     end
@@ -72,11 +76,36 @@ module Reservations
         if @reservation.folio&.payments&.exists?
           raise ApiError.new("Reservation has payments and cannot be cancelled without a refund workflow", status: :conflict, code: "PAYMENT_EXISTS")
         end
+        ensure_no_gateway_payment!
 
         release_rooms!("VACANT_CLEAN")
         @reservation.update!(status: "CANCELLED")
         @reservation.folio&.update!(status: "VOID", balance_due: 0)
         audit!("CANCEL", old_values, reason: @params[:reason].presence)
+      end
+
+      @reservation.reload
+    end
+
+    def archive
+      ensure_status_in!(Reservation::STATUSES - [ "ARCHIVED" ], "This booking has already been deleted")
+      old_values = snapshot
+
+      Reservation.transaction do
+        folio = @reservation.folio
+        if @reservation.status != "CHECKED_OUT" && folio&.payments&.exists?
+          raise ApiError.new("This active booking has payments and requires a refund before it can be deleted", status: :conflict, code: "PAYMENT_EXISTS")
+        end
+        ensure_no_gateway_payment!
+
+        if @reservation.status == "CHECKED_IN"
+          release_rooms!("VACANT_DIRTY")
+        elsif @reservation.status != "CHECKED_OUT"
+          release_rooms!("VACANT_CLEAN")
+        end
+        folio&.update!(status: "VOID", balance_due: 0) unless @reservation.status == "CHECKED_OUT"
+        @reservation.update!(status: "ARCHIVED")
+        audit!("DELETE", old_values, reason: @params[:reason].presence || "Deleted by staff")
       end
 
       @reservation.reload
@@ -127,8 +156,11 @@ module Reservations
     def extend_stay
       ensure_status!("CHECKED_IN", "Only checked-in stays can be extended")
       old_values = snapshot
-      new_check_out = parse_date!(@params[:checkOutDate] || @params[:newCheckOutDate])
-      raise ApiError.new("New check-out must be after current check-out", code: "INVALID_STAY") unless new_check_out > @reservation.check_out_date
+      additional_nights = Integer(@params[:additionalNights])
+      reason = @params[:reason].to_s.strip
+      raise ApiError.new("Extension must be between 1 and 365 nights", status: :unprocessable_content, code: "INVALID_EXTENSION") unless additional_nights.between?(1, 365)
+      raise ApiError.new("A short reason is required to extend the stay", status: :unprocessable_content, code: "EXTENSION_REASON_REQUIRED") if reason.length < 3
+      new_check_out = @reservation.check_out_date + additional_nights.days
 
       Reservation.transaction do
         room_type = @reservation.reservation_rooms.first.room_type
@@ -145,10 +177,12 @@ module Reservations
           grand_total: quote.grand_total
         )
         sync_room_lines!(quote, room_type, rooms_count)
-        audit!("EXTEND_STAY", old_values, check_out_date: new_check_out)
+        audit!("EXTEND_STAY", old_values, check_out_date: new_check_out, additional_nights:, reason:)
       end
 
       @reservation.reload
+    rescue ArgumentError, TypeError
+      raise ApiError.new("Additional nights must be a whole number", status: :unprocessable_content, code: "INVALID_EXTENSION")
     end
 
     def transfer_room
@@ -233,15 +267,23 @@ module Reservations
         total_amount: quote.grand_total,
         calculation_snapshot: { taxes: quote.tax_lines }
       )
-      folio.update!(
-        sub_total: folio.folio_items.where(voided: false).sum(:sub_total),
-        service_charge: quote.service_charge,
-        tax_amount: quote.vat_amount,
-        grand_total: folio.folio_items.where(voided: false).sum(:sub_total) + folio.folio_items.where(voided: false).sum(:tax_amount),
-        total_paid: folio.payments.sum(:amount)
-      )
-      folio.update!(balance_due: [ folio.grand_total - folio.total_paid, 0 ].max)
+      sync_service_lines!(folio, quote)
+      Folios::Recalculate.call(folio)
       @reservation.reservation_rooms.update_all(nightly_rate: quote.nightly_rate, nights: quote.nights, updated_at: Time.current)
+    end
+
+    def sync_service_lines!(folio, quote)
+      quote.add_on_lines.each do |line|
+        item = folio.folio_items.where(source_module: "SERVICE", source_reference: line[:id]).first_or_initialize
+        item.update!(
+          description: line[:name],
+          quantity: line[:quantity],
+          unit_price: line[:unit_price],
+          sub_total: line[:total],
+          tax_amount: 0,
+          total_amount: line[:total]
+        )
+      end
     end
 
     def build_quote(check_in_date, check_out_date, room_type, rate_plan, rooms_count, adults_count, children_count)
@@ -254,8 +296,15 @@ module Reservations
         rooms_count:,
         adults_count:,
         children_count:,
-        add_on_codes: []
+        add_on_codes: reservation_add_on_codes
       )
+    end
+
+    def reservation_add_on_codes
+      source_ids = @reservation.folio&.folio_items&.where(source_module: "SERVICE", voided: false)&.pluck(:source_reference) || []
+      return [] if source_ids.empty?
+
+      @property.service_offerings.where(id: source_ids, active: true).pluck(:code)
     end
 
     def ensure_type_availability!(room_type, rooms_count)
@@ -306,7 +355,7 @@ module Reservations
       room_id = @params[:roomId].presence
       raise ApiError.new("A room id is required", status: :bad_request, code: "ROOM_REQUIRED") unless room_id
 
-      @property.rooms.includes(:room_type).active.find(room_id)
+      @property.rooms.includes(:room_type).active.setup_managed.find(room_id)
     end
 
     def load_reservation_room!(room_type)
@@ -316,6 +365,12 @@ module Reservations
 
     def release_rooms!(status)
       @reservation.reservation_rooms.includes(:room).each { |rr| release_room!(rr.room, status) }
+    end
+
+    def ensure_no_gateway_payment!
+      return unless @reservation.folio&.payment_requests&.where(status: "INITIATED")&.exists?
+
+      raise ApiError.new("A gateway payment is in progress for this booking", status: :conflict, code: "PAYMENT_IN_PROGRESS")
     end
 
     def release_room!(room, status)

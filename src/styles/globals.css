@@ -713,3 +713,19 @@ h1, h2, h3, h4, h5, h6 {
   .hne-modal-body { max-height: calc(100vh - 20px - 80px); }
   .hne-capacity-grid { grid-template-columns: 1fr; }
 }
+
+@media print {
+  body * { visibility: hidden !important; }
+  .folio-print-area,
+  .folio-print-area * { visibility: visible !important; }
+  .folio-print-area {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    border: 0 !important;
+    box-shadow: none !important;
+    background: #fff !important;
+    color: #111 !important;
+  }
+  .folio-print-area .folio-no-print { display: none !important; }
+}

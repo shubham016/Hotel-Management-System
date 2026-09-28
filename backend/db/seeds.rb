@@ -23,7 +23,7 @@ super_admin_role.update!(
   system: true,
   permissions: {
     "ROOMS" => %w[view create update delete],
-    "RESERVATIONS" => %w[view create update cancel],
+    "RESERVATIONS" => %w[view create update cancel delete],
     "USERS" => %w[view create update delete],
     "ACCOUNTING" => %w[view create approve post export],
     "PMS_ROOMS" => %w[view update],
@@ -70,7 +70,7 @@ owner_role.update!(
     "TASKS" => %w[read create],
     "SESSIONS" => %w[read],
     "ITEMS" => %w[read create],
-    "RESERVATIONS" => %w[read create update cancel assign_room check_in extend_stay transfer_room],
+    "RESERVATIONS" => %w[read create update cancel delete assign_room check_in extend_stay transfer_room],
     "PMS_FRONTDESK" => %w[read create check_in extend_stay transfer_room],
     "FOLIOS" => %w[create],
     "CHECKOUT" => %w[create],
@@ -88,9 +88,11 @@ manager_role.update!(
   system: true,
   permissions: {
     "DASHBOARD" => %w[read],
+    "NOTIFICATIONS" => %w[read update],
     "ROOMS" => %w[read update],
     "PMS_FRONTDESK" => %w[read create check_in],
-    "RESERVATIONS" => %w[read create update cancel]
+    "RESERVATIONS" => %w[read create update cancel delete],
+    "FOLIOS" => %w[create]
   }
 )
 
@@ -99,9 +101,11 @@ front_desk_staff_role.update!(
   system: true,
   permissions: {
     "DASHBOARD" => %w[read],
+    "NOTIFICATIONS" => %w[read update],
     "ROOMS" => %w[read update],
     "PMS_FRONTDESK" => %w[read create check_in],
-    "RESERVATIONS" => %w[read create update cancel]
+    "RESERVATIONS" => %w[read create update cancel delete],
+    "FOLIOS" => %w[create]
   }
 )
 

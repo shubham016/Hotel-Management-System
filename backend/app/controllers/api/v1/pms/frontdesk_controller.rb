@@ -26,6 +26,7 @@ module Api
           rr = folio.reservation.reservation_rooms.first
           {
             id: folio.id,
+            reservationId: folio.reservation_id,
             folioNumber: folio.folio_number,
             status: folio.status,
             guestId: folio.guest_id,
@@ -71,6 +72,11 @@ module Api
         end
 
         def serialize_item(item)
+          taxes = Array(item.calculation_snapshot.to_h["taxes"] || item.calculation_snapshot.to_h[:taxes])
+          service_charge = taxes.sum do |tax|
+            tax = tax.with_indifferent_access
+            tax[:code] == "SERVICE_CHARGE" ? BigDecimal(tax[:amount].to_s) : 0.to_d
+          end
           {
             id: item.id,
             date: item.created_at.to_date.iso8601,
@@ -79,8 +85,8 @@ module Api
             quantity: item.quantity.to_f,
             unitPrice: item.unit_price.to_f,
             amount: item.sub_total.to_f,
-            vatAmount: item.tax_amount.to_f,
-            serviceCharge: 0
+            vatAmount: (item.tax_amount - service_charge).to_f,
+            serviceCharge: service_charge.to_f
           }
         end
 

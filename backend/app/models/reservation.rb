@@ -4,7 +4,7 @@ class Reservation < ApplicationRecord
   # otherwise the same room could be sold to someone else before reception
   # verifies the guest's details.
   INVENTORY_BLOCKING_STATUSES = (ACTIVE_STATUSES + %w[INQUIRY CHECKED_OUT]).freeze
-  STATUSES = %w[INQUIRY CONFIRMED CHECKED_IN CHECKED_OUT CANCELLED NO_SHOW].freeze
+  STATUSES = %w[INQUIRY CONFIRMED CHECKED_IN CHECKED_OUT CANCELLED NO_SHOW ARCHIVED].freeze
   SOURCES = %w[WALK_IN ONLINE PHONE TRAVEL_AGENCY PARTNER_HOTEL].freeze
 
   belongs_to :property

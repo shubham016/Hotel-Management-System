@@ -12,6 +12,7 @@ const Banquet = lazy(() => import('@/pages/public/banquet/page'));
 const Offers = lazy(() => import('@/pages/public/offers/page'));
 const Contact = lazy(() => import('@/pages/public/contact/page'));
 const Book = lazy(() => import('@/pages/public/book/page'));
+const Pay = lazy(() => import('@/pages/public/pay/page'));
 const Login = lazy(() => import('@/pages/auth/login/page'));
 const Dashboard = lazy(() => import('@/pages/admin/dashboard/page'));
 const Apps = lazy(() => import('@/pages/admin/apps/page'));
@@ -44,7 +45,7 @@ export default function App() {
 
   return <Suspense fallback={fallback}><Routes location={backgroundLocation || location}>
     <Route element={<PublicLayout><Outlet /></PublicLayout>}>
-      <Route path="/" element={<Home />} /><Route path="/about" element={<About />} /><Route path="/rooms" element={<Rooms />} /><Route path="/dining" element={<Dining />} /><Route path="/banquet" element={<Banquet />} /><Route path="/offers" element={<Offers />} /><Route path="/contact" element={<Contact />} /><Route path="/book" element={<Book />} />
+      <Route path="/" element={<Home />} /><Route path="/about" element={<About />} /><Route path="/rooms" element={<Rooms />} /><Route path="/dining" element={<Dining />} /><Route path="/banquet" element={<Banquet />} /><Route path="/offers" element={<Offers />} /><Route path="/contact" element={<Contact />} /><Route path="/book" element={<Book />} /><Route path="/pay/:token" element={<Pay />} />
     </Route>
     <Route path="/login" element={<Login />} />
     <Route path="/admin" element={<AdminLayout />}>

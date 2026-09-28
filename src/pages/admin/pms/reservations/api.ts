@@ -17,3 +17,10 @@ export async function updateReservationStatus(id: string, action: 'check-in' | '
   if (!response.ok || !result.success || !result.data) throw new Error(result.error || `Unable to ${action} reservation.`);
   return result.data;
 }
+
+export async function deleteReservation(id: string) {
+  const response = await fetch(`/api/pms/reservations/${id}`, { method: 'DELETE' });
+  const result = await response.json() as { success: boolean; data?: { id: string }; error?: string };
+  if (!response.ok || !result.success || !result.data) throw new Error(result.error || 'Unable to delete booking.');
+  return result.data.id;
+}

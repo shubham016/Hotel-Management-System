@@ -20,9 +20,14 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { formatDualDate } from '@/lib/nepali-calendar';
-import Link from '@/lib/router';
+import Link, { useRouter, useSearchParams } from '@/lib/router';
+import { PaymentRequestModal } from '@/components/payments/PaymentRequestModal';
 
 export default function FrontDeskPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const requestedFolio = searchParams.get('folio');
+  const isFocusedFolioView = Boolean(requestedFolio);
   const [folios, setFolios] = useState<any[]>([]);
   const [arrivals, setArrivals] = useState<any[]>([]);
   const [selectedFolio, setSelectedFolio] = useState<any>(null);
@@ -37,10 +42,14 @@ export default function FrontDeskPage() {
 
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('FONEPAY');
+  const [paymentMethod, setPaymentMethod] = useState('CASH');
   const [paymentNotes, setPaymentNotes] = useState('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showExtendStayModal, setShowExtendStayModal] = useState(false);
+  const [additionalNights, setAdditionalNights] = useState('1');
+  const [extensionReason, setExtensionReason] = useState('');
+  const [showCheckoutPayment, setShowCheckoutPayment] = useState(false);
 
   const fetchFrontDeskData = async () => {
     try {
@@ -50,8 +59,9 @@ export default function FrontDeskPage() {
       if (json.success) {
         setFolios(json.folios || []);
         setArrivals(json.arrivals || []);
-        if (selectedFolio) {
-          const updatedSelected = json.folios.find((f: any) => f.id === selectedFolio.id);
+        const folioToKeep = selectedFolio?.id || (requestedFolio ? json.folios.find((f: any) => f.folioNumber === requestedFolio)?.id : null);
+        if (folioToKeep) {
+          const updatedSelected = json.folios.find((f: any) => f.id === folioToKeep);
           if (updatedSelected) setSelectedFolio(updatedSelected);
         }
       }
@@ -64,7 +74,7 @@ export default function FrontDeskPage() {
 
   useEffect(() => {
     fetchFrontDeskData();
-  }, []);
+  }, [requestedFolio]);
 
   const handleCheckInArrival = async (arrival: any) => {
     if (!confirm(`Check in guest ${arrival.guestName} to Room #${arrival.roomNumber}?`)) return;
@@ -177,7 +187,7 @@ export default function FrontDeskPage() {
       if (json.success) {
         alert(json.message || 'Checkout completed and GL posted successfully!');
         setSelectedFolio(null);
-        fetchFrontDeskData();
+        router.replace('/admin/pms/frontdesk');
       } else {
         alert(json.error || 'Failed to checkout');
       }
@@ -187,6 +197,34 @@ export default function FrontDeskPage() {
       setIsSubmitting(false);
     }
   };
+
+  const handleExtendStay = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!selectedFolio) return;
+
+    try {
+      setIsSubmitting(true);
+      const response = await fetch(`/api/pms/reservations/${selectedFolio.reservationId}/extend-stay`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ additionalNights: Number(additionalNights), reason: extensionReason.trim() })
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.error || 'Unable to extend this stay.');
+      setShowExtendStayModal(false);
+      setAdditionalNights('1');
+      setExtensionReason('');
+      await fetchFrontDeskData();
+    } catch (error: any) {
+      alert(error.message || 'Unable to extend this stay.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const extensionCheckoutDate = selectedFolio
+    ? addDays(selectedFolio.checkOutDate, Math.max(0, Number(additionalNights) || 0))
+    : '';
 
   const filteredFolios = folios.filter(
     (f) =>
@@ -200,9 +238,9 @@ export default function FrontDeskPage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 800 }}>Front Desk & In-House Guest Folios</h1>
+          <h1 style={{ fontSize: 24, fontWeight: 800 }}>{isFocusedFolioView ? 'Guest Folio Inspector' : 'Front Desk & In-House Guest Folios'}</h1>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            Active guest billing, charge posting (F&B/Spa/Laundry), FonePay/Cash payments, and GL checkout settlement
+            {isFocusedFolioView ? `Reviewing folio ${requestedFolio}` : 'Active guest billing, charge posting (F&B/Spa/Laundry), FonePay/Cash payments, and GL checkout settlement'}
           </p>
         </div>
 
@@ -211,7 +249,7 @@ export default function FrontDeskPage() {
             <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} /> Refresh
           </Button>
 
-          <div style={{ position: 'relative', width: 220 }}>
+          {!isFocusedFolioView && <div style={{ position: 'relative', width: 220 }}>
             <Search size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input
               type="text"
@@ -221,17 +259,19 @@ export default function FrontDeskPage() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
-          </div>
+          </div>}
 
-          <Link href="/book?source=WALK_IN" className="hne-btn hne-btn-primary hne-btn-sm" style={{ display: 'inline-flex', alignItems: 'center' }}>
+          {isFocusedFolioView && <Link href="/admin/pms/frontdesk" className="hne-btn hne-btn-secondary hne-btn-sm">View All Active Folios</Link>}
+
+          {!isFocusedFolioView && <Link href="/book?source=WALK_IN" className="hne-btn hne-btn-primary hne-btn-sm" style={{ display: 'inline-flex', alignItems: 'center' }}>
             <Plus size={16} />
             <span>Walk-In / New Booking</span>
-          </Link>
+          </Link>}
         </div>
       </div>
 
       {/* Arriving Guests Awaiting Check-In Alert Card */}
-      {arrivals.length > 0 && (
+      {!isFocusedFolioView && arrivals.length > 0 && (
         <div style={{ backgroundColor: 'var(--brand-gold-light)', border: '1px solid var(--brand-gold)', borderRadius: 'var(--radius-md)', padding: '16px 20px' }}>
           <div style={{ fontWeight: 800, fontSize: 14.5, color: 'var(--brand-gold-hover)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
             <UserCheck size={18} /> Today's Pending Arrivals Awaiting Check-In ({arrivals.length})
@@ -255,9 +295,9 @@ export default function FrontDeskPage() {
       )}
 
       {/* Main Grid: Folio List + Folio Detail Inspector */}
-      <div style={{ display: 'grid', gridTemplateColumns: selectedFolio ? '1fr 1.2fr' : '1fr', gap: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isFocusedFolioView ? '1fr' : selectedFolio ? '1fr 1.2fr' : '1fr', gap: 24 }}>
         {/* Folios Table */}
-        <Card title={`Active In-House Guest Folios (${filteredFolios.length})`} subtitle="Click any folio row to open inspector and ledger details">
+        {!isFocusedFolioView && <Card title={`Active In-House Guest Folios (${filteredFolios.length})`} subtitle="Click any folio row to open inspector and ledger details">
           {isLoading ? (
             <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
               Loading in-house guest folios from PostgreSQL...
@@ -333,16 +373,22 @@ export default function FrontDeskPage() {
               </table>
             </div>
           )}
-        </Card>
+        </Card>}
+
+        {isFocusedFolioView && !isLoading && !selectedFolio && <Card title="Folio Not Available" subtitle="The requested folio is not an active in-house guest folio.">
+          <Link href="/admin/pms/frontdesk" className="hne-btn hne-btn-secondary hne-btn-sm">Return to Active Folios</Link>
+        </Card>}
 
         {/* Selected Folio Inspector Panel */}
         {selectedFolio && (
           <Card
+            className="folio-print-area"
             title={`Guest Folio #${selectedFolio.folioNumber}`}
             subtitle={`Room #${selectedFolio.roomNumber} • ${selectedFolio.guestName}`}
             action={
               <button
-                onClick={() => setSelectedFolio(null)}
+                className="folio-no-print"
+                onClick={() => isFocusedFolioView ? router.replace('/admin/pms/frontdesk') : setSelectedFolio(null)}
                 style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontWeight: 700, color: 'var(--text-muted)' }}
               >
                 ✕ Close
@@ -359,7 +405,7 @@ export default function FrontDeskPage() {
             </div>
 
             {/* Quick Actions Bar */}
-            <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+            <div className="folio-no-print" style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
               <Button variant="primary" size="sm" onClick={() => setShowAddChargeModal(true)}>
                 <Plus size={14} /> Add Charge (F&B / Spa / Laundry)
               </Button>
@@ -369,6 +415,12 @@ export default function FrontDeskPage() {
               <Button variant="secondary" size="sm" onClick={() => window.print()}>
                 <Printer size={14} /> Print Invoice
               </Button>
+              <Button variant="secondary" size="sm" onClick={() => setShowExtendStayModal(true)}>
+                <Calendar size={14} /> Extend Stay
+              </Button>
+              {selectedFolio.balanceDue > 0 && <Button variant="secondary" size="sm" onClick={() => setShowCheckoutPayment(true)}>
+                <CreditCard size={14} /> Pay Balance by QR
+              </Button>}
               <Button
                 variant="danger"
                 size="sm"
@@ -532,6 +584,7 @@ export default function FrontDeskPage() {
                     type="number"
                     required
                     min="1"
+                    max={selectedFolio.balanceDue}
                     placeholder={selectedFolio.balanceDue.toString()}
                     className="hne-input"
                     value={paymentAmount}
@@ -546,11 +599,8 @@ export default function FrontDeskPage() {
                     value={paymentMethod}
                     onChange={(e) => setPaymentMethod(e.target.value)}
                   >
-                    <option value="FONEPAY">FonePay QR (Nepal Interbank / Mobile Banking)</option>
                     <option value="CASH">Cash at Front Desk Counter</option>
-                    <option value="CREDIT_CARD">Credit / Debit Card POS Machine</option>
-                    <option value="ESEWA">eSewa Wallet</option>
-                    <option value="KHALTI">Khalti Digital Wallet</option>
+                    <option value="CARD">Credit / Debit Card POS Machine</option>
                     <option value="BANK_TRANSFER">Direct Bank Deposit (Nabil / Global IME)</option>
                   </select>
                 </div>
@@ -568,12 +618,59 @@ export default function FrontDeskPage() {
               </div>
               <div className="hne-modal-footer">
                 <Button variant="secondary" type="button" onClick={() => setShowPaymentModal(false)}>Cancel</Button>
-                <Button variant="success" type="submit" disabled={isSubmitting}>Record & Issue Receipt</Button>
+                <Button variant="success" type="submit" disabled={isSubmitting || selectedFolio.balanceDue <= 0}>Record & Issue Receipt</Button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {showExtendStayModal && selectedFolio && (
+        <div className="hne-modal-backdrop" onClick={() => setShowExtendStayModal(false)}>
+          <div className="hne-modal" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 480 }}>
+            <div className="hne-modal-header">
+              <div><h3 className="hne-modal-title">Extend Stay · Room #{selectedFolio.roomNumber}</h3><div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{selectedFolio.guestName} · {selectedFolio.confirmationNumber}</div></div>
+              <button type="button" className="hne-modal-close" onClick={() => setShowExtendStayModal(false)}>×</button>
+            </div>
+            <form onSubmit={handleExtendStay}>
+              <div className="hne-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, padding: 12, background: 'var(--bg-subtle)', borderRadius: 8 }}>
+                  <div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Current check-out</div><strong>{formatDualDate(selectedFolio.checkOutDate).adFormatted}</strong></div>
+                  <div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>New check-out</div><strong>{extensionCheckoutDate ? formatDualDate(extensionCheckoutDate).adFormatted : '—'}</strong></div>
+                </div>
+                <div className="hne-form-group">
+                  <label className="hne-label">Additional nights / days</label>
+                  <input className="hne-input" type="number" min="1" max="365" step="1" required value={additionalNights} onChange={(event) => setAdditionalNights(event.target.value)} />
+                </div>
+                <div className="hne-form-group">
+                  <label className="hne-label">Reason / remarks</label>
+                  <textarea className="hne-input" required minLength={3} maxLength={500} rows={3} placeholder="e.g. Guest requested two additional nights" value={extensionReason} onChange={(event) => setExtensionReason(event.target.value)} style={{ resize: 'vertical', height: 'auto' }} />
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Required. This remark and the number of added nights are saved in the audit history.</div>
+                </div>
+                <div style={{ padding: 10, borderRadius: 8, background: 'var(--brand-gold-light)', color: 'var(--brand-gold-hover)', fontSize: 11.5 }}>The system will first verify that the assigned room is available, then recalculate the room charge and folio total.</div>
+              </div>
+              <div className="hne-modal-footer">
+                <Button variant="secondary" type="button" onClick={() => setShowExtendStayModal(false)}>Cancel</Button>
+                <Button variant="primary" type="submit" disabled={isSubmitting || extensionReason.trim().length < 3}>{isSubmitting ? 'Checking Availability…' : 'Confirm Extension'}</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {showCheckoutPayment && selectedFolio && <PaymentRequestModal
+        folioId={selectedFolio.id}
+        kind="CHECKOUT"
+        balanceDue={selectedFolio.balanceDue}
+        onClose={() => setShowCheckoutPayment(false)}
+        onCompleted={() => { setShowCheckoutPayment(false); fetchFrontDeskData(); }}
+      />}
     </div>
   );
+}
+
+function addDays(dateValue: string, days: number) {
+  const [year, month, day] = dateValue.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
 }
