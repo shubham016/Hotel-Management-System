@@ -27,7 +27,7 @@ export const Footer: React.FC = () => {
           {/* Col 2: Quick Links */}
           <div>
             <h4 style={{ fontSize: 16, fontWeight: 700, marginBottom: 18, color: '#FFFFFF' }}>Quick Navigation</h4>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13.5 }}>
+            <ul className="footer-quick-nav" style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13.5 }}>
               <li><Link href="/rooms" style={{ color: '#D1D5DB' }}>Rooms & Accommodations</Link></li>
               <li><Link href="/dining" style={{ color: '#D1D5DB' }}>Dhiki Restaurant & Bhojangriha</Link></li>
               <li><Link href="/banquet" style={{ color: '#D1D5DB' }}>Nilkantha & Tulki Devi Halls</Link></li>
