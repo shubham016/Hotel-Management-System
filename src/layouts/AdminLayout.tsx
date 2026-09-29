@@ -17,5 +17,5 @@ export default function AdminLayout() {
   }, [token]);
   if (!token) return <Navigate to="/login" replace />;
   const fullName = [profile?.firstName, profile?.lastName].filter(Boolean).join(' ') || profile?.email || 'Staff Member';
-  return <ThemeProvider><div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg-subtle)' }}><AdminSidebar /><div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}><AdminTopbar propertyName={profile?.properties?.[0]?.name} userFullName={fullName} userRole={profile?.role} userEmail={profile?.email} /><main style={{ flex: 1, padding: '24px 28px', overflowY: 'auto' }}><Outlet /></main></div></div></ThemeProvider>;
+  return <ThemeProvider><div className="admin-shell" style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg-subtle)' }}><AdminSidebar /><div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}><AdminTopbar propertyName={profile?.properties?.[0]?.name} userFullName={fullName} userRole={profile?.role} userEmail={profile?.email} /><main style={{ flex: 1, padding: '24px 28px', overflowY: 'auto' }}><Outlet /></main></div></div></ThemeProvider>;
 }

@@ -18,7 +18,7 @@ export default function PublicLayout({
 
   if (isPublicBooking) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <div className="public-site" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         <Navbar />
         <main style={{ flex: 1, backgroundColor: 'var(--bg-main)' }} />
         <Footer />
@@ -30,7 +30,7 @@ export default function PublicLayout({
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div className="public-site" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       {!isEmbeddedBooking && <Navbar />}
       <main style={{ flex: 1 }}>{children}</main>
       {!isEmbeddedBooking && <Footer />}

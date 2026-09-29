@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:wght@400;500;600&family=Source+Sans+3:wght@400;500;600;700&display=swap');
 
 :root {
   /* Official Hotel New Era Logo Colors */
@@ -57,8 +57,9 @@
   --accent-on-wash-text: var(--primary-orange);
 
   /* Typography */
-  --font-family-display: 'Outfit', sans-serif;
-  --font-family-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-family-display: 'Source Sans 3', 'Segoe UI', sans-serif;
+  --font-family-body: 'Source Sans 3', 'Segoe UI', sans-serif;
+  --font-family-editorial: 'Newsreader', Georgia, serif;
 
   /* Elevation Shadows */
   --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
@@ -208,9 +209,28 @@ html, body {
 
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-family-display);
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-primary);
+  letter-spacing: -0.015em;
+}
+
+/* The public pages use a restrained editorial face; forms and navigation stay in Source Sans 3. */
+.public-site main h1,
+.public-site main h2,
+.public-site main h3 {
+  font-family: var(--font-family-editorial) !important;
+  font-weight: 500 !important;
   letter-spacing: -0.02em;
+}
+
+.public-site main h3 {
+  font-weight: 600 !important;
+}
+
+.admin-shell h1,
+.admin-shell h2,
+.admin-shell h3 {
+  font-weight: 600 !important;
 }
 
 /* Custom Scrollbar */
@@ -333,7 +353,7 @@ h1, h2, h3, h4, h5, h6 {
   justify-content: space-between;
   gap: 8px;
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .hne-room-choice-icon {
@@ -363,7 +383,7 @@ h1, h2, h3, h4, h5, h6 {
   border-top: 1px solid rgba(22, 163, 74, 0.22);
   color: #047857;
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.06em;
   line-height: 1;
   text-transform: uppercase;
@@ -518,7 +538,7 @@ h1, h2, h3, h4, h5, h6 {
 .hne-table th {
   background-color: #FAFAFA;
   padding: 14px 18px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border);
   font-family: var(--font-family-display);
