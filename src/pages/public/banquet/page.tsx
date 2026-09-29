@@ -96,7 +96,7 @@ export default function BanquetPublicPage() {
           >
             <Sparkles size={14} /> {pageInfo.heroSubheading}
           </div>
-          <h1 style={{ fontSize: 'clamp(28px, 4vw, 42px)', fontWeight: 800, marginBottom: 14, fontFamily: 'var(--font-heading)' }}>
+          <h1 style={{ fontSize: 'clamp(28px, 4vw, 42px)', fontWeight: 800, marginBottom: 14, fontFamily: 'var(--font-family-editorial)' }}>
             {pageInfo.heroHeading}
           </h1>
           <p style={{ fontSize: 16, color: '#D1D5DB', lineHeight: 1.6 }}>

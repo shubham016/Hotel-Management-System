@@ -84,7 +84,7 @@ export default function ContactPage() {
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--golden)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
             {pageInfo.heroSubheading}
           </div>
-          <h1 style={{ fontSize: 'clamp(28px, 4vw, 42px)', fontWeight: 800, marginBottom: 14, fontFamily: 'var(--font-heading)' }}>
+          <h1 style={{ fontSize: 'clamp(28px, 4vw, 42px)', fontWeight: 800, marginBottom: 14, fontFamily: 'var(--font-family-editorial)' }}>
             {pageInfo.heroHeading}
           </h1>
           <p style={{ fontSize: 16, color: '#D1D5DB', lineHeight: 1.6 }}>

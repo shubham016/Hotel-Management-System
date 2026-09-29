@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Newsreader:wght@400;500;600&family=Source+Sans+3:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400..800&family=Newsreader:wght@400;500;600&display=swap');
 
 :root {
   /* Official Hotel New Era Logo Colors */
@@ -57,8 +57,8 @@
   --accent-on-wash-text: var(--primary-orange);
 
   /* Typography */
-  --font-family-display: 'Source Sans 3', 'Segoe UI', sans-serif;
-  --font-family-body: 'Source Sans 3', 'Segoe UI', sans-serif;
+  --font-family-display: 'DM Sans', 'Segoe UI', sans-serif;
+  --font-family-body: 'DM Sans', 'Segoe UI', sans-serif;
   --font-family-editorial: 'Newsreader', Georgia, serif;
 
   /* Elevation Shadows */
@@ -214,7 +214,7 @@ h1, h2, h3, h4, h5, h6 {
   letter-spacing: -0.015em;
 }
 
-/* The public pages use a restrained editorial face; forms and navigation stay in Source Sans 3. */
+/* Public headings use an editorial face; forms and navigation use DM Sans. */
 .public-site main h1,
 .public-site main h2,
 .public-site main h3 {
