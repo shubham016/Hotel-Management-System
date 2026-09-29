@@ -45,7 +45,7 @@ export default function FrontDeskPage() {
   useEffect(() => {
     fetch('/api/client_reference').then((response) => response.json()).then((result) => {
       if (result.success) {
-        setLaundryRates(result.data.laundry);
+        setLaundryRates(result.data.laundry.filter((item: { active: boolean }) => item.active));
         setLaundryReturn(result.data.laundryReturn);
       }
     }).catch(() => {});
@@ -129,7 +129,7 @@ export default function FrontDeskPage() {
       });
       const json = await res.json();
       if (json.success) {
-        alert('Charge added and folio totals recalculated with VAT & Service Charge!');
+        alert('Charge added and folio totals recalculated with the active taxes.');
         setShowAddChargeModal(false);
         setChargeDesc('');
         setChargeAmount('');

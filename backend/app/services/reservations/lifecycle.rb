@@ -230,8 +230,9 @@ module Reservations
       @adults_count = Integer(@params[:adultsCount].presence || @reservation.adults_count)
       @children_count = Integer(@params[:childrenCount].presence || @reservation.children_count)
       raise ApiError.new("At least one room is required", code: "INVALID_OCCUPANCY") unless @rooms_count.positive?
-      raise ApiError.new("Guest count exceeds room capacity", code: "INVALID_OCCUPANCY") if @adults_count > @room_type.max_adults * @rooms_count
-      raise ApiError.new("Child count exceeds room capacity", code: "INVALID_OCCUPANCY") if @children_count > @room_type.max_children * @rooms_count
+      unless @room_type.accommodates?(adults_count: @adults_count, children_count: @children_count, rooms_count: @rooms_count)
+        raise ApiError.new("Guest count exceeds room capacity", code: "INVALID_OCCUPANCY")
+      end
     rescue Date::Error, ArgumentError
       raise ApiError.new("Dates and guest counts must be valid", status: :bad_request, code: "INVALID_REQUEST")
     end

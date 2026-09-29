@@ -7,6 +7,8 @@ class Property < ApplicationRecord
   has_many :rooms, dependent: :restrict_with_error
   has_many :rate_plans, dependent: :restrict_with_error
   has_many :service_offerings, dependent: :restrict_with_error
+  has_many :staff_members, dependent: :restrict_with_error
+  has_many :laundry_items, dependent: :restrict_with_error
   has_many :reservations, dependent: :restrict_with_error
   has_many :folios, dependent: :restrict_with_error
   has_many :cms_pages, dependent: :restrict_with_error

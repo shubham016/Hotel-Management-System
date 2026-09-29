@@ -184,4 +184,82 @@ class HotelSetupTest < ActionDispatch::IntegrationTest
     end
     assert_equal rooms.map(&:id).sort, response.parsed_body["data"].pluck("id").sort
   end
+
+  test "staff laundry and extras edits persist and feed the client reference" do
+    post "/api/v1/staff_members", params: { staff_member: { name: "Devi Thapa", department: "Front Desk", position: 1 } }, headers: @headers, as: :json
+    assert_response :created
+    staff_id = response.parsed_body.dig("data", "id")
+    patch "/api/v1/staff_members/#{staff_id}", params: { staff_member: { department: "Reception" } }, headers: @headers, as: :json
+    assert_response :success
+    assert_equal "Reception", StaffMember.find(staff_id).department
+
+    post "/api/v1/laundry_items", params: { laundry_item: { name: "T-Shirt", price: 100, position: 1 } }, headers: @headers, as: :json
+    assert_response :created
+    laundry_id = response.parsed_body.dig("data", "id")
+    patch "/api/v1/laundry_items/#{laundry_id}", params: { laundry_item: { price: 125 } }, headers: @headers, as: :json
+    assert_response :success
+    assert_equal 125, LaundryItem.find(laundry_id).price
+
+    post "/api/v1/service_offerings", params: { service_offering: { code: "BREAKFAST", name: "Breakfast", unit_price: 350, pricing_unit: "PER_GUEST_PER_NIGHT", taxable: true } }, headers: @headers, as: :json
+    assert_response :created
+    extra_id = response.parsed_body.dig("data", "id")
+    patch "/api/v1/service_offerings/#{extra_id}", params: { service_offering: { unit_price: 375 } }, headers: @headers, as: :json
+    assert_response :success
+    assert_equal 375, ServiceOffering.find(extra_id).unit_price
+
+    get "/api/v1/client_reference", headers: @headers, as: :json
+    assert_response :success
+    assert_equal "Reception", response.parsed_body.dig("data", "staff", 0, "department")
+    assert_equal 125.0, response.parsed_body.dig("data", "laundry", 0, "price").to_f
+    assert_equal 375.0, response.parsed_body.dig("data", "extras", 0, "unit_price").to_f
+
+    delete "/api/v1/laundry_items/#{laundry_id}", headers: @headers, as: :json
+    assert_response :success
+    assert_not LaundryItem.find(laundry_id).active?
+  end
+
+  test "property and tax settings save to the database" do
+    get "/api/v1/hotel_settings", headers: @headers, as: :json
+    assert_response :success
+    assert_equal "Hotel Setup Test", response.parsed_body.dig("data", "property", "name")
+
+    patch "/api/v1/hotel_settings", params: {
+      property: { name: "Updated Hotel", check_out_time: "11:00", laundry_return_instructions: "Return by 10 a.m." },
+      vat: { rate: 13, active: true, inclusive: false },
+      service_charge: { rate: 10, active: false }
+    }, headers: @headers, as: :json
+
+    assert_response :success
+    assert_equal "Updated Hotel", @property.reload.name
+    assert_equal "11:00", @property.check_out_time
+    assert_equal "Return by 10 a.m.", @property.laundry_return_instructions
+    assert_equal 13, @property.company.tax_configurations.find_by!(code: "VAT").rate
+    assert_not @property.company.tax_configurations.find_by!(code: "SERVICE_CHARGE").active?
+  end
+
+  test "client import preserves later staff laundry extra room and tax edits" do
+    property = @property.company.properties.create!(name: "Client Import Test", code: "HNE-BTW")
+    load Rails.root.join("db/client_data.rb")
+
+    staff = property.staff_members.find_by!(source_key: "CLIENT-STAFF-1")
+    laundry = property.laundry_items.find_by!(source_key: "CLIENT-LAUNDRY-1")
+    breakfast = property.service_offerings.find_by!(code: "BREAKFAST")
+    room_type = property.room_types.find_by!(code: "DLX-AC-3")
+    vat = property.company.tax_configurations.find_by!(code: "VAT")
+    staff.update!(name: "Edited Staff")
+    laundry.update!(price: 175)
+    breakfast.update!(unit_price: 425)
+    room_type.update!(base_price: 4_500)
+    vat.update!(rate: 12)
+
+    load Rails.root.join("db/client_data.rb")
+
+    assert_equal "Edited Staff", staff.reload.name
+    assert_equal 175, laundry.reload.price
+    assert_equal 425, breakfast.reload.unit_price
+    assert_equal 4_500, room_type.reload.base_price
+    assert_equal 12, vat.reload.rate
+    assert_equal 12, property.staff_members.count
+    assert_equal 9, property.laundry_items.count
+  end
 end

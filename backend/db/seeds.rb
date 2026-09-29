@@ -1,5 +1,5 @@
 company = Company.find_or_initialize_by(slug: "hotel-new-era")
-company.update!(name: "Hotel New Era Pvt. Ltd.", currency_code: "NPR", timezone: "Asia/Kathmandu", active: true)
+company.update!(name: "Hotel New Era Pvt. Ltd.", currency_code: "NPR", timezone: "Asia/Kathmandu", active: true) if company.new_record?
 
 property = company.properties.find_or_initialize_by(code: "HNE-BTW")
 property.update!(
@@ -12,7 +12,7 @@ property.update!(
   check_in_time: "14:00",
   check_out_time: "12:00",
   active: true
-)
+) if property.new_record?
 
 # SUPER_ADMIN retains the historical "view every module" permissions hash and is reserved
 # for the future cross-tenant Super Admin portal (Phase 7). No user is assigned this role
@@ -132,9 +132,8 @@ UserProperty.find_or_create_by!(user: admin, property:)
   { code: "VAT", name: "Value Added Tax", rate: 13, calculation_order: 2 }
 ].each do |attributes|
   tax = company.tax_configurations.find_or_initialize_by(code: attributes[:code], effective_from: Date.new(2020, 1, 1))
-  tax.update!(attributes.merge(inclusive: false, applies_to_rooms: true, active: true))
+  tax.update!(attributes.merge(inclusive: false, applies_to_rooms: true, active: true)) if tax.new_record?
 end
-company.tax_configurations.where(code: "SERVICE_CHARGE").update_all(active: false)
 
 [ "Cash / Bank", "Accounts Receivable", "VAT Payable", "Service Charge Payable", "Owner Equity", "Room Revenue", "F&B Revenue", "Banquet Revenue", "Cost of Sales", "Operating Expense" ].each_with_index do |name, index|
   codes = %w[1001 1100 2100 2101 3000 4001 4002 4004 5001 6001]

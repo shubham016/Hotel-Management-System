@@ -540,11 +540,11 @@ export default function BookPage() {
                 </div>
                 <div>
                   <span style={{ color: 'var(--text-muted)' }}>Check-In:</span>
-                  <div style={{ fontWeight: 700 }}>{confirmationData.checkInDate} (From 2:00 PM)</div>
+                  <div style={{ fontWeight: 700 }}>{confirmationData.checkInDate} (From {confirmationData.checkInTime})</div>
                 </div>
                 <div>
                   <span style={{ color: 'var(--text-muted)' }}>Check-Out:</span>
-                  <div style={{ fontWeight: 700 }}>{confirmationData.checkOutDate} (Until 12:00 PM)</div>
+                  <div style={{ fontWeight: 700 }}>{confirmationData.checkOutDate} (Until {confirmationData.checkOutTime})</div>
                 </div>
               </div>
             </div>

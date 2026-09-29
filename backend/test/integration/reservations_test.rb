@@ -404,6 +404,50 @@ class ReservationsTest < ActionDispatch::IntegrationTest
     assert_equal 14_916.0, quote["grandTotal"]
   end
 
+  test "non-taxable edited extra is excluded from tax calculation" do
+    @property.service_offerings.find_by!(code: "BREAKFAST").update!(taxable: false)
+    get "/api/v1/availability?propertyCode=#{@property.code}&checkInDate=#{@check_in.iso8601}&checkOutDate=#{@check_out.iso8601}&adultsCount=2&childrenCount=0&addOnCodes=BREAKFAST"
+
+    assert_response :success
+    quote = response.parsed_body.dig("data", 0, "quote")
+    assert_equal 4_000.0, quote["addOnTotal"]
+    assert_equal 800.0, quote["serviceCharge"]
+    assert_equal 1_144.0, quote["vatAmount"]
+    assert_equal 13_944.0, quote["grandTotal"]
+  end
+
+  test "breakfast airport pickup and laundry each receive 13 percent VAT" do
+    @company.tax_configurations.where(code: "SERVICE_CHARGE").update_all(active: false)
+    @property.service_offerings.create!(
+      code: "AIRPORT_TRANSFER", name: "Airport Pick Up", unit_price: 2_000,
+      pricing_unit: "PER_BOOKING", taxable: true
+    )
+
+    get "/api/v1/availability?propertyCode=#{@property.code}&checkInDate=#{@check_in.iso8601}&checkOutDate=#{@check_out.iso8601}&adultsCount=2&childrenCount=0&addOnCodes=BREAKFAST,AIRPORT_TRANSFER"
+    assert_response :success
+    quote = response.parsed_body.dig("data", 0, "quote")
+    assert_equal 6_000.0, quote["addOnTotal"]
+    assert_equal 1_820.0, quote["vatAmount"]
+    assert_equal 15_820.0, quote["grandTotal"]
+
+    token = auth_token
+    post "/api/v1/reservations", params: valid_payload.merge(roomId: @first_room.id, source: "WALK_IN"), headers: auth_headers(token), as: :json
+    assert_response :created
+    reservation = Reservation.find(response.parsed_body.dig("data", "id"))
+    reservation.update!(status: "CHECKED_IN", check_in_date: Date.current, check_out_date: Date.current + 2.days, checked_in_at: Time.current)
+    @first_room.update!(status: "OCCUPIED")
+
+    post "/api/v1/folio", params: {
+      operation: "ADD_CHARGE", folioId: reservation.folio.id,
+      description: "Laundry - T-Shirt", amount: 100, quantity: 2, sourceModule: "LAUNDRY"
+    }, headers: auth_headers(token), as: :json
+    assert_response :success
+    item = reservation.folio.folio_items.order(:created_at).last
+    assert_equal 200, item.sub_total
+    assert_equal 26, item.tax_amount
+    assert_equal 226, item.total_amount
+  end
+
   test "per guest add-ons include adults and children" do
     get "/api/v1/availability?propertyCode=#{@property.code}&checkInDate=#{@check_in.iso8601}&checkOutDate=#{@check_out.iso8601}&adultsCount=2&childrenCount=1&addOnCodes=BREAKFAST"
 
@@ -418,6 +462,23 @@ class ReservationsTest < ActionDispatch::IntegrationTest
 
     assert_response :created
     assert_equal 6_000.0, Reservation.find(response.parsed_body.dig("data", "id")).service_total.to_f
+  end
+
+  test "combined occupancy limit applies to availability and reservations" do
+    @room_type.update!(max_adults: 3, max_children: 2, max_occupancy: 3)
+    url = "/api/v1/availability?propertyCode=#{@property.code}&checkInDate=#{@check_in.iso8601}&checkOutDate=#{@check_out.iso8601}"
+
+    get "#{url}&adultsCount=2&childrenCount=1"
+    assert_response :success
+    assert_not_empty response.parsed_body["data"]
+
+    get "#{url}&adultsCount=3&childrenCount=1"
+    assert_response :success
+    assert_empty response.parsed_body["data"]
+
+    post "/api/v1/reservations", params: valid_payload.merge(adultsCount: 3, childrenCount: 1), as: :json
+    assert_response :unprocessable_entity
+    assert_equal "INVALID_OCCUPANCY", response.parsed_body["code"]
   end
 
   test "per person spa pricing and public add-on catalog are dynamic" do

@@ -19,8 +19,7 @@ module Api
           room_types = room_types.where(code: params[:roomTypeCode].to_s.upcase) if params[:roomTypeCode].present?
 
           results = room_types.filter_map do |room_type|
-            next if adults_count > room_type.max_adults * rooms_count
-            next if children_count > room_type.max_children * rooms_count
+            next unless room_type.accommodates?(adults_count:, children_count:, rooms_count:)
 
             available = Availability::RoomInventory.available_count(property:, room_type:, check_in_date:, check_out_date:)
             next if available < rooms_count

@@ -3,16 +3,26 @@ import { Settings, Building2, Shield, DollarSign, Calendar, Save, CheckCircle2, 
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { ClientDataEditor, type ClientRecord } from './ClientDataEditor';
 
 export default function SystemSettingsPage() {
-  const [activeTab, setActiveTab] = useState<'PROPERTY' | 'TAX' | 'CALENDAR' | 'ROLES' | 'STAFF'>('PROPERTY');
-  const [staff, setStaff] = useState<{ serial: number; name: string; department: string }[]>([]);
+  const [activeTab, setActiveTab] = useState<'PROPERTY' | 'TAX' | 'CALENDAR' | 'ROLES' | 'STAFF' | 'LAUNDRY' | 'EXTRAS'>('PROPERTY');
+  const [staff, setStaff] = useState<ClientRecord[]>([]);
+  const [laundry, setLaundry] = useState<ClientRecord[]>([]);
+  const [extras, setExtras] = useState<ClientRecord[]>([]);
+  const [clientDataError, setClientDataError] = useState('');
 
-  useEffect(() => {
-    fetch('/api/client_reference').then((response) => response.json()).then((result) => {
-      if (result.success) setStaff(result.data.staff);
-    }).catch(() => {});
-  }, []);
+  const loadClientData = async () => {
+    const response = await fetch('/api/client_reference');
+    const result = await response.json();
+    if (!response.ok || !result.success) throw new Error(result.error || 'Unable to load client data.');
+    setClientDataError('');
+    setStaff(result.data.staff);
+    setLaundry(result.data.laundry);
+    setExtras(result.data.extras);
+  };
+
+  useEffect(() => { loadClientData().catch((reason) => setClientDataError(reason instanceof Error ? reason.message : 'Unable to load client data.')); }, []);
 
   // Property State
   const [propertyName, setPropertyName] = useState('Hotel New Era - Butwal');
@@ -22,20 +32,63 @@ export default function SystemSettingsPage() {
   const [address, setAddress] = useState('Kalikapath, New Buspark, Butwal-8, Rupandehi, Nepal');
   const [checkinTime, setCheckinTime] = useState('14:00');
   const [checkoutTime, setCheckoutTime] = useState('12:00');
+  const [laundryCollection, setLaundryCollection] = useState('');
+  const [laundryReturn, setLaundryReturn] = useState('');
 
   // Tax State
   const [vatRate, setVatRate] = useState('13.0');
   const [serviceChargeRate, setServiceChargeRate] = useState('10.0');
+  const [serviceChargeActive, setServiceChargeActive] = useState(false);
   const [isVatInclusive, setIsVatInclusive] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
+  const [saveError, setSaveError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   // Localization State
   const [currencySymbol, setCurrencySymbol] = useState('Rs.');
   const [currencyCode, setCurrencyCode] = useState('NPR');
   const [nepaliCalendarEnabled, setNepaliCalendarEnabled] = useState(true);
 
-  const handleSaveSettings = (e: React.FormEvent) => {
-    e.preventDefault();
-    alert('System & Property Configuration saved successfully to PostgreSQL database!');
+  useEffect(() => {
+    fetch('/api/hotel_settings').then((response) => response.json()).then((result) => {
+      if (!result.success) throw new Error(result.error || 'Unable to load hotel settings.');
+      const property = result.data.property;
+      setPropertyName(property.name); setPropertyCode(property.code); setPhone(property.phone || '');
+      setEmail(property.email || ''); setAddress(property.address || '');
+      setCheckinTime(property.check_in_time); setCheckoutTime(property.check_out_time);
+      setLaundryCollection(property.laundry_collection_instructions || '');
+      setLaundryReturn(property.laundry_return_instructions || '');
+      setVatRate(String(result.data.vat.rate)); setIsVatInclusive(result.data.vat.inclusive);
+      setServiceChargeRate(String(result.data.serviceCharge.rate)); setServiceChargeActive(result.data.serviceCharge.active);
+    }).catch((reason) => setSaveError(reason instanceof Error ? reason.message : 'Unable to load settings.'));
+  }, []);
+
+  const handleSaveSettings = async () => {
+    setSaving(true); setSaveMessage(''); setSaveError('');
+    try {
+      const body = activeTab === 'PROPERTY' ? { property: {
+        name: propertyName, phone, email, address, check_in_time: checkinTime, check_out_time: checkoutTime
+      } } : { vat: { rate: Number(vatRate), inclusive: isVatInclusive, active: true }, service_charge: { rate: Number(serviceChargeRate), active: serviceChargeActive } };
+      const response = await fetch('/api/hotel_settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.error || 'Unable to save settings.');
+      setSaveMessage('Saved to the database.');
+    } catch (reason) { setSaveError(reason instanceof Error ? reason.message : 'Unable to save settings.'); }
+    finally { setSaving(false); }
+  };
+
+  const saveLaundryInstructions = async () => {
+    setSaving(true); setSaveMessage(''); setSaveError('');
+    try {
+      const response = await fetch('/api/hotel_settings', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ property: { laundry_collection_instructions: laundryCollection, laundry_return_instructions: laundryReturn } })
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.error || 'Unable to save laundry instructions.');
+      setSaveMessage('Laundry instructions saved to the database.');
+    } catch (reason) { setSaveError(reason instanceof Error ? reason.message : 'Unable to save laundry instructions.'); }
+    finally { setSaving(false); }
   };
 
   return (
@@ -57,7 +110,9 @@ export default function SystemSettingsPage() {
           { id: 'TAX', label: 'Tax & VAT Engine' },
           { id: 'CALENDAR', label: 'Nepali Calendar & Currency' },
           { id: 'ROLES', label: 'RBAC Roles & Permissions' },
-          { id: 'STAFF', label: 'Staff Directory' }
+          { id: 'STAFF', label: 'Staff Directory' },
+          { id: 'LAUNDRY', label: 'Laundry Tariffs' },
+          { id: 'EXTRAS', label: 'Extra Services' }
         ].map((t) => (
           <button
             key={t.id}
@@ -78,7 +133,7 @@ export default function SystemSettingsPage() {
         ))}
       </div>
 
-      <form onSubmit={handleSaveSettings}>
+      <div>
         {activeTab === 'PROPERTY' && (
           <Card title="Hotel / Property Master Profile">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -89,7 +144,7 @@ export default function SystemSettingsPage() {
                 </div>
                 <div className="hne-form-group" style={{ marginBottom: 0 }}>
                   <label className="hne-label">Property Code</label>
-                  <input type="text" className="hne-input" value={propertyCode} onChange={(e) => setPropertyCode(e.target.value)} />
+                  <input type="text" className="hne-input" value={propertyCode} readOnly title="Property code is a permanent system identifier" />
                 </div>
               </div>
 
@@ -149,16 +204,19 @@ export default function SystemSettingsPage() {
                   style={{ width: 18, height: 18, accentColor: 'var(--primary-orange)' }}
                 />
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: 13.5 }}>Tax-Inclusive Display Pricing</div>
-                  <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>When enabled, room and menu prices are displayed inclusive of taxes.</div>
+                  <div style={{ fontWeight: 700, fontSize: 13.5 }}>Listed prices already include VAT</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>When enabled, VAT is not added on top of room and extra prices.</div>
                 </div>
               </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}><input type="checkbox" checked={serviceChargeActive} onChange={(event) => setServiceChargeActive(event.target.checked)} /> Enable hotel service charge</label>
             </div>
           </Card>
         )}
 
         {activeTab === 'CALENDAR' && (
           <Card title="Nepali Bikram Sambat (BS) Calendar & Multi-Currency">
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 14 }}>This panel is display only. Calendar and currency changes are not available here yet.</p>
+            <fieldset disabled style={{ border: 0, padding: 0, margin: 0 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <div className="hne-form-group" style={{ marginBottom: 0 }}>
@@ -184,6 +242,7 @@ export default function SystemSettingsPage() {
                 </div>
               </label>
             </div>
+            </fieldset>
           </Card>
         )}
 
@@ -222,22 +281,20 @@ export default function SystemSettingsPage() {
           </Card>
         )}
 
-        {activeTab === 'STAFF' && (
-          <Card title="Client Staff Directory">
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>Names and departments supplied by the hotel. Portal accounts require individual email addresses.</p>
-            <div className="hne-table-container"><table className="hne-table"><thead><tr><th>No.</th><th>Name</th><th>Department</th></tr></thead><tbody>
-              {staff.map((member) => <tr key={member.serial}><td>{member.serial}</td><td>{member.name}</td><td>{member.department}</td></tr>)}
-            </tbody></table></div>
-          </Card>
-        )}
+        {clientDataError && ['STAFF', 'LAUNDRY', 'EXTRAS'].includes(activeTab) && <p role="alert" style={{ color: 'var(--red)' }}>{clientDataError}</p>}
+        {activeTab === 'STAFF' && <Card title="Client Staff Directory"><p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>Portal accounts require individual email addresses and are managed separately.</p><ClientDataEditor kind="staff" records={staff} onSaved={loadClientData} /></Card>}
+        {activeTab === 'LAUNDRY' && <Card title="Laundry Tariffs"><ClientDataEditor kind="laundry" records={laundry} onSaved={loadClientData} /><div style={{ display: 'grid', gap: 12, marginTop: 20 }}><label className="hne-form-group"><span className="hne-label">Collection instructions</span><textarea className="hne-input" value={laundryCollection} onChange={(event) => setLaundryCollection(event.target.value)} /></label><label className="hne-form-group"><span className="hne-label">Return instructions</span><textarea className="hne-input" value={laundryReturn} onChange={(event) => setLaundryReturn(event.target.value)} /></label><button type="button" disabled={saving} className="hne-btn hne-btn-primary hne-btn-sm" onClick={saveLaundryInstructions}>Save laundry instructions</button></div></Card>}
+        {activeTab === 'EXTRAS' && <Card title="Extra Services"><ClientDataEditor kind="extras" records={extras} onSaved={loadClientData} /></Card>}
 
-        {activeTab !== 'STAFF' && <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 24 }}>
-          <Button type="submit" variant="primary" size="lg">
+        {saveError && <p role="alert" style={{ color: 'var(--red)', marginTop: 12 }}>{saveError}</p>}
+        {saveMessage && <p role="status" style={{ color: 'var(--green)', marginTop: 12 }}>{saveMessage}</p>}
+        {['PROPERTY', 'TAX'].includes(activeTab) && <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 24 }}>
+          <Button type="button" onClick={handleSaveSettings} disabled={saving} variant="primary" size="lg">
             <Save size={16} />
-            <span>Save Configuration</span>
+            <span>{saving ? 'Saving…' : 'Save Configuration'}</span>
           </Button>
         </div>}
-      </form>
+      </div>
     </div>
   );
 }

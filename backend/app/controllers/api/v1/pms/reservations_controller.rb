@@ -88,6 +88,8 @@ module Api
               roomNumber: result.reservation.reservation_rooms.first.room&.room_number,
               checkInDate: result.reservation.check_in_date,
               checkOutDate: result.reservation.check_out_date,
+              checkInTime: result.reservation.property.check_in_time,
+              checkOutTime: result.reservation.property.check_out_time,
               nights: result.quote.nights,
               subTotal: result.quote.sub_total.to_f,
               serviceCharge: result.quote.service_charge.to_f,

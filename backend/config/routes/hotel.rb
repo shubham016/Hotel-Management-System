@@ -5,6 +5,11 @@ namespace :api do
       get "room_catalog", to: "room_catalog#index"
       get "add_on_catalog", to: "add_on_catalog#index"
       get "client_reference", to: "client_reference#index"
+      get "hotel_settings", to: "hotel_settings#index"
+      patch "hotel_settings", to: "hotel_settings#update"
+      resources :staff_members, only: %i[create update destroy]
+      resources :laundry_items, only: %i[create update destroy]
+      resources :service_offerings, only: %i[create update destroy]
       resources :properties, only: %i[index show]
       resources :floors, only: %i[index create update destroy]
       resources :room_types, only: %i[index show create update destroy]

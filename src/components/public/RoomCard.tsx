@@ -133,7 +133,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
 
         {(maxAdults !== undefined || maxChildren !== undefined) && (
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
-            Maximum {maxAdults ?? 0} adult{maxAdults === 1 ? '' : 's'} and {maxChildren ?? 0} child{maxChildren === 1 ? '' : 'ren'}
+            Up to {maxAdults ?? 0} adult{maxAdults === 1 ? '' : 's'} or {maxChildren ?? 0} child{maxChildren === 1 ? '' : 'ren'}, within the {maxOccupancy}-guest limit
           </div>
         )}
 

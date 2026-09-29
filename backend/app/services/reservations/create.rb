@@ -64,8 +64,9 @@ module Reservations
         raise ApiError.new("An exact room can only be used for a single-room booking", code: "INVALID_REQUEST") unless @rooms_count == 1
         raise ApiError.new("Selected room does not match the chosen room category", status: :unprocessable_content, code: "ROOM_TYPE_MISMATCH") unless @selected_room.room_type_id == @room_type.id
       end
-      raise ApiError.new("Guest count exceeds room capacity", code: "INVALID_OCCUPANCY") if @adults_count > @room_type.max_adults * @rooms_count
-      raise ApiError.new("Child count exceeds room capacity", code: "INVALID_OCCUPANCY") if @children_count > @room_type.max_children * @rooms_count
+      unless @room_type.accommodates?(adults_count: @adults_count, children_count: @children_count, rooms_count: @rooms_count)
+        raise ApiError.new("Guest count exceeds room capacity", code: "INVALID_OCCUPANCY")
+      end
     end
 
     def lock_inventory!

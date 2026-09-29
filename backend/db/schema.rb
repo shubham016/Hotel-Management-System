@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_28_000002) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_29_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -361,6 +361,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_28_000002) do
     t.index ["journal_entry_id"], name: "index_journal_lines_on_journal_entry_id"
   end
 
+  create_table "laundry_items", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.integer "position", default: 0, null: false
+    t.decimal "price", precision: 12, scale: 2, null: false
+    t.uuid "property_id", null: false
+    t.string "source_key"
+    t.datetime "updated_at", null: false
+    t.index ["property_id", "source_key"], name: "index_laundry_items_on_property_id_and_source_key", unique: true
+    t.index ["property_id"], name: "index_laundry_items_on_property_id"
+  end
+
   create_table "menu_items", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.boolean "active", default: true, null: false
     t.string "category", null: false
@@ -447,6 +460,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_28_000002) do
     t.string "country", default: "Nepal", null: false
     t.datetime "created_at", null: false
     t.string "email"
+    t.text "laundry_collection_instructions"
+    t.text "laundry_return_instructions"
     t.string "name", null: false
     t.string "phone"
     t.datetime "updated_at", null: false
@@ -637,6 +652,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_28_000002) do
     t.index ["property_id"], name: "index_service_offerings_on_property_id"
   end
 
+  create_table "staff_members", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.string "department", null: false
+    t.string "name", null: false
+    t.integer "position", default: 0, null: false
+    t.uuid "property_id", null: false
+    t.string "source_key"
+    t.datetime "updated_at", null: false
+    t.index ["property_id", "source_key"], name: "index_staff_members_on_property_id_and_source_key", unique: true
+    t.index ["property_id"], name: "index_staff_members_on_property_id"
+  end
+
   create_table "stock_balances", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
     t.uuid "inventory_item_id", null: false
@@ -743,6 +771,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_28_000002) do
   add_foreign_key "journal_entries", "companies"
   add_foreign_key "journal_lines", "accounts"
   add_foreign_key "journal_lines", "journal_entries"
+  add_foreign_key "laundry_items", "properties"
   add_foreign_key "menu_items", "restaurants"
   add_foreign_key "notifications", "users"
   add_foreign_key "password_reset_tokens", "users"
@@ -770,6 +799,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_28_000002) do
   add_foreign_key "rooms", "properties"
   add_foreign_key "rooms", "room_types"
   add_foreign_key "service_offerings", "properties"
+  add_foreign_key "staff_members", "properties"
   add_foreign_key "stock_balances", "inventory_items"
   add_foreign_key "stock_balances", "stores"
   add_foreign_key "stores", "properties"

@@ -60,7 +60,7 @@ module Api
             children = permitted.key?(:max_children) ? permitted[:max_children].to_i : (room_type&.max_children || 0).to_i
             permitted[:max_adults] = adults
             permitted[:max_children] = children
-            permitted[:max_occupancy] = adults + children
+            permitted[:max_occupancy] = adults + children unless permitted.key?(:max_occupancy)
           end
           permitted
         end

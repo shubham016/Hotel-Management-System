@@ -16,7 +16,7 @@ export type AvailabilityOption = {
   quote: { nights: number; nightlyRate: number; roomTotal: number; addOnTotal: number; subTotal: number; serviceCharge: number; vatAmount: number; grandTotal: number };
 };
 
-export type BookingConfirmation = { id: string; confirmationNumber: string; folioNumber: string; guestName: string; roomName: string; roomId: string; roomNumber: string; checkInDate: string; checkOutDate: string; nights: number; subTotal: number; serviceCharge: number; vatAmount: number; grandTotal: number; paymentStatus: string };
+export type BookingConfirmation = { id: string; confirmationNumber: string; folioNumber: string; guestName: string; roomName: string; roomId: string; roomNumber: string; checkInDate: string; checkOutDate: string; checkInTime: string; checkOutTime: string; nights: number; subTotal: number; serviceCharge: number; vatAmount: number; grandTotal: number; paymentStatus: string };
 
 export type BookingSource = 'WALK_IN' | 'ONLINE' | 'PHONE' | 'TRAVEL_AGENCY' | 'PARTNER_HOTEL';
 
