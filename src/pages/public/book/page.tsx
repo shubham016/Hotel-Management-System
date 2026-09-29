@@ -399,10 +399,10 @@ export default function BookPage() {
                     <span>Rs. {formatAmount(addonCost)}</span>
                   </div>
                 )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
-                  <span>Hotel Service Charge (10%)</span>
+                {serviceCharge > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+                  <span>Hotel Service Charge</span>
                   <span>Rs. {formatAmount(serviceCharge)}</span>
-                </div>
+                </div>}
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
                   <span>VAT (13%)</span>
                   <span>Rs. {formatAmount(vatAmount)}</span>

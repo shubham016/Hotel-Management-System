@@ -83,9 +83,9 @@ export default function NightAuditPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', backgroundColor: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>43-Room Inventory & Active Occupancy</div>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>Bookable Inventory & Active Occupancy</div>
                 <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                  Occupied: {statusData?.occupiedRooms || 0} of {statusData?.totalRooms || 43} Rooms ({statusData?.occupancyRate || 0}% Occupancy)
+                  Occupied: {statusData?.occupiedRooms || 0} of {statusData?.totalRooms || 0} Rooms ({statusData?.occupancyRate || 0}% Occupancy)
                 </div>
               </div>
               <Badge variant="success">VERIFIED</Badge>
@@ -115,7 +115,7 @@ export default function NightAuditPage() {
               <div>
                 <div style={{ fontWeight: 700, fontSize: 14 }}>Double-Entry GL Ledger & Tax Integration</div>
                 <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                  13% VAT and 10% Service charge accounts synchronized
+                  13% VAT account synchronized
                 </div>
               </div>
               <Badge variant="success">ALIGNED</Badge>
@@ -140,7 +140,7 @@ export default function NightAuditPage() {
 
             <h3 style={{ fontSize: 20, marginBottom: 8 }}>Ready to Execute Night Audit</h3>
             <p style={{ fontSize: 14, color: 'var(--text-secondary)', maxWidth: 500, margin: '0 auto 24px', lineHeight: 1.6 }}>
-              Clicking below will batch post daily accommodation charges + 10% SC + 13% VAT to all in-house guest folios, record automated General Ledger sales journal vouchers, and advance the system date.
+                  Clicking below will batch post daily accommodation charges plus 13% VAT to all in-house guest folios, record automated General Ledger sales journal vouchers, and advance the system date.
             </p>
 
             <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>

@@ -28,7 +28,7 @@ module Api
           housekeeping: housekeeping_stats(rooms),
           pos: pos_stats(property, days),
           trends: trends(property, company, days),
-          rooms: room_board(rooms)
+          rooms: room_board(property.rooms.setup_managed)
         }
       end
 
@@ -48,14 +48,7 @@ module Api
           recentTransactions: recent_transactions(company),
           housekeeping: housekeeping_stats(rooms),
           pos: pos_stats(property, [ today ]),
-          rooms: rooms.by_floor_and_room_number.map do |room|
-            {
-              id: room.id,
-              roomNumber: room.room_number,
-              floor: room.floor,
-              status: room.status
-            }
-          end
+          rooms: room_board(property.rooms.setup_managed)
         }
       end
 
@@ -175,7 +168,8 @@ module Api
             id: room.id,
             roomNumber: room.room_number,
             floor: room.floor,
-            status: room.status
+            status: room.active? ? room.status : "OUT_OF_SERVICE",
+            active: room.active?
           }
         end
       end

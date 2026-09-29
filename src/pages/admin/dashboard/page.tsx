@@ -37,6 +37,7 @@ type RoomBoardRoom = {
   id: string;
   roomNumber: string;
   floor: number;
+  active: boolean;
   status: 'OCCUPIED' | 'RESERVED' | 'VACANT_CLEAN' | 'VACANT_DIRTY' | 'INSPECTION_REQUIRED' | 'OUT_OF_ORDER' | 'OUT_OF_SERVICE' | 'DUE_OUT';
 };
 
@@ -76,7 +77,11 @@ const statTileVisuals = {
   revenue: [4, 5.5, 5.2, 8.5, 11, 10.2, 10.4]
 } as const;
 
-const floorLabel = (floor: number) => `${floor}${floor === 1 ? 'st' : floor === 2 ? 'nd' : floor === 3 ? 'rd' : 'th'} Floor`;
+const floorLabel = (floor: number) => {
+  if (floor === 1) return 'Ground Floor';
+  const level = floor - 1;
+  return `${level}${level === 1 ? 'st' : level === 2 ? 'nd' : level === 3 ? 'rd' : 'th'} Floor`;
+};
 
 function RoomStatusIcon({ status, size = 14 }: { status: RoomBoardRoom['status']; size?: number }) {
   switch (status) {
@@ -313,24 +318,24 @@ export default function AdminDashboardPage() {
           <div style={{ padding: '18px 0', color: 'var(--text-muted)', fontSize: 13 }}>No rooms match this filter.</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {dashboardFloors
+            {[...dashboardFloors].reverse()
               .filter((floor) => selectedRoomFloor === 'ALL' || floor === selectedRoomFloor)
               .filter((floor) => visibleRooms.some((room) => room.floor === floor))
               .map((floor) => (
-              <div key={floor} style={{ display: 'grid', gridTemplateColumns: '66px minmax(0, 1fr)', gap: 10, alignItems: 'start' }}>
+              <div key={floor} style={{ display: 'grid', gridTemplateColumns: '88px minmax(0, 1fr)', gap: 10, alignItems: 'start' }}>
                 <div style={{ paddingTop: 8, color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600 }}>{floorLabel(floor)}</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(70px, 1fr))', gap: 8 }}>
                   {visibleRooms.filter((room) => room.floor === floor).map((room) => {
                     const style = roomStatusStyles[room.status];
                     const isUpdating = updatingRoomId === room.id;
-                    const isLifecycleManaged = ['RESERVED', 'OCCUPIED', 'DUE_OUT'].includes(room.status);
+                    const isLifecycleManaged = !room.active || ['RESERVED', 'OCCUPIED', 'DUE_OUT'].includes(room.status);
                     return (
                       <button
                         key={room.id}
                         type="button"
                         onClick={() => !isLifecycleManaged && openRoomStatusEditor(room)}
                         disabled={isUpdating || isLifecycleManaged}
-                        title={isLifecycleManaged ? `Room ${room.roomNumber} is updated by the booking lifecycle` : `Update room ${room.roomNumber} housekeeping or maintenance status`}
+                        title={!room.active ? `Room ${room.roomNumber} is inactive pending a tariff` : isLifecycleManaged ? `Room ${room.roomNumber} is updated by the booking lifecycle` : `Update room ${room.roomNumber} housekeeping or maintenance status`}
                         style={{
                           minHeight: 66,
                           padding: '9px 8px',
@@ -348,7 +353,7 @@ export default function AdminDashboardPage() {
                           {room.roomNumber}
                           <RoomStatusIcon status={room.status} size={15} />
                         </div>
-                        <div style={{ marginTop: 5, fontSize: 9, fontWeight: 700, color: style.muted, lineHeight: 1.15, textTransform: 'uppercase' }}>{isUpdating ? 'Updating' : style.label}</div>
+                        <div style={{ marginTop: 5, fontSize: 9, fontWeight: 700, color: style.muted, lineHeight: 1.15, textTransform: 'uppercase' }}>{isUpdating ? 'Updating' : room.active ? style.label : 'Inactive'}</div>
                       </button>
                     );
                   })}

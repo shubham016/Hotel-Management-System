@@ -124,10 +124,10 @@ export default function CMSPagesManager() {
       slug: 'home',
       heroHeading: 'Security, Cleanliness & Hospitality in Butwal',
       heroSubheading: 'WELCOME TO HOTEL NEW ERA • BUTWAL, NEPAL (EST. 1982)',
-      heroDescription: 'Centrally located 5 minutes from New Bus Park near Tilottama (Tinau) River. 43 luxury & deluxe rooms, 3 grand conference halls, 2 restaurants, and 1 main central kitchen.',
+      heroDescription: 'Centrally located 5 minutes from New Bus Park near Tilottama (Tinau) River. 45 listed rooms, 3 grand conference halls, 2 restaurants, and 1 main central kitchen.',
       heroImageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1800&q=80',
       seoTitle: 'Hotel New Era | Butwal, Lumbini Province, Nepal (Est. 1982)',
-      seoDescription: '43 luxury & deluxe rooms, Dhiki Restaurant & Bhojangriha, New Era Terrace Lounge, Nilkantha Grand Ballroom, and high-speed Wi-Fi in Butwal, Nepal.'
+      seoDescription: '45 listed rooms, Dhiki Restaurant & Bhojangriha, New Era Terrace Lounge, Nilkantha Grand Ballroom, and high-speed Wi-Fi in Butwal, Nepal.'
     },
     about: {
       title: 'About Us - Our Heritage Since 1982',
@@ -140,14 +140,14 @@ export default function CMSPagesManager() {
       seoDescription: 'Founded in 1982, Hotel New Era provides luxury accommodation, traditional dining, and conference facilities in Butwal, Nepal.'
     },
     rooms: {
-      title: 'Rooms & Suites - 43 Saleable Units',
+      title: 'Rooms & Suites - 45 Listed Rooms',
       slug: 'rooms',
-      heroHeading: 'Luxury Rooms & Executive Suites',
+      heroHeading: 'Rooms & Suites',
       heroSubheading: 'COMFORT, TRANQUILITY & MODERN LUXURY IN BUTWAL',
-      heroDescription: 'Discover our 43 thoughtfully designed rooms across 4 floors featuring Luxury Rooms, Deluxe Rooms, Family Suites, Honeymoon Suites, and Standard AC/Non-AC accommodations.',
+      heroDescription: 'Discover 45 listed rooms across 5 levels: dormitory, standard, deluxe, suite, and family apartment accommodation.',
       heroImageUrl: 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&w=1800&q=80',
       seoTitle: 'Rooms & Suites in Butwal | Hotel New Era',
-      seoDescription: 'Book from 43 well-appointed rooms in Butwal. Enjoy high-speed Wi-Fi, air conditioning, mountain views, and 24/7 room service.'
+      seoDescription: 'Book from 45 listed rooms in Butwal. Enjoy high-speed Wi-Fi, air conditioning, mountain views, and 24/7 room service.'
     },
     dining: {
       title: 'Dining & Gastronomy - 2 Restaurants & Central Kitchen',

@@ -9,7 +9,7 @@ export default function RoomsPage() {
   const [roomsError, setRoomsError] = useState('');
   const [pageInfo, setPageInfo] = useState({
     heroHeading: 'Rooms & Suites Catalog',
-    heroSubheading: '43 SALEABLE ROOMS • 4 FLOORS',
+    heroSubheading: '45 LISTED ROOMS • 5 LEVELS',
     heroDescription: 'Every room includes high-speed fiber internet, Cable TV, attached modern bathroom, and personalized room service.'
   });
 
@@ -28,7 +28,7 @@ export default function RoomsPage() {
         if (data.success && data.page) {
           setPageInfo({
             heroHeading: data.page.heroHeading || 'Rooms & Suites Catalog',
-            heroSubheading: data.page.heroSubheading || '43 SALEABLE ROOMS • 4 FLOORS',
+            heroSubheading: data.page.heroSubheading || '45 LISTED ROOMS • 5 LEVELS',
             heroDescription: data.page.heroDescription || 'Every room includes high-speed fiber internet, Cable TV, attached modern bathroom, and personalized room service.'
           });
         }

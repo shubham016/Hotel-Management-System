@@ -74,7 +74,7 @@ export default function HousekeepingPage() {
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800 }}>Housekeeping & Room Turnaround</h1>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            Real-time room cleanliness tracking, task assignments, inspection verification, and 43-room turnaround
+            Real-time room cleanliness tracking, task assignments, inspection verification, and 45-room turnaround
           </p>
         </div>
 
@@ -110,7 +110,7 @@ export default function HousekeepingPage() {
       </div>
 
       {/* Housekeeping List */}
-      <Card title="43 Room Housekeeping Status Queue" subtitle="Manage cleaning shifts, inspect rooms, and mark ready for arrivals">
+      <Card title="45 Room Housekeeping Status Queue" subtitle="Manage cleaning shifts, inspect rooms, and mark ready for arrivals">
         {isLoading ? (
           <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
             Loading housekeeping queue from PostgreSQL...

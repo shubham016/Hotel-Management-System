@@ -39,6 +39,17 @@ export default function FrontDeskPage() {
   const [chargeDesc, setChargeDesc] = useState('');
   const [chargeAmount, setChargeAmount] = useState('');
   const [chargeModule, setChargeModule] = useState('RESTAURANT');
+  const [laundryRates, setLaundryRates] = useState<{ name: string; price: number }[]>([]);
+  const [laundryReturn, setLaundryReturn] = useState('');
+
+  useEffect(() => {
+    fetch('/api/client_reference').then((response) => response.json()).then((result) => {
+      if (result.success) {
+        setLaundryRates(result.data.laundry);
+        setLaundryReturn(result.data.laundryReturn);
+      }
+    }).catch(() => {});
+  }, []);
 
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState('');
@@ -526,6 +537,18 @@ export default function FrontDeskPage() {
                   </select>
                 </div>
 
+                {chargeModule === 'LAUNDRY' && <div className="hne-form-group">
+                  <label className="hne-label">Laundry tariff</label>
+                  <select className="hne-select" value="" onChange={(event) => {
+                    const item = laundryRates.find((rate) => rate.name === event.target.value);
+                    if (item) { setChargeDesc(`Laundry - ${item.name}`); setChargeAmount(String(item.price)); }
+                  }}>
+                    <option value="">Choose an item</option>
+                    {laundryRates.map((item) => <option key={item.name} value={item.name}>{item.name} — Rs. {item.price}</option>)}
+                  </select>
+                  <small>{laundryReturn}</small>
+                </div>}
+
                 <div className="hne-form-group">
                   <label className="hne-label">Item / Service Description</label>
                   <input
@@ -552,7 +575,7 @@ export default function FrontDeskPage() {
                 </div>
 
                 <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', backgroundColor: 'var(--bg-subtle)', padding: 10, borderRadius: 'var(--radius-sm)' }}>
-                  💡 Automatic calculation: 10% Service Charge + 13% Government VAT will be calculated and applied to the guest folio ledger.
+                  Automatic calculation: 13% VAT will be applied to the guest folio ledger.
                 </div>
               </div>
               <div className="hne-modal-footer">

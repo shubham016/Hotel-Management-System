@@ -104,7 +104,7 @@ export default function AboutPage() {
               The journey began in <strong>1982</strong>, when <strong>Mr. and Mrs. Nepal</strong> opened a modest 10-bedroom hotel named <em>Sangam Hotel</em> in Butwal. Through their steadfast dedication to warm guest care, cleanliness, and security, the hotel earned the deep trust of domestic travelers, business executives, and visitors en route to Lumbini.
             </p>
             <p style={{ fontSize: 15, color: 'var(--text-secondary)', lineHeight: 1.8, marginBottom: 24 }}>
-              As Butwal grew into the premier economic and transit hub of western Nepal, Sangam Hotel expanded into the modern, full-service <strong>Hotel New Era</strong> on Kalikapath, featuring <strong>43 saleable rooms</strong>, <strong>2 full restaurants</strong>, <strong>3 banquet halls</strong>, and a dedicated <strong>Main Central Kitchen</strong>.
+              As Butwal grew into the premier economic and transit hub of western Nepal, Sangam Hotel expanded into the modern, full-service <strong>Hotel New Era</strong> on Kalikapath, featuring <strong>45 listed rooms</strong>, <strong>2 full restaurants</strong>, <strong>3 banquet halls</strong>, and a dedicated <strong>Main Central Kitchen</strong>.
             </p>
 
             <div
@@ -236,8 +236,8 @@ export default function AboutPage() {
           <div className="hne-card" style={{ padding: 24, display: 'flex', alignItems: 'center', gap: 16, backgroundColor: '#FFFFFF' }}>
             <Building size={32} color="var(--brand-crimson)" />
             <div>
-              <div style={{ fontWeight: 800, fontSize: 22 }}>43 Rooms</div>
-              <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Saleable Rooms Across 4 Floors</div>
+              <div style={{ fontWeight: 800, fontSize: 22 }}>45 Rooms</div>
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Saleable Rooms Across 5 Levels</div>
             </div>
           </div>
 

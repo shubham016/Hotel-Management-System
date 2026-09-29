@@ -610,6 +610,36 @@ class ReservationsTest < ActionDispatch::IntegrationTest
     assert_not response.parsed_body["data"].any? { |entry| entry["id"] == reservation.id }
   end
 
+  test "expired sandbox payment request no longer blocks booking deletion" do
+    token = auth_token
+    post "/api/v1/reservations", params: valid_payload.merge(roomId: @first_room.id, source: "WALK_IN"), headers: auth_headers(token), as: :json
+    assert_response :created
+    reservation = Reservation.find(response.parsed_body.dig("data", "id"))
+    payment_request = reservation.folio.payment_requests.create!(
+      kind: "ADVANCE", amount: 100, public_token: SecureRandom.hex(32),
+      gateway: "ESEWA", status: "INITIATED", expires_at: 1.hour.from_now
+    )
+
+    with_gateway_method(:modes, { ESEWA: "SANDBOX" }) do
+      delete "/api/v1/reservations/#{reservation.id}", headers: auth_headers(token), as: :json
+      assert_response :conflict
+      assert_equal "INQUIRY", reservation.reload.status
+
+      payment_request.update!(expires_at: 1.minute.ago)
+      with_gateway_method(:modes, { ESEWA: "LIVE" }) do
+        delete "/api/v1/reservations/#{reservation.id}", headers: auth_headers(token), as: :json
+        assert_response :conflict
+      end
+      delete "/api/v1/reservations/#{reservation.id}", headers: auth_headers(token), as: :json
+      assert_response :success
+    end
+
+    assert_equal "ARCHIVED", reservation.reload.status
+    assert_equal "FAILED", payment_request.reload.status
+    assert_equal 0, reservation.folio.payments.count
+    assert_equal "EXPIRE", AuditLog.where(entity_type: "PaymentRequest", entity_id: payment_request.id).last.action
+  end
+
   test "staff can archive an unpaid checked-in stay and release its room as dirty" do
     token = auth_token
     post "/api/v1/reservations", params: valid_payload.merge(roomId: @first_room.id, source: "WALK_IN"), headers: auth_headers(token), as: :json

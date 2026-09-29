@@ -28,8 +28,10 @@ module Api
           property.folios.includes(reservation: { reservation_rooms: %i[room room_type] }).where(status: "OPEN").find_each do |folio|
             rr = folio.reservation.reservation_rooms.first
             nightly = rr&.nightly_rate || rr&.room_type&.base_price || 0
-            sc = (nightly * BigDecimal("0.10")).round(2)
-            vat = ((nightly + sc) * BigDecimal("0.13")).round(2)
+            service_tax = property.company.tax_configurations.for_rooms.for_date(Date.current).find_by(code: "SERVICE_CHARGE")
+            vat_tax = property.company.tax_configurations.for_rooms.for_date(Date.current).find_by(code: "VAT")
+            sc = service_tax&.inclusive ? 0.to_d : (nightly * (service_tax&.rate || 0) / 100).round(2)
+            vat = vat_tax&.inclusive ? 0.to_d : ((nightly + sc) * (vat_tax&.rate || 0) / 100).round(2)
             total = nightly + sc + vat
             folio.folio_items.create!(
               source_module: "ROOM",
@@ -41,8 +43,8 @@ module Api
               total_amount: total,
               calculation_snapshot: {
                 taxes: [
-                  { code: "SERVICE_CHARGE", rate: 10, amount: sc },
-                  { code: "VAT", rate: 13, amount: vat }
+                  { code: "SERVICE_CHARGE", rate: service_tax&.rate || 0, amount: sc },
+                  { code: "VAT", rate: vat_tax&.rate || 0, amount: vat }
                 ]
               }
             )

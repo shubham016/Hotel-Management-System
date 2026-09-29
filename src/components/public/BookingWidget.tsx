@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from '@/lib/router';
 import { Calendar, Users, BedDouble, Search, Sparkles } from 'lucide-react';
 import { formatDualDate } from '@/lib/nepali-calendar';
+import { loadPublicRoomTypes, type PublicRoomType } from '@/lib/room-catalog';
 
 export const BookingWidget: React.FC = () => {
   const router = useRouter();
@@ -13,6 +14,13 @@ export const BookingWidget: React.FC = () => {
   const [adults, setAdults] = useState('2');
   const [children, setChildren] = useState('0');
   const [roomType, setRoomType] = useState('ALL');
+  const [roomTypes, setRoomTypes] = useState<PublicRoomType[]>([]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadPublicRoomTypes(controller.signal).then(setRoomTypes).catch(() => {});
+    return () => controller.abort();
+  }, []);
 
   const checkInDual = formatDualDate(checkIn);
   const checkOutDual = formatDualDate(checkOut);
@@ -132,13 +140,8 @@ export const BookingWidget: React.FC = () => {
             value={roomType}
             onChange={(e) => setRoomType(e.target.value)}
           >
-            <option value="ALL">All Categories (43 Saleable Rooms)</option>
-            <option value="LUX-01">Luxury Room (AC & Fiber Net)</option>
-            <option value="DLX-01">Deluxe Room (Climate Control)</option>
-            <option value="FAM-01">Family Room (Multiple Beds)</option>
-            <option value="HNY-01">Honeymoon Room</option>
-            <option value="STD-AC">Standard (AC) Room</option>
-            <option value="STD-01">Standard Room</option>
+            <option value="ALL">All Categories</option>
+            {roomTypes.map((type) => <option key={type.code} value={type.code}>{type.name}</option>)}
           </select>
         </div>
 

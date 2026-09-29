@@ -24,7 +24,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
   const [content, setContent] = useState({
     heading: initialHeading || 'Security, Cleanliness & Hospitality in Butwal',
     subheading: initialSubheading || 'WELCOME TO HOTEL NEW ERA • BUTWAL, NEPAL (EST. 1982)',
-    bodyText: initialBodyText || 'Centrally located 5 minutes from New Bus Park near Tilottama (Tinau) River. 43 luxury & deluxe rooms, 3 grand conference halls, 2 restaurants, and 1 main central kitchen.',
+    bodyText: initialBodyText || 'Centrally located 5 minutes from New Bus Park near Tilottama (Tinau) River. 45 listed rooms across 5 levels, 3 conference halls, 2 restaurants, and 1 main central kitchen.',
     imageUrl: initialImageUrl || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1920&q=85'
   });
 
@@ -138,7 +138,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
               backdropFilter: 'blur(8px)'
             }}
           >
-            <span>Explore 43 Rooms</span>
+            <span>Explore Our Rooms</span>
           </Link>
         </div>
 

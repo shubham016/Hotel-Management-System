@@ -50,7 +50,7 @@ export default function HomePage() {
       name: 'Santosh Sharma',
       origin: 'Lumbini Transit Guest',
       rating: 5,
-      comment: 'Hotel New Era is the ideal base in Butwal. 43 quiet, clean rooms, reliable 60 Mbps fiber net, and warm attentive staff.',
+      comment: 'Hotel New Era is the ideal base in Butwal. Quiet, clean rooms, reliable 60 Mbps fiber net, and warm attentive staff.',
       avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80'
     },
     {
@@ -103,7 +103,7 @@ export default function HomePage() {
               Butwal’s Landmark of Hospitality & Trust
             </h2>
             <p style={{ fontSize: 15, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 18 }}>
-              Established in 1982 by Mr. and Mrs. Nepal (originally starting as the 10-bedroom Sangam Hotel), <strong>Hotel New Era</strong> is Butwal’s trusted hospitality destination featuring <strong>43 saleable rooms</strong>, <strong>2 full-service restaurants</strong>, <strong>3 modern seminar & conference halls</strong>, and a dedicated <strong>Main Central Kitchen</strong>.
+              Established in 1982 by Mr. and Mrs. Nepal (originally starting as the 10-bedroom Sangam Hotel), <strong>Hotel New Era</strong> is Butwal’s trusted hospitality destination featuring <strong>45 listed rooms</strong>, <strong>2 full-service restaurants</strong>, <strong>3 modern seminar & conference halls</strong>, and a dedicated <strong>Main Central Kitchen</strong>.
             </p>
             <p style={{ fontSize: 14.5, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 24 }}>
               Centrally located on Kalikapath, just a 5-minute walk from New Bus Park near the Tilottama (Tinau) River, our motto has always stood firm: <strong>Security, Cleanliness, and Hospitality</strong>.
@@ -112,7 +112,7 @@ export default function HomePage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 28 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <CheckCircle2 size={20} color="var(--brand-green)" />
-                <span style={{ fontSize: 14, fontWeight: 600 }}>43 Modern Saleable Rooms</span>
+                <span style={{ fontSize: 14, fontWeight: 600 }}>45 Listed Rooms</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <CheckCircle2 size={20} color="var(--brand-green)" />

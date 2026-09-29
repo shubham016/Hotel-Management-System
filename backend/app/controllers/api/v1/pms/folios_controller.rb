@@ -22,8 +22,10 @@ module Api
           raise ApiError.new("Charge description is required", status: :unprocessable_content, code: "INVALID_CHARGE") if description.blank?
           sub_total = quantity * unit_price
           calculate_taxes = ActiveModel::Type::Boolean.new.cast(params.fetch(:calculateTaxes, true))
-          service_charge = calculate_taxes ? (sub_total * BigDecimal("0.10")).round(2) : 0.to_d
-          vat = calculate_taxes ? ((sub_total + service_charge) * BigDecimal("0.13")).round(2) : 0.to_d
+          service_tax = calculate_taxes ? folio.property.company.tax_configurations.for_rooms.for_date(Date.current).find_by(code: "SERVICE_CHARGE") : nil
+          vat_tax = calculate_taxes ? folio.property.company.tax_configurations.for_rooms.for_date(Date.current).find_by(code: "VAT") : nil
+          service_charge = service_tax&.inclusive ? 0.to_d : (sub_total * (service_tax&.rate || 0) / 100).round(2)
+          vat = vat_tax&.inclusive ? 0.to_d : ((sub_total + service_charge) * (vat_tax&.rate || 0) / 100).round(2)
           total = sub_total + service_charge + vat
 
           Folio.transaction do
@@ -39,8 +41,8 @@ module Api
               total_amount: total,
               calculation_snapshot: {
                 taxes: [
-                  { code: "SERVICE_CHARGE", rate: 10, amount: service_charge },
-                  { code: "VAT", rate: 13, amount: vat }
+                  { code: "SERVICE_CHARGE", rate: service_tax&.rate || 0, amount: service_charge },
+                  { code: "VAT", rate: vat_tax&.rate || 0, amount: vat }
                 ]
               }
             )

@@ -15,7 +15,7 @@ export const Footer: React.FC = () => {
               </div>
             </div>
             <p style={{ color: '#9CA3AF', fontSize: 13.5, lineHeight: 1.6, marginBottom: 20 }}>
-              Centrally located in Butwal, Lumbini Province since 1982. A premier destination offering 43 saleable rooms, 2 restaurants (Dhiki & Terrace Lounge), 3 conference halls, and a dedicated central kitchen.
+              Centrally located in Butwal, Lumbini Province since 1982. A destination with 45 listed rooms, 2 restaurants (Dhiki & Terrace Lounge), 3 conference halls, and a dedicated central kitchen.
             </p>
             <div style={{ display: 'flex', gap: 10 }}>
               <span style={{ fontSize: 11, backgroundColor: 'rgba(255,255,255,0.1)', padding: '4px 10px', borderRadius: 4, color: 'var(--golden)' }}>
@@ -41,11 +41,10 @@ export const Footer: React.FC = () => {
           <div>
             <h4 style={{ fontSize: 16, fontWeight: 700, marginBottom: 18, color: '#FFFFFF' }}>Accommodations</h4>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13.5, color: '#9CA3AF' }}>
-              <li>Luxury Rooms (AC & Fiber Net)</li>
-              <li>Deluxe Rooms (Climate Control)</li>
-              <li>Family Rooms (Multiple Beds)</li>
-              <li>Honeymoon Romantic Suites</li>
+              <li>Dormitory Room</li>
               <li>Standard AC & Non-AC Rooms</li>
+              <li>Deluxe AC Rooms</li>
+              <li>Suites & Family Apartment</li>
             </ul>
           </div>
 

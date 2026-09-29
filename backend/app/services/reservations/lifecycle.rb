@@ -368,7 +368,21 @@ module Reservations
     end
 
     def ensure_no_gateway_payment!
-      return unless @reservation.folio&.payment_requests&.where(status: "INITIATED")&.exists?
+      requests = @reservation.folio&.payment_requests&.where(status: "INITIATED")
+      return unless requests
+
+      requests.each do |request|
+        next unless request.expired? && Payments::Gateway.modes[request.gateway&.to_sym] == "SANDBOX"
+
+        request.update!(status: "FAILED")
+        AuditLog.create!(
+          company: @property.company, property: @property, user: Current.user,
+          module_name: "PAYMENTS", action: "EXPIRE", entity_type: "PaymentRequest", entity_id: request.id,
+          new_values: { status: "FAILED", reason: "Expired sandbox payment request" },
+          request_id: Current.request_id, ip_address: Current.ip_address
+        )
+      end
+      return unless requests.exists?
 
       raise ApiError.new("A gateway payment is in progress for this booking", status: :conflict, code: "PAYMENT_IN_PROGRESS")
     end

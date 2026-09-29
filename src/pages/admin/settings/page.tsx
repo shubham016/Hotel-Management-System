@@ -1,11 +1,18 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Settings, Building2, Shield, DollarSign, Calendar, Save, CheckCircle2, Globe, Users } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 
 export default function SystemSettingsPage() {
-  const [activeTab, setActiveTab] = useState<'PROPERTY' | 'TAX' | 'CALENDAR' | 'ROLES'>('PROPERTY');
+  const [activeTab, setActiveTab] = useState<'PROPERTY' | 'TAX' | 'CALENDAR' | 'ROLES' | 'STAFF'>('PROPERTY');
+  const [staff, setStaff] = useState<{ serial: number; name: string; department: string }[]>([]);
+
+  useEffect(() => {
+    fetch('/api/client_reference').then((response) => response.json()).then((result) => {
+      if (result.success) setStaff(result.data.staff);
+    }).catch(() => {});
+  }, []);
 
   // Property State
   const [propertyName, setPropertyName] = useState('Hotel New Era - Butwal');
@@ -49,7 +56,8 @@ export default function SystemSettingsPage() {
           { id: 'PROPERTY', label: 'Property Profile' },
           { id: 'TAX', label: 'Tax & VAT Engine' },
           { id: 'CALENDAR', label: 'Nepali Calendar & Currency' },
-          { id: 'ROLES', label: 'RBAC Roles & Permissions' }
+          { id: 'ROLES', label: 'RBAC Roles & Permissions' },
+          { id: 'STAFF', label: 'Staff Directory' }
         ].map((t) => (
           <button
             key={t.id}
@@ -214,12 +222,21 @@ export default function SystemSettingsPage() {
           </Card>
         )}
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 24 }}>
+        {activeTab === 'STAFF' && (
+          <Card title="Client Staff Directory">
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>Names and departments supplied by the hotel. Portal accounts require individual email addresses.</p>
+            <div className="hne-table-container"><table className="hne-table"><thead><tr><th>No.</th><th>Name</th><th>Department</th></tr></thead><tbody>
+              {staff.map((member) => <tr key={member.serial}><td>{member.serial}</td><td>{member.name}</td><td>{member.department}</td></tr>)}
+            </tbody></table></div>
+          </Card>
+        )}
+
+        {activeTab !== 'STAFF' && <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 24 }}>
           <Button type="submit" variant="primary" size="lg">
             <Save size={16} />
             <span>Save Configuration</span>
           </Button>
-        </div>
+        </div>}
       </form>
     </div>
   );

@@ -129,91 +129,12 @@ admin.save!
 UserProperty.find_or_create_by!(user: admin, property:)
 
 [
-  { code: "SERVICE_CHARGE", name: "Hotel Service Charge", rate: 10, calculation_order: 1 },
   { code: "VAT", name: "Value Added Tax", rate: 13, calculation_order: 2 }
 ].each do |attributes|
   tax = company.tax_configurations.find_or_initialize_by(code: attributes[:code], effective_from: Date.new(2020, 1, 1))
   tax.update!(attributes.merge(inclusive: false, applies_to_rooms: true, active: true))
 end
-
-room_type_definitions = [
-  { code: "DEMO-LUX-01", slug: "demo-luxury-room", name: "Demo Luxury Room", base_price: 5_500, count: 8, max_adults: 2, max_children: 1 },
-  { code: "DEMO-DLX-01", slug: "demo-deluxe-room", name: "Demo Deluxe Room", base_price: 4_200, count: 12, max_adults: 2, max_children: 1 },
-  { code: "DEMO-FAM-01", slug: "demo-family-room", name: "Demo Family Room", base_price: 6_500, count: 6, max_adults: 4, max_children: 2 },
-  { code: "DEMO-HNY-01", slug: "demo-honeymoon-room", name: "Demo Honeymoon Room", base_price: 7_000, count: 3, max_adults: 2, max_children: 0 },
-  { code: "DEMO-STD-AC", slug: "demo-standard-ac-room", name: "Demo Standard AC Room", base_price: 3_200, count: 8, max_adults: 2, max_children: 1 },
-  { code: "DEMO-STD-01", slug: "demo-standard-room", name: "Demo Standard Room", base_price: 2_200, count: 6, max_adults: 2, max_children: 1 }
-]
-
-room_numbers = [
-  *(101..109),
-  *(201..209),
-  *(301..309),
-  *(400..407),
-  *(501..508)
-]
-demo_room_statuses = {
-  "101" => "OCCUPIED",
-  "102" => "VACANT_DIRTY",
-  "103" => "OCCUPIED",
-  "104" => "OUT_OF_ORDER",
-  "105" => "OCCUPIED",
-  "106" => "OUT_OF_ORDER",
-  "201" => "OCCUPIED",
-  "202" => "INSPECTION_REQUIRED",
-  "203" => "OUT_OF_ORDER",
-  "204" => "VACANT_DIRTY",
-  "205" => "OUT_OF_ORDER",
-  "301" => "INSPECTION_REQUIRED",
-  "302" => "OUT_OF_ORDER",
-  "303" => "INSPECTION_REQUIRED",
-  "400" => "VACANT_DIRTY",
-  "401" => "OCCUPIED",
-  "402" => "VACANT_DIRTY",
-  "403" => "VACANT_CLEAN",
-  "501" => "OCCUPIED",
-  "502" => "VACANT_DIRTY",
-  "503" => "INSPECTION_REQUIRED",
-  "504" => "OUT_OF_ORDER"
-}
-room_type_definitions.each do |definition|
-  room_type = property.room_types.find_or_initialize_by(code: definition[:code])
-  room_type.update!(
-    name: definition[:name],
-    slug: definition[:slug],
-    description: "#{definition[:name]} at Hotel New Era",
-    base_price: definition[:base_price],
-    max_adults: definition[:max_adults],
-    max_children: definition[:max_children],
-    max_occupancy: definition[:max_adults] + definition[:max_children],
-    amenities: %w[WiFi AttachedBathroom Housekeeping],
-    active: true
-  )
-
-  rate_plan = property.rate_plans.find_or_initialize_by(code: "EP-#{definition[:code]}")
-  rate_plan.update!(
-    room_type:,
-    name: "European Plan - #{definition[:name]}",
-    price_modifier: 0,
-    cancellation_policy: "Cancellation terms are confirmed with the booking quotation.",
-    active: true
-  )
-
-  definition[:count].times do
-    number = room_numbers.shift.to_s
-    room = property.rooms.find_or_initialize_by(room_number: "DEMO-#{number}")
-    room.update!(room_type:, floor: number.first.to_i, status: demo_room_statuses.fetch(number, "VACANT_CLEAN"), active: true)
-  end
-end
-
-[
-  { code: "BREAKFAST", name: "Breakfast", unit_price: 1_200, pricing_unit: "PER_GUEST_PER_NIGHT" },
-  { code: "AIRPORT_TRANSFER", name: "Airport Transfer", unit_price: 2_500, pricing_unit: "PER_BOOKING" },
-  { code: "SPA", name: "Himalayan Herbal Aroma Therapy (60 Min)", unit_price: 4_000, pricing_unit: "PER_GUEST" }
-].each do |attributes|
-  offering = property.service_offerings.find_or_initialize_by(code: attributes[:code])
-  offering.update!(attributes.merge(taxable: true, active: true))
-end
+company.tax_configurations.where(code: "SERVICE_CHARGE").update_all(active: false)
 
 [ "Cash / Bank", "Accounts Receivable", "VAT Payable", "Service Charge Payable", "Owner Equity", "Room Revenue", "F&B Revenue", "Banquet Revenue", "Cost of Sales", "Operating Expense" ].each_with_index do |name, index|
   codes = %w[1001 1100 2100 2101 3000 4001 4002 4004 5001 6001]
@@ -280,4 +201,5 @@ end
   hall.update!(attributes.merge(active: true))
 end
 
+load Rails.root.join("db/client_data.rb")
 puts "Seeded #{company.name}, #{property.rooms.count} rooms, and admin@hotelnewera.com"
