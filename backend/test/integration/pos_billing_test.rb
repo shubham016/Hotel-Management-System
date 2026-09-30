@@ -38,9 +38,10 @@ class PosBillingTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     voucher = JournalEntry.order(:created_at).last
-    # 2 x 1000 = 2000 sub, +10% SC (200) = 2200, +13% VAT on 2200 (286) = 2486 grand.
-    assert_equal 2_486.0, voucher.total_debit.to_f
-    assert_equal 2_486.0, voucher.total_credit.to_f
+    # 2 x 1000 = 2000 subtotal, plus 13% VAT (260).
+    assert_equal 2_260.0, voucher.total_debit.to_f
+    assert_equal 2_260.0, voucher.total_credit.to_f
+    assert_equal 260, voucher.journal_lines.find_by!(account: @company.accounts.find_by!(account_code: "2100")).credit
   end
 
   test "unknown menu item id is rejected" do

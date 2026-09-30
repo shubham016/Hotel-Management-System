@@ -92,7 +92,6 @@ module Api
               checkOutTime: result.reservation.property.check_out_time,
               nights: result.quote.nights,
               subTotal: result.quote.sub_total.to_f,
-              serviceCharge: result.quote.service_charge.to_f,
               vatAmount: result.quote.vat_amount.to_f,
               grandTotal: result.quote.grand_total.to_f,
               paymentStatus: "PENDING"

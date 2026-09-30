@@ -1,15 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import Link, { useRouter } from '@/lib/router';
-import { Phone, Calendar, User, Menu, X, Sparkles, MapPin } from 'lucide-react';
+import React, { useState } from 'react';
+import Link from '@/lib/router';
+import { Phone, Calendar, Menu, X, Sparkles, MapPin } from 'lucide-react';
+import { SocialLinks } from './SocialLinks';
 
 export const Navbar: React.FC = () => {
-  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  // This is a no-op in the Vite SPA adapter and keeps navigation intent explicit.
-  useEffect(() => {
-    router.prefetch('/login');
-  }, [router]);
 
   const navLinks = [
     { name: 'Home', href: '/' },
@@ -34,6 +29,7 @@ export const Navbar: React.FC = () => {
     >
       {/* Top micro bar */}
       <div
+        className="public-top-bar"
         style={{
           backgroundColor: '#0F172A',
           color: '#FFFFFF',
@@ -44,7 +40,7 @@ export const Navbar: React.FC = () => {
           fontSize: 12
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+        <div className="public-top-contact" style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <MapPin size={13} color="var(--golden)" />
             <span>Kalikapath, New Buspark, Butwal-8, Rupandehi, Nepal</span>
@@ -54,27 +50,11 @@ export const Navbar: React.FC = () => {
             <span>(+977) 71-543833</span>
           </span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div className="public-top-right" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <span style={{ color: 'var(--golden)', display: 'flex', alignItems: 'center', gap: 4 }}>
             <Sparkles size={12} /> Best Rate Guarantee on Direct Bookings
           </span>
-          <Link
-            href="/login"
-            prefetch
-            style={{
-              color: '#FFFFFF',
-              textDecoration: 'none',
-              fontWeight: 600,
-              padding: '2px 8px',
-              borderRadius: 'var(--radius-sm)',
-              backgroundColor: 'rgba(255,255,255,0.1)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4
-            }}
-          >
-            <User size={12} /> Staff Portal
-          </Link>
+          <SocialLinks location="header" />
         </div>
       </div>
 

@@ -244,8 +244,29 @@ export default function FrontDeskPage() {
       f.folioNumber.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const closeFolio = () => {
+    setSelectedFolio(null);
+    if (isFocusedFolioView) router.replace('/admin/pms/frontdesk');
+  };
+
+  useEffect(() => {
+    if (!selectedFolio || isFocusedFolioView) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !showAddChargeModal && !showPaymentModal && !showExtendStayModal && !showCheckoutPayment) {
+        setSelectedFolio(null);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [selectedFolio, isFocusedFolioView, showAddChargeModal, showPaymentModal, showExtendStayModal, showCheckoutPayment]);
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, backgroundColor: '#FFFFFF' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
         <div>
@@ -305,10 +326,10 @@ export default function FrontDeskPage() {
         </div>
       )}
 
-      {/* Main Grid: Folio List + Folio Detail Inspector */}
-      <div style={{ display: 'grid', gridTemplateColumns: isFocusedFolioView ? '1fr' : selectedFolio ? '1fr 1.2fr' : '1fr', gap: 24 }}>
+      {/* Folio list and direct-link inspector */}
+      <div style={{ minWidth: 0 }}>
         {/* Folios Table */}
-        {!isFocusedFolioView && <Card title={`Active In-House Guest Folios (${filteredFolios.length})`} subtitle="Click any folio row to open inspector and ledger details">
+        {!isFocusedFolioView && <Card title={`Active In-House Guest Folios (${filteredFolios.length})`} subtitle="Click any folio row to inspect charges and payments">
           {isLoading ? (
             <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
               Loading in-house guest folios from PostgreSQL...
@@ -390,8 +411,18 @@ export default function FrontDeskPage() {
           <Link href="/admin/pms/frontdesk" className="hne-btn hne-btn-secondary hne-btn-sm">Return to Active Folios</Link>
         </Card>}
 
-        {/* Selected Folio Inspector Panel */}
+        {/* Selected folio: wide dialog from the list, full-width page from a direct link */}
         {selectedFolio && (
+          <div
+            className={isFocusedFolioView ? 'folio-inspector-page' : 'hne-modal-backdrop folio-inspector-backdrop'}
+            onClick={(event) => { if (!isFocusedFolioView && event.target === event.currentTarget) closeFolio(); }}
+          >
+          <div
+            className={isFocusedFolioView ? 'folio-inspector-content' : 'folio-inspector-dialog'}
+            role={isFocusedFolioView ? undefined : 'dialog'}
+            aria-modal={isFocusedFolioView ? undefined : true}
+            aria-label={`Guest Folio ${selectedFolio.folioNumber}`}
+          >
           <Card
             className="folio-print-area"
             title={`Guest Folio #${selectedFolio.folioNumber}`}
@@ -399,7 +430,9 @@ export default function FrontDeskPage() {
             action={
               <button
                 className="folio-no-print"
-                onClick={() => isFocusedFolioView ? router.replace('/admin/pms/frontdesk') : setSelectedFolio(null)}
+                type="button"
+                autoFocus={!isFocusedFolioView}
+                onClick={closeFolio}
                 style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontWeight: 700, color: 'var(--text-muted)' }}
               >
                 ✕ Close
@@ -451,7 +484,7 @@ export default function FrontDeskPage() {
                     <th>Module</th>
                     <th>Description</th>
                     <th>Amount</th>
-                    <th>SC + VAT</th>
+                    <th>VAT</th>
                     <th>Total</th>
                   </tr>
                 </thead>
@@ -467,7 +500,7 @@ export default function FrontDeskPage() {
                       <td style={{ fontWeight: 600 }}>{it.description}</td>
                       <td>Rs. {it.amount.toLocaleString()}</td>
                       <td style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>
-                        Rs. {(it.serviceCharge + it.vatAmount).toLocaleString()}
+                        Rs. {it.vatAmount.toLocaleString()}
                       </td>
                       <td style={{ fontWeight: 700 }}>
                         Rs. {(it.amount + it.serviceCharge + it.vatAmount).toLocaleString()}
@@ -479,16 +512,16 @@ export default function FrontDeskPage() {
             </div>
 
             {/* Financial Summary */}
-            <div style={{ backgroundColor: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)', padding: 18, border: '1px solid var(--border)', fontSize: 13 }}>
+            <div className="folio-financial-summary" style={{ backgroundColor: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)', padding: 18, border: '1px solid var(--border)', fontSize: 13 }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span>Accommodations & Services Subtotal:</span>
                   <span>Rs. {selectedFolio.subTotal.toLocaleString()}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
-                  <span>Hotel Service Charge (10%):</span>
+                {selectedFolio.serviceCharge > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+                  <span>Previously billed service charge:</span>
                   <span>Rs. {selectedFolio.serviceCharge.toLocaleString()}</span>
-                </div>
+                </div>}
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
                   <span>Government VAT (13%):</span>
                   <span>Rs. {selectedFolio.vatAmount.toLocaleString()}</span>
@@ -508,6 +541,8 @@ export default function FrontDeskPage() {
               </div>
             </div>
           </Card>
+          </div>
+          </div>
         )}
       </div>
 

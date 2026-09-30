@@ -65,7 +65,7 @@ class ReservationsTest < ActionDispatch::IntegrationTest
     assert_response :created
     body = response.parsed_body
     assert body["success"]
-    assert_equal 14_916.0, body.dig("data", "grandTotal")
+    assert_equal 13_560.0, body.dig("data", "grandTotal")
     assert_equal "PENDING", body.dig("data", "paymentStatus")
     assert_match(/^RES-TEST-PROPERTY-\d{4}-\d{6}$/, body.dig("data", "confirmationNumber"))
     assert_equal body.dig("data", "grandTotal"), Reservation.last.grand_total.to_f
@@ -136,8 +136,8 @@ class ReservationsTest < ActionDispatch::IntegrationTest
     assert_response :success
     folio.reload
     assert_equal original_sub_total + 1_000, folio.sub_total
-    assert_equal original_service_charge + 100, folio.service_charge
-    assert_equal original_vat + 143, folio.tax_amount
+    assert_equal original_service_charge, folio.service_charge
+    assert_equal original_vat + 130, folio.tax_amount
 
     assert_difference [ "Payment.count", "AuditLog.count" ], 1 do
       post "/api/v1/folio", params: {
@@ -399,9 +399,9 @@ class ReservationsTest < ActionDispatch::IntegrationTest
     quote = response.parsed_body.dig("data", 0, "quote")
     assert_equal 4_000.0, quote["addOnTotal"]
     assert_equal 12_000.0, quote["subTotal"]
-    assert_equal 1_200.0, quote["serviceCharge"]
-    assert_equal 1_716.0, quote["vatAmount"]
-    assert_equal 14_916.0, quote["grandTotal"]
+    assert_nil quote["serviceCharge"]
+    assert_equal 1_560.0, quote["vatAmount"]
+    assert_equal 13_560.0, quote["grandTotal"]
   end
 
   test "non-taxable edited extra is excluded from tax calculation" do
@@ -411,9 +411,9 @@ class ReservationsTest < ActionDispatch::IntegrationTest
     assert_response :success
     quote = response.parsed_body.dig("data", 0, "quote")
     assert_equal 4_000.0, quote["addOnTotal"]
-    assert_equal 800.0, quote["serviceCharge"]
-    assert_equal 1_144.0, quote["vatAmount"]
-    assert_equal 13_944.0, quote["grandTotal"]
+    assert_nil quote["serviceCharge"]
+    assert_equal 1_040.0, quote["vatAmount"]
+    assert_equal 13_040.0, quote["grandTotal"]
   end
 
   test "breakfast airport pickup and laundry each receive 13 percent VAT" do
@@ -608,9 +608,9 @@ class ReservationsTest < ActionDispatch::IntegrationTest
     breakfast_item = reservation.folio.folio_items.find_by!(source_module: "SERVICE")
     assert_equal 3, breakfast_item.quantity
     assert_equal 15_000, reservation.folio.reload.sub_total
-    assert_equal 1_500, reservation.folio.service_charge
-    assert_equal 2_145, reservation.folio.tax_amount
-    assert_equal 18_645, reservation.folio.grand_total
+    assert_equal 0, reservation.folio.service_charge
+    assert_equal 1_950, reservation.folio.tax_amount
+    assert_equal 16_950, reservation.folio.grand_total
     extension_audit = AuditLog.find_by!(entity_type: "Reservation", entity_id: reservation.id, action: "EXTEND_STAY")
     assert_equal 1, extension_audit.new_values["additional_nights"]
     assert_equal "Guest requested one more night", extension_audit.new_values["reason"]

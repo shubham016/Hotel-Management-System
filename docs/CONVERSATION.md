@@ -697,3 +697,28 @@ The user asked for a connected set of Hotel New Era PMS corrections: prevent ove
 - Changed PMS Ruby files passed syntax checks and RuboCop.
 
 ---
+
+## Record Entry: 2026-09-29 (Client Data, Room Board, and Typography)
+
+### Client data and editable settings
+
+- The five images in `pics/` were transcribed into the idempotent `backend/db/client_data.rb` import, which fresh database seeds also invoke. The source-to-database mapping and client confirmations are documented in `docs/CLIENT_DATA_IMPORT.md`.
+- The client inventory contains 45 bookable rooms on Ground through 4th Floor. Room Board presents those floors in that order; room 509 is available as a three-bed Deluxe AC room at NPR 4,000 per room per night plus 13% VAT. Dormitory 105 is priced for the whole room.
+- Room tariffs, breakfast, airport pickup, laundry, and other confirmed extras use 13% VAT added on top. The laundry item labeled "Shocks" on the sheet was corrected to "Socks" following client confirmation.
+- Imported room, category, staff, service, laundry, property, and tax data is persisted in the database and exposed through the relevant edit screens. The import preserves later edits on rerun. Staff names from the sheet do not create login accounts without credentials.
+- The sheet's last room column is treated as bed count, not check-out time. Guest capacities remain provisional; the client still needs to confirm limits, bed sizes, and children's ages. Previously entered rooms outside the client sheet remain inactive where reservation history refers to them. Two inquiries assigned to inactive rooms 102 and 104 need reassignment before check-in.
+
+### Recent website and panel changes
+
+- Booking deletion uses the audited archival workflow described in the 2026-09-28 entry; reservation, folio, payment, and accounting history is retained.
+- Footer Quick Navigation links have no underline in normal, hover, or keyboard-focus states. The change is scoped to those links in `src/components/public/Footer.tsx` and `src/styles/globals.css`.
+- Replaced Source Sans 3 with DM Sans for website and admin interface text. Public editorial headings continue using Newsreader. Fixed the banquet and contact hero headings that referred to an undefined font token.
+- The last typography change passed `npm.cmd run typecheck`; `git diff --check` passed. No new end-to-end browser verification was recorded for the font appearance.
+
+### Resume next time
+
+1. Ask the client to confirm the provisional guest limits, bed sizes, and children's ages if exact occupancy rules are required.
+2. Reassign the two inactive-room inquiries (102 and 104) before check-in.
+3. Review the DM Sans appearance in the running public website and admin panel with the user and adjust weight or spacing if requested.
+
+---

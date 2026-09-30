@@ -225,8 +225,8 @@ class HotelSetupTest < ActionDispatch::IntegrationTest
 
     patch "/api/v1/hotel_settings", params: {
       property: { name: "Updated Hotel", check_out_time: "11:00", laundry_return_instructions: "Return by 10 a.m." },
-      vat: { rate: 13, active: true, inclusive: false },
-      service_charge: { rate: 10, active: false }
+      vat: { rate: 10, active: false, inclusive: false },
+      service_charge: { rate: 10, active: true }
     }, headers: @headers, as: :json
 
     assert_response :success
@@ -234,7 +234,7 @@ class HotelSetupTest < ActionDispatch::IntegrationTest
     assert_equal "11:00", @property.check_out_time
     assert_equal "Return by 10 a.m.", @property.laundry_return_instructions
     assert_equal 13, @property.company.tax_configurations.find_by!(code: "VAT").rate
-    assert_not @property.company.tax_configurations.find_by!(code: "SERVICE_CHARGE").active?
+    assert_nil @property.company.tax_configurations.find_by(code: "SERVICE_CHARGE")
   end
 
   test "client import preserves later staff laundry extra room and tax edits" do

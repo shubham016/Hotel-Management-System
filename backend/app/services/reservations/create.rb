@@ -156,7 +156,7 @@ module Reservations
         special_requests: @params[:specialRequests].presence,
         room_total: quote.room_total,
         service_total: quote.add_on_total,
-        tax_total: quote.service_charge + quote.vat_amount,
+        tax_total: quote.vat_amount,
         grand_total: quote.grand_total,
         advance_paid: 0
       )
@@ -183,7 +183,7 @@ module Reservations
         folio_number:,
         status: "OPEN",
         sub_total: quote.sub_total,
-        service_charge: quote.service_charge,
+        service_charge: 0,
         tax_amount: quote.vat_amount,
         grand_total: quote.grand_total,
         total_paid: 0,
@@ -196,7 +196,7 @@ module Reservations
         quantity: @rooms_count,
         unit_price: quote.nightly_rate * quote.nights,
         sub_total: quote.room_total,
-        tax_amount: quote.service_charge + quote.vat_amount,
+        tax_amount: quote.vat_amount,
         total_amount: quote.grand_total,
         calculation_snapshot: { taxes: quote.tax_lines }
       )

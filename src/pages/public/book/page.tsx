@@ -142,7 +142,6 @@ export default function BookPage() {
   const roomCost = quote?.roomTotal ?? 0;
   const addonCost = quote?.addOnTotal ?? 0;
   const subTotal = quote?.subTotal ?? 0;
-  const serviceCharge = quote?.serviceCharge ?? 0;
   const vatAmount = quote?.vatAmount ?? 0;
   const grandTotal = quote?.grandTotal ?? 0;
 
@@ -399,10 +398,6 @@ export default function BookPage() {
                     <span>Rs. {formatAmount(addonCost)}</span>
                   </div>
                 )}
-                {serviceCharge > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
-                  <span>Hotel Service Charge</span>
-                  <span>Rs. {formatAmount(serviceCharge)}</span>
-                </div>}
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
                   <span>VAT (13%)</span>
                   <span>Rs. {formatAmount(vatAmount)}</span>

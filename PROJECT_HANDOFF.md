@@ -1,8 +1,14 @@
 # Hotel New Era — Project Handoff
 
-**Updated:** 2026-09-12
+**Updated:** 2026-09-29
 **Backend direction:** Ruby on Rails JSON API
 **Current frontend:** React 18 + React Router + Vite 7 SPA; Rails owns every backend API
+
+## Resume Here (2026-09-29 session end)
+
+The client image import and confirmations are documented in [`docs/CLIENT_DATA_IMPORT.md`](docs/CLIENT_DATA_IMPORT.md). The complete recent work record and next steps are in [`docs/CONVERSATION.md`](docs/CONVERSATION.md), under **Record Entry: 2026-09-29**.
+
+Current public/admin typography uses DM Sans for interface text and Newsreader for public editorial headings. Footer Quick Navigation links are not underlined. The latest typography change passed the TypeScript check. Guest capacities from the sheets remain provisional, and inquiries assigned to inactive rooms 102 and 104 need reassignment before check-in.
 
 ## Resume Here (2026-09-12 session end)
 

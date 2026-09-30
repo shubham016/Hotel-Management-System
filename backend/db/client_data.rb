@@ -51,7 +51,7 @@ raise "Expected 45 unique client rooms" unless room_rows.values.flatten.uniq.siz
 ActiveRecord::Base.transaction do
   property.update!(laundry_collection_instructions: "Leave bagged laundry on the table and display the Collect my laundry card by 11 a.m.") if property.laundry_collection_instructions.blank?
   property.update!(laundry_return_instructions: "Clean laundry is returned by noon the next day.") if property.laundry_return_instructions.blank?
-  property.company.tax_configurations.where(code: "SERVICE_CHARGE").update_all(active: false) if first_import
+  property.company.tax_configurations.where(code: "SERVICE_CHARGE").update_all(active: false)
   vat = property.company.tax_configurations.find_or_initialize_by(code: "VAT", effective_from: Date.new(2020, 1, 1))
   vat.update!(name: "Value Added Tax", rate: 13, calculation_order: 2, inclusive: false, applies_to_rooms: true, active: true) if vat.new_record?
   ["Ground Floor", "1st Floor", "2nd Floor", "3rd Floor", "4th Floor"].each_with_index do |name, index|

@@ -7,7 +7,6 @@ module Pricing
       :room_total,
       :add_on_total,
       :sub_total,
-      :service_charge,
       :vat_amount,
       :grand_total,
       :add_on_lines,
@@ -49,8 +48,7 @@ module Pricing
       sub_total = room_total + add_on_total
       taxable_total = room_total + add_on_lines.select { |line| line[:taxable] }.sum { |line| line[:total] }
       tax_lines = calculate_taxes(taxable_total)
-      service_charge = tax_lines.filter { |line| line[:code] == "SERVICE_CHARGE" }.sum { |line| line[:amount] }
-      vat_amount = tax_lines.reject { |line| line[:code] == "SERVICE_CHARGE" }.sum { |line| line[:amount] }
+      vat_amount = tax_lines.sum { |line| line[:amount] }
 
       Result.new(
         nights:,
@@ -59,9 +57,8 @@ module Pricing
         room_total:,
         add_on_total:,
         sub_total:,
-        service_charge:,
         vat_amount:,
-        grand_total: sub_total + service_charge + vat_amount,
+        grand_total: sub_total + vat_amount,
         add_on_lines:,
         tax_lines:
       )

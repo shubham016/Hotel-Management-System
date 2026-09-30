@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from '@/lib/router';
 import { MapPin, Phone, Mail, Globe, Shield, Award, Clock, Heart } from 'lucide-react';
+import { SocialLinks } from './SocialLinks';
 
 export const Footer: React.FC = () => {
   return (
@@ -76,9 +77,7 @@ export const Footer: React.FC = () => {
           <div>
             © {new Date().getFullYear()} Hotel New Era Pvt. Ltd. (Butwal, Nepal). All rights reserved.
           </div>
-          <div style={{ display: 'flex', gap: 16 }}>
-            <Link href="/login" style={{ color: 'var(--primary-orange)', fontWeight: 600 }}>Staff & Admin Portal</Link>
-          </div>
+          <SocialLinks location="footer" />
         </div>
       </div>
     </footer>

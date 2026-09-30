@@ -36,9 +36,6 @@ export default function SystemSettingsPage() {
   const [laundryReturn, setLaundryReturn] = useState('');
 
   // Tax State
-  const [vatRate, setVatRate] = useState('13.0');
-  const [serviceChargeRate, setServiceChargeRate] = useState('10.0');
-  const [serviceChargeActive, setServiceChargeActive] = useState(false);
   const [isVatInclusive, setIsVatInclusive] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   const [saveError, setSaveError] = useState('');
@@ -58,8 +55,7 @@ export default function SystemSettingsPage() {
       setCheckinTime(property.check_in_time); setCheckoutTime(property.check_out_time);
       setLaundryCollection(property.laundry_collection_instructions || '');
       setLaundryReturn(property.laundry_return_instructions || '');
-      setVatRate(String(result.data.vat.rate)); setIsVatInclusive(result.data.vat.inclusive);
-      setServiceChargeRate(String(result.data.serviceCharge.rate)); setServiceChargeActive(result.data.serviceCharge.active);
+      setIsVatInclusive(result.data.vat.inclusive);
     }).catch((reason) => setSaveError(reason instanceof Error ? reason.message : 'Unable to load settings.'));
   }, []);
 
@@ -68,7 +64,7 @@ export default function SystemSettingsPage() {
     try {
       const body = activeTab === 'PROPERTY' ? { property: {
         name: propertyName, phone, email, address, check_in_time: checkinTime, check_out_time: checkoutTime
-      } } : { vat: { rate: Number(vatRate), inclusive: isVatInclusive, active: true }, service_charge: { rate: Number(serviceChargeRate), active: serviceChargeActive } };
+      } } : { vat: { inclusive: isVatInclusive } };
       const response = await fetch('/api/hotel_settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const result = await response.json();
       if (!response.ok || !result.success) throw new Error(result.error || 'Unable to save settings.');
@@ -179,20 +175,16 @@ export default function SystemSettingsPage() {
         )}
 
         {activeTab === 'TAX' && (
-          <Card title="Configurable Hotel Tax & Surcharge Engine">
+          <Card title="Government VAT Settings">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
               <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                Configure government Value Added Tax (VAT) and hotel service charge calculation rules applied across Rooms, POS, and Banquets.
+                Configure government Value Added Tax (VAT) for rooms, POS, and banquets.
               </p>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 280px)', gap: 16 }}>
                 <div className="hne-form-group" style={{ marginBottom: 0 }}>
-                  <label className="hne-label">VAT Rate (%)</label>
-                  <input type="number" step="0.1" className="hne-input" value={vatRate} onChange={(e) => setVatRate(e.target.value)} />
-                </div>
-                <div className="hne-form-group" style={{ marginBottom: 0 }}>
-                  <label className="hne-label">Hotel Service Charge (%)</label>
-                  <input type="number" step="0.1" className="hne-input" value={serviceChargeRate} onChange={(e) => setServiceChargeRate(e.target.value)} />
+                  <label className="hne-label">Government VAT Rate</label>
+                  <div className="hne-input" style={{ display: 'flex', alignItems: 'center' }}>13%</div>
                 </div>
               </div>
 
@@ -208,7 +200,6 @@ export default function SystemSettingsPage() {
                   <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>When enabled, VAT is not added on top of room and extra prices.</div>
                 </div>
               </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}><input type="checkbox" checked={serviceChargeActive} onChange={(event) => setServiceChargeActive(event.target.checked)} /> Enable hotel service charge</label>
             </div>
           </Card>
         )}

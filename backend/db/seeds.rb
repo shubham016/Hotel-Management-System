@@ -135,9 +135,9 @@ UserProperty.find_or_create_by!(user: admin, property:)
   tax.update!(attributes.merge(inclusive: false, applies_to_rooms: true, active: true)) if tax.new_record?
 end
 
-[ "Cash / Bank", "Accounts Receivable", "VAT Payable", "Service Charge Payable", "Owner Equity", "Room Revenue", "F&B Revenue", "Banquet Revenue", "Cost of Sales", "Operating Expense" ].each_with_index do |name, index|
-  codes = %w[1001 1100 2100 2101 3000 4001 4002 4004 5001 6001]
-  categories = %w[ASSET ASSET LIABILITY LIABILITY EQUITY REVENUE REVENUE REVENUE COST_OF_SALES EXPENSE]
+[ "Cash / Bank", "Accounts Receivable", "VAT Payable", "Owner Equity", "Room Revenue", "F&B Revenue", "Banquet Revenue", "Cost of Sales", "Operating Expense" ].each_with_index do |name, index|
+  codes = %w[1001 1100 2100 3000 4001 4002 4004 5001 6001]
+  categories = %w[ASSET ASSET LIABILITY EQUITY REVENUE REVENUE REVENUE COST_OF_SALES EXPENSE]
   account = company.accounts.find_or_initialize_by(account_code: codes[index])
   account.update!(name:, category: categories[index], active: true)
 end

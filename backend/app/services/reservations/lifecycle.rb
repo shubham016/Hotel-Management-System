@@ -58,7 +58,7 @@ module Reservations
           special_requests: @params[:specialRequests].presence || @reservation.special_requests,
           room_total: quote.room_total,
           service_total: quote.add_on_total,
-          tax_total: quote.service_charge + quote.vat_amount,
+          tax_total: quote.vat_amount,
           grand_total: quote.grand_total
         )
         sync_room_lines!(quote, @room_type, @rooms_count)
@@ -173,7 +173,7 @@ module Reservations
           check_out_date: new_check_out,
           room_total: quote.room_total,
           service_total: quote.add_on_total,
-          tax_total: quote.service_charge + quote.vat_amount,
+          tax_total: quote.vat_amount,
           grand_total: quote.grand_total
         )
         sync_room_lines!(quote, room_type, rooms_count)
@@ -264,7 +264,7 @@ module Reservations
         quantity: rooms_count,
         unit_price: quote.nightly_rate * quote.nights,
         sub_total: quote.room_total,
-        tax_amount: quote.service_charge + quote.vat_amount,
+        tax_amount: quote.vat_amount,
         total_amount: quote.grand_total,
         calculation_snapshot: { taxes: quote.tax_lines }
       )

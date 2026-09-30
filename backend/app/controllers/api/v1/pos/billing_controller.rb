@@ -50,7 +50,7 @@ module Api
 
         def calculate_taxes(company, base)
           running = base
-          company.tax_configurations.where(active: true).for_date(Date.current).order(:calculation_order).map do |t|
+          company.tax_configurations.where(active: true, code: "VAT").for_date(Date.current).order(:calculation_order).map do |t|
             amount = t.inclusive ? 0.to_d : (running * t.rate / 100).round(2)
             running += amount
             { tax: t, amount: }
@@ -92,6 +92,7 @@ module Api
         def create_journal!(property, company, grand, sub, tax, narration, idempotency_key)
           cash = company.accounts.find_or_create_by!(account_code: "1001") { |a| a.name = "Cash / Bank"; a.category = "ASSET" }
           revenue = company.accounts.find_or_create_by!(account_code: "4002") { |a| a.name = "F&B Revenue"; a.category = "REVENUE" }
+          vat_payable = company.accounts.find_or_create_by!(account_code: "2100") { |a| a.name = "VAT Payable"; a.category = "LIABILITY" }
           voucher = company.journal_entries.create!(
             voucher_number: DocumentNumbers::NextNumber.call(company:, property:, document_type: "JOURNAL"),
             voucher_type: "SALES",
@@ -104,7 +105,8 @@ module Api
             source_reference: idempotency_key
           )
           voucher.journal_lines.create!(account: cash, memo: narration, debit: grand, credit: 0)
-          voucher.journal_lines.create!(account: revenue, memo: narration, debit: 0, credit: sub + tax)
+          voucher.journal_lines.create!(account: revenue, memo: narration, debit: 0, credit: sub)
+          voucher.journal_lines.create!(account: vat_payable, memo: narration, debit: 0, credit: tax) if tax.positive?
           voucher
         end
       end

@@ -70,7 +70,6 @@ module Api
             roomTotal: quote.room_total.to_f,
             addOnTotal: quote.add_on_total.to_f,
             subTotal: quote.sub_total.to_f,
-            serviceCharge: quote.service_charge.to_f,
             vatAmount: quote.vat_amount.to_f,
             grandTotal: quote.grand_total.to_f
           }

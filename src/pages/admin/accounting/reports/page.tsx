@@ -259,8 +259,8 @@ export default function FinancialReportsPage() {
                     <span>Rs. 50,500</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>13% VAT & 10% Service Charge Payable</span>
-                    <span>Rs. 48,200</span>
+                    <span>Government VAT Payable</span>
+                    <span>Rs. 28,400</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span>Guest Advance Deposits</span>
@@ -268,7 +268,7 @@ export default function FinancialReportsPage() {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span>Owner's Equity & Retained Earnings</span>
-                    <span>Rs. 46,499,000</span>
+                    <span>Rs. 46,518,800</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 8 }}>
                     <span>Total Liabilities & Equity</span>
@@ -281,19 +281,13 @@ export default function FinancialReportsPage() {
         )}
 
         {activeReport === 'TAX' && (
-          <Card title="Government VAT & Service Charge Compliance" subtitle="Summary of 13% VAT and 10% Hotel Service Charge for IRD Nepal">
+          <Card title="Government VAT Compliance" subtitle="Summary of 13% VAT for IRD Nepal">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
                 <div className="hne-card" style={{ padding: 18, borderLeft: '4px solid var(--brand-crimson)', backgroundColor: '#FFFFFF' }}>
                   <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>13% Output VAT Collected</div>
                   <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--brand-crimson)', marginTop: 4 }}>
                     Rs. 28,400
-                  </div>
-                </div>
-                <div className="hne-card" style={{ padding: 18, borderLeft: '4px solid var(--brand-green)', backgroundColor: '#FFFFFF' }}>
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>10% Hotel Service Charge Pool</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--brand-green)', marginTop: 4 }}>
-                    Rs. 19,800
                   </div>
                 </div>
                 <div className="hne-card" style={{ padding: 18, borderLeft: '4px solid var(--brand-gold)', backgroundColor: '#FFFFFF' }}>

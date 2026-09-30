@@ -84,10 +84,9 @@ export default function POSTablesPage() {
 
   const calculateTableTotal = (items: any[]) => {
     const foodSub = items.reduce((acc, it) => acc + it.price * it.qty, 0);
-    const sc = Math.round(foodSub * 0.10);
-    const vat = Math.round((foodSub + sc) * 0.13);
-    const grand = foodSub + sc + vat;
-    return { foodSub, sc, vat, grand };
+    const vat = Math.round(foodSub * 0.13);
+    const grand = foodSub + vat;
+    return { foodSub, vat, grand };
   };
 
   const handleAddItemToTable = (item: any) => {
@@ -341,10 +340,6 @@ export default function POSTablesPage() {
                           <span>Rs. {t.foodSub.toLocaleString()}</span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
-                          <span>Service Charge (10%):</span>
-                          <span>Rs. {t.sc.toLocaleString()}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
                           <span>Government VAT (13%):</span>
                           <span>Rs. {t.vat.toLocaleString()}</span>
                         </div>
@@ -401,7 +396,7 @@ export default function POSTablesPage() {
                         Rs. {totals.grand.toLocaleString()}
                       </div>
                       <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                        Inclusive of 10% Service Charge & 13% Government VAT
+                        Includes 13% Government VAT
                       </div>
                     </div>
 
