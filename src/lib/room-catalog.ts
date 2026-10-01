@@ -6,6 +6,7 @@ export type PublicRoomType = {
   code: string;
   slug: string;
   description?: string;
+  image_url?: string | null;
   base_price: number;
   bed_category: string;
   bed_count: number;
@@ -42,7 +43,7 @@ export function roomTypeToCard(roomType: PublicRoomType) {
     maxAdults: roomType.max_adults,
     maxChildren: roomType.max_children,
     bedType: bedLabel,
-    coverImageUrl: ROOM_IMAGES[roomType.code] || DEFAULT_ROOM_IMAGE,
+    coverImageUrl: roomType.image_url || ROOM_IMAGES[roomType.code] || DEFAULT_ROOM_IMAGE,
     amenities: roomType.amenities || []
   };
 }

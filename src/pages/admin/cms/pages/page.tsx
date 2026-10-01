@@ -6,6 +6,7 @@ import {
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { GuestFeedbackManager } from './GuestFeedbackManager';
 
 function CmsImageField({
   label,
@@ -310,9 +311,9 @@ export default function CMSPagesManager() {
         </div>
 
         <div style={{ display: 'flex', gap: 10 }}>
-          <a href={`/${selectedSlug === 'home' ? '' : selectedSlug}`} target="_blank" className="hne-btn hne-btn-secondary hne-btn-sm">
+          <a href={selectedSlug === 'guest-feedback' ? '/#guest-feedback' : `/${selectedSlug === 'home' ? '' : selectedSlug}`} target="_blank" className="hne-btn hne-btn-secondary hne-btn-sm">
             <Eye size={16} />
-            <span>Preview /{selectedSlug === 'home' ? '' : selectedSlug}</span>
+            <span>{selectedSlug === 'guest-feedback' ? 'Preview Guest Feedback' : `Preview /${selectedSlug === 'home' ? '' : selectedSlug}`}</span>
           </a>
         </div>
       </div>
@@ -326,8 +327,8 @@ export default function CMSPagesManager() {
 
       {/* Main Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 24 }}>
-        {/* Left: Pages List (All 7 Pages) */}
-        <Card title="Managed Pages (7)">
+        {/* Left: Managed pages and sections */}
+        <Card title="Managed Pages (8)">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {[
               { slug: 'home', name: '🏠 Homepage', path: '/' },
@@ -336,28 +337,34 @@ export default function CMSPagesManager() {
               { slug: 'dining', name: '🍽️ Dining & Bars', path: '/dining' },
               { slug: 'banquet', name: '👥 Banquets & Events', path: '/banquet' },
               { slug: 'offers', name: '🎁 Special Offers', path: '/offers' },
+              { slug: 'guest-feedback', name: '💬 Guest Feedback', path: '/#guest-feedback' },
               { slug: 'contact', name: '📞 Contact Us', path: '/contact' }
             ].map((p) => (
               <button
                 key={p.slug}
+                aria-current={selectedSlug === p.slug ? 'page' : undefined}
                 onClick={() => setSelectedSlug(p.slug)}
                 style={{
                   padding: '10px 14px',
                   borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border)',
-                  backgroundColor: selectedSlug === p.slug ? 'var(--primary-orange-light)' : '#FFFFFF',
-                  color: selectedSlug === p.slug ? 'var(--primary-orange)' : 'var(--text-primary)',
-                  fontWeight: selectedSlug === p.slug ? 700 : 500,
+                  border: selectedSlug === p.slug ? '1px solid var(--primary-orange)' : '1px solid var(--border)',
+                  backgroundColor: '#FFFFFF',
+                  color: 'var(--text-primary)',
+                  fontWeight: 500,
                   textAlign: 'left',
                   cursor: 'pointer',
+                  fontFamily: 'var(--font-family-body)',
                   fontSize: 13.5,
+                  lineHeight: 1.4,
+                  minHeight: 44,
                   display: 'flex',
+                  gap: 8,
                   justifyContent: 'space-between',
                   alignItems: 'center'
                 }}
               >
-                <span>{p.name}</span>
-                <Badge variant={selectedSlug === p.slug ? 'orange' : 'neutral'} style={{ fontSize: 10 }}>Live</Badge>
+                <span style={{ flex: 1, minWidth: 0, font: 'inherit' }}>{p.name}</span>
+                <Badge variant="neutral" style={{ fontSize: 10, flexShrink: 0 }}>Live</Badge>
               </button>
             ))}
           </div>
@@ -365,8 +372,9 @@ export default function CMSPagesManager() {
 
         {/* Right: CMS Editor Form */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {selectedSlug === 'guest-feedback' && <GuestFeedbackManager />}
           {/* Main Hero & SEO Editor */}
-          <Card title={`Page CMS: ${currentPage.title} (/${currentPage.slug})`}>
+          {selectedSlug !== 'guest-feedback' && <Card title={`Page CMS: ${currentPage.title} (/${currentPage.slug})`}>
             <form onSubmit={handleSavePage} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
               {/* Hero Section */}
               <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: 20 }}>
@@ -445,7 +453,7 @@ export default function CMSPagesManager() {
                 </Button>
               </div>
             </form>
-          </Card>
+          </Card>}
 
           {/* Conditional Sub-Managers */}
 

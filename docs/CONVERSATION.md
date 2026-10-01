@@ -722,3 +722,31 @@ The user asked for a connected set of Hotel New Era PMS corrections: prevent ove
 3. Review the DM Sans appearance in the running public website and admin panel with the user and adjust weight or spacing if requested.
 
 ---
+
+## Record Entry: 2026-09-30 (Folio Layout, VAT-Only Billing, Public Links, and Scroll to Top)
+
+### Front Desk folio inspector
+
+- Clicking **Inspect Folio** now opens a wide, scrollable dialog instead of squeezing the folio ledger beside the guest list. Direct folio links retain a full-width page view.
+- The inspector supports backdrop, Close, and Escape dismissal; its table scrolls horizontally on narrow screens, and print styles expose the full invoice. The financial summary stays compact and aligned to the right.
+
+### VAT-only billing
+
+- The hotel will charge **13% government VAT only**. New room quotes, reservations, manual folio charges, night audit postings, and POS bills no longer calculate the 10% hotel service charge. POS settlement journals credit VAT Payable separately from food revenue.
+- Public booking, Front Desk, POS, accounting-report labels, and hotel settings no longer offer or describe a new service charge. Hotel settings display the fixed 13% VAT rate and retain the VAT-inclusive price option; the API ignores attempts to enable a service charge or change the VAT rate through that settings endpoint.
+- Migration `20260930000001_disable_service_charge` disables existing service-charge tax configurations and normalizes active VAT configurations to 13%. It was applied to the local development and test databases. The client-data import also keeps service-charge configurations disabled.
+- Previously posted service-charge amounts remain in historical folio snapshots, totals, and checkout accounting so recorded financial history still reconciles. Front Desk shows a **Previously billed service charge** line only when such an amount exists. This supersedes the 2026-09-28 entry's description of service charge as an active billing rule.
+- Frontend TypeScript checks passed. The affected backend suite ran 38 tests: 37 passed and one old settings assertion failed because it expected a removed configuration; that assertion was corrected, and its targeted rerun passed with 0 failures.
+
+### Public website
+
+- Removed the Staff Portal link from the public navbar and the Staff & Admin Portal link from the footer. The `/login` route remains available directly.
+- Added Facebook, Instagram, YouTube, and LinkedIn icon groups in those two locations. The icons are intentionally nonclickable until the hotel provides its official profile URLs. When available, set `VITE_PUBLIC_FACEBOOK_URL`, `VITE_PUBLIC_INSTAGRAM_URL`, `VITE_PUBLIC_YOUTUBE_URL`, and `VITE_PUBLIC_LINKEDIN_URL` in the frontend environment; these names are listed in `.env.example`.
+- Added a floating scroll-to-top button to the public layout, following the NextGen site's 400px visibility threshold and smooth scrolling behavior. It has mobile positioning, keyboard focus styling, and reduced-motion support. The frontend TypeScript check passed after this addition.
+
+### Open items
+
+1. Obtain the hotel's official social profile URLs and activate those four links.
+2. Keep the earlier occupancy confirmations and inactive-room inquiry reassignment on the project follow-up list.
+
+---

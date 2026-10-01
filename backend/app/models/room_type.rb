@@ -9,6 +9,8 @@ class RoomType < ApplicationRecord
 
   scope :setup_managed, -> { where(setup_managed: true) }
 
+  before_validation :calculate_max_occupancy
+
   validates :name, :code, :slug, presence: true
   validates :base_price, numericality: { greater_than_or_equal_to: 0 }
   validates :bed_category, presence: true
@@ -21,5 +23,13 @@ class RoomType < ApplicationRecord
       adults_count <= max_adults * rooms_count &&
       children_count <= max_children * rooms_count &&
       adults_count + children_count <= max_occupancy * rooms_count
+  end
+
+  private
+
+  def calculate_max_occupancy
+    return if max_adults.nil? || max_children.nil?
+
+    self.max_occupancy = max_adults + max_children
   end
 end

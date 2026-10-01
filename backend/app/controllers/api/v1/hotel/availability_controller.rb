@@ -38,7 +38,7 @@ module Api
             )
             physical_rooms = Availability::RoomInventory.available_rooms(property:, room_type:, check_in_date:, check_out_date:)
             {
-              roomType: room_type.as_json(only: %i[id name code slug description base_price bed_category amenities bed_count max_adults max_children max_occupancy]),
+              roomType: room_type.as_json(only: %i[id name code slug description image_url base_price bed_category amenities bed_count max_adults max_children max_occupancy]),
               availableRooms: available,
               rooms: physical_rooms.map { |room| serialize_room(room, room_type) },
               quote: quote_payload(quote)

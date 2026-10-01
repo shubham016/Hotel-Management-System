@@ -26,6 +26,7 @@ class HotelSetupTest < ActionDispatch::IntegrationTest
       room_type: {
         name: "Twin Room",
         code: "TWIN",
+        image_url: "https://example.com/twin-room.jpg",
         base_price: 3_500,
         bed_category: "Twin",
         bed_count: 2,
@@ -41,6 +42,8 @@ class HotelSetupTest < ActionDispatch::IntegrationTest
     assert_equal 2, response.parsed_body.dig("data", "bed_count")
     assert_equal 2, room_type.bed_count
     assert_equal "Twin", room_type.bed_category
+    assert_equal "https://example.com/twin-room.jpg", room_type.image_url
+    assert_equal room_type.image_url, response.parsed_body.dig("data", "image_url")
   end
 
   test "public room category catalog returns active setup values without authentication" do
@@ -49,6 +52,7 @@ class HotelSetupTest < ActionDispatch::IntegrationTest
       code: "FAMILY",
       slug: "dynamic-family-room",
       description: "A description entered in Hotel Setup",
+      image_url: "https://example.com/family-room.jpg",
       base_price: 6_250,
       bed_category: "Queen",
       bed_count: 2,
@@ -75,6 +79,7 @@ class HotelSetupTest < ActionDispatch::IntegrationTest
     assert_equal [ active.id ], response.parsed_body["data"].pluck("id")
     category = response.parsed_body["data"].first
     assert_equal "A description entered in Hotel Setup", category["description"]
+    assert_equal active.image_url, category["image_url"]
     assert_equal 6_250.0, category["base_price"].to_f
     assert_equal "Queen", category["bed_category"]
     assert_equal 2, category["bed_count"]
@@ -89,6 +94,7 @@ class HotelSetupTest < ActionDispatch::IntegrationTest
     room_type = @property.room_types.create!(
       name: "Twin Room",
       code: "TWIN",
+      image_url: "https://example.com/twin-room.jpg",
       slug: "twin-room",
       base_price: 3_500,
       bed_category: "Twin",
@@ -106,6 +112,7 @@ class HotelSetupTest < ActionDispatch::IntegrationTest
     assert_equal 1, response.parsed_body.dig("data", "floors").length
     assert_equal 2, response.parsed_body.dig("data", "roomTypes", 0, "bed_count")
     assert_equal "Twin", response.parsed_body.dig("data", "roomTypes", 0, "bed_category")
+    assert_equal room_type.image_url, response.parsed_body.dig("data", "roomTypes", 0, "image_url")
     assert_equal "101", response.parsed_body.dig("data", "rooms", 0, "roomNumber")
   end
 

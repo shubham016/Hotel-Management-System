@@ -24,6 +24,21 @@ export function saveSetupRecord<T>(resource: string, key: string, data: unknown,
   return setupRequest<T>(`${resource}${id ? `?id=${id}` : ''}`, { method: id ? 'PATCH' : 'POST', body: JSON.stringify({ [key]: data }) });
 }
 
+export async function uploadRoomImage(file: File, title: string): Promise<string> {
+  if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type) || file.size > 10 * 1024 * 1024) {
+    throw new Error('Choose a JPG, PNG, WebP, or GIF image that is 10 MB or smaller.');
+  }
+  const body = new FormData();
+  body.append('file', file);
+  body.append('title', title);
+  body.append('altText', `${title} room`);
+  body.append('category', 'ROOMS');
+  const response = await fetch('/api/cms/media', { method: 'POST', body });
+  const result = await response.json() as { success: boolean; media?: { url: string }; error?: string };
+  if (!response.ok || !result.success || !result.media?.url) throw new Error(result.error || 'Room image upload failed.');
+  return result.media.url;
+}
+
 export function createRoomBatch(data: unknown): Promise<Room[]> {
   return setupRequest<Room[]>('rooms/bulk', { method: 'POST', body: JSON.stringify({ rooms: data }) });
 }

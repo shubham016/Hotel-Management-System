@@ -37,7 +37,11 @@ export const RoomCard: React.FC<RoomCardProps> = ({
   featured
 }) => {
   return (
-    <div
+    <Link
+      href={`/book?type=${encodeURIComponent(code)}`}
+      aria-label={`Book ${name}`}
+      data-carousel-draggable="true"
+      draggable={false}
       className="hne-card"
       style={{
         padding: 0,
@@ -45,7 +49,10 @@ export const RoomCard: React.FC<RoomCardProps> = ({
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
-        position: 'relative'
+        position: 'relative',
+        textDecoration: 'none',
+        color: 'inherit',
+        cursor: 'pointer'
       }}
     >
       {/* Cover Image */}
@@ -180,15 +187,14 @@ export const RoomCard: React.FC<RoomCardProps> = ({
             </div>
           </div>
 
-          <Link
-            href={`/book?type=${code}`}
+          <span
             className="hne-btn hne-btn-primary"
             style={{ padding: '8px 16px', fontSize: 13 }}
           >
             Select Room
-          </Link>
+          </span>
         </div>
       </div>
-    </div>
+    </Link>
   );
 };

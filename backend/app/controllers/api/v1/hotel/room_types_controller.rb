@@ -45,15 +45,15 @@ module Api
         private
 
         def serialize(room_type)
-          room_type.as_json(only: %i[id name code slug description base_price bed_category bed_count max_adults max_children max_occupancy amenities active])
+          room_type.as_json(only: %i[id name code slug description image_url base_price bed_category bed_count max_adults max_children max_occupancy amenities active])
         end
 
         def audit_values(room_type)
-          room_type.attributes.slice("name", "code", "base_price", "bed_category", "bed_count", "active")
+          room_type.attributes.slice("name", "code", "image_url", "base_price", "bed_category", "bed_count", "active")
         end
 
         def room_type_params(room_type = nil)
-          permitted = params.require(:room_type).permit(:name, :code, :slug, :description, :base_price, :bed_category, :bed_count, :max_adults, :max_children, :max_occupancy, :active, amenities: [])
+          permitted = params.require(:room_type).permit(:name, :code, :slug, :description, :image_url, :base_price, :bed_category, :bed_count, :max_adults, :max_children, :max_occupancy, :active, amenities: [])
           permitted[:slug] = permitted[:name].to_s.parameterize if permitted[:slug].blank? && permitted[:name].present?
           if permitted.key?(:max_adults) || permitted.key?(:max_children)
             adults = permitted.key?(:max_adults) ? permitted[:max_adults].to_i : (room_type&.max_adults || 0).to_i

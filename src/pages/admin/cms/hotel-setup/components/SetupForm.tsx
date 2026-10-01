@@ -1,4 +1,4 @@
-import type { Dispatch, FormEvent, SetStateAction } from 'react';
+import { useRef, type Dispatch, type FormEvent, type SetStateAction } from 'react';
 import { ROOM_STATUSES, readableStatus } from '../constants';
 import type { BulkRoomForm, Floor, FloorForm, RoomForm, RoomType, RoomTypeForm, SetupTab } from '../types';
 import { ActiveField, Field, FormActions } from './FormControls';
@@ -6,6 +6,8 @@ import { ActiveField, Field, FormActions } from './FormControls';
 type Props = {
   tab: SetupTab; editing: boolean; saving: boolean; floors: Floor[]; roomTypes: RoomType[];
   floorForm: FloorForm; roomTypeForm: RoomTypeForm; roomForm: RoomForm; bulkRoomForm: BulkRoomForm;
+  roomImageFile: File | null;
+  setRoomImageFile: Dispatch<SetStateAction<File | null>>;
   setFloorForm: Dispatch<SetStateAction<FloorForm>>;
   setRoomTypeForm: Dispatch<SetStateAction<RoomTypeForm>>;
   setRoomForm: Dispatch<SetStateAction<RoomForm>>;
@@ -16,7 +18,9 @@ type Props = {
 };
 
 export function SetupForm(props: Props) {
-  const { tab, editing, saving, floors, roomTypes, floorForm, roomTypeForm, roomForm, bulkRoomForm, setFloorForm, setRoomTypeForm, setRoomForm, setBulkRoomForm, onSave, onBulkSave, onClear } = props;
+  const { tab, editing, saving, floors, roomTypes, floorForm, roomTypeForm, roomForm, bulkRoomForm, roomImageFile, setRoomImageFile, setFloorForm, setRoomTypeForm, setRoomForm, setBulkRoomForm, onSave, onBulkSave, onClear } = props;
+  const roomImageInput = useRef<HTMLInputElement>(null);
+  const combinedGuests = Number(roomTypeForm.max_adults) + Number(roomTypeForm.max_children);
   const title = tab === 'floors' ? 'Floor' : tab === 'room_types' ? 'Room Category' : 'Room';
   const submit = (event: FormEvent, resource: string, key: string, data: unknown) => { event.preventDefault(); onSave(resource, key, data); };
 
@@ -28,7 +32,7 @@ export function SetupForm(props: Props) {
       <FormActions saving={saving} onClear={onClear} label={title} />
     </form>}
 
-    {tab === 'room_types' && <form onSubmit={(event) => submit(event, 'room_types', 'room_type', { ...roomTypeForm, base_price: Number(roomTypeForm.base_price), bed_count: Number(roomTypeForm.bed_count), max_adults: Number(roomTypeForm.max_adults), max_children: Number(roomTypeForm.max_children), max_occupancy: Number(roomTypeForm.max_occupancy), amenities: roomTypeForm.amenities.filter(Boolean) })} className="hne-form-grid">
+    {tab === 'room_types' && <form onSubmit={(event) => submit(event, 'room_types', 'room_type', { ...roomTypeForm, base_price: Number(roomTypeForm.base_price), bed_count: Number(roomTypeForm.bed_count), max_adults: Number(roomTypeForm.max_adults), max_children: Number(roomTypeForm.max_children), max_occupancy: combinedGuests, amenities: roomTypeForm.amenities.filter(Boolean) })} className="hne-form-grid">
       <Field label="Category name"><input required className="hne-input" value={roomTypeForm.name} onChange={(event) => setRoomTypeForm({ ...roomTypeForm, name: event.target.value })} /></Field>
       <Field label="Code"><input required className="hne-input" placeholder="DLX-K" value={roomTypeForm.code} onChange={(event) => setRoomTypeForm({ ...roomTypeForm, code: event.target.value })} /></Field>
       <Field label="Base nightly rate (NPR)"><input required min="0" type="number" className="hne-input" value={roomTypeForm.base_price} onChange={(event) => setRoomTypeForm({ ...roomTypeForm, base_price: event.target.value === '' ? '' : Number(event.target.value) })} /></Field>
@@ -37,10 +41,17 @@ export function SetupForm(props: Props) {
       <div className="hne-capacity-grid">
         <Field label="Maximum adults"><input required min="1" type="number" className="hne-input" value={roomTypeForm.max_adults} onChange={(event) => setRoomTypeForm({ ...roomTypeForm, max_adults: event.target.value === '' ? '' : Number(event.target.value) })} /></Field>
         <Field label="Maximum children"><input required min="0" type="number" className="hne-input" value={roomTypeForm.max_children} onChange={(event) => setRoomTypeForm({ ...roomTypeForm, max_children: event.target.value === '' ? '' : Number(event.target.value) })} /></Field>
-        <Field label="Maximum guests combined"><input required min="1" type="number" className="hne-input" value={roomTypeForm.max_occupancy} onChange={(event) => setRoomTypeForm({ ...roomTypeForm, max_occupancy: event.target.value === '' ? '' : Number(event.target.value) })} /></Field>
+        <Field label="Maximum guests combined"><input readOnly type="number" className="hne-input" value={combinedGuests} /></Field>
       </div>
       <Field label="Amenities (comma separated)"><input className="hne-input" value={roomTypeForm.amenities.join(', ')} onChange={(event) => setRoomTypeForm({ ...roomTypeForm, amenities: event.target.value.split(',').map((value) => value.trim()) })} /></Field>
       <Field label="Description"><textarea className="hne-textarea" rows={3} value={roomTypeForm.description} onChange={(event) => setRoomTypeForm({ ...roomTypeForm, description: event.target.value })} /></Field>
+      <Field label="Room image">
+        <input ref={roomImageInput} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={(event) => setRoomImageFile(event.target.files?.[0] || null)} />
+        {roomImageFile && <p style={{ fontSize: 12, marginTop: 6 }}>Selected: {roomImageFile.name}</p>}
+        <input type="url" className="hne-input" placeholder="Or paste an image URL" value={roomTypeForm.image_url} onChange={(event) => { setRoomTypeForm({ ...roomTypeForm, image_url: event.target.value }); setRoomImageFile(null); if (roomImageInput.current) roomImageInput.current.value = ''; }} style={{ marginTop: 8 }} />
+        {roomTypeForm.image_url && <img src={roomTypeForm.image_url} alt={`${roomTypeForm.name || 'Room category'} preview`} style={{ display: 'block', width: 180, height: 110, objectFit: 'cover', marginTop: 8, borderRadius: 6 }} />}
+        {(roomTypeForm.image_url || roomImageFile) && <button type="button" className="hne-btn hne-btn-secondary hne-btn-xs" style={{ marginTop: 8 }} onClick={() => { setRoomTypeForm({ ...roomTypeForm, image_url: '' }); setRoomImageFile(null); if (roomImageInput.current) roomImageInput.current.value = ''; }}>Remove image</button>}
+      </Field>
       <ActiveField value={roomTypeForm.active} onChange={(active) => setRoomTypeForm({ ...roomTypeForm, active })} />
       <FormActions saving={saving} onClear={onClear} label={title} />
     </form>}

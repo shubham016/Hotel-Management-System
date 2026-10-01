@@ -19,12 +19,24 @@ import {
 import { HeroBanner } from '@/components/public/HeroBanner';
 import { BookingWidget } from '@/components/public/BookingWidget';
 import { RoomCard } from '@/components/public/RoomCard';
+import { CardCarousel } from '@/components/public/CardCarousel';
 import { loadPublicRoomTypes, roomTypeToCard, type PublicRoomType } from '@/lib/room-catalog';
+import { testimonialRequest, type Testimonial } from '@/lib/testimonials';
 
 export default function HomePage() {
   const [roomTypes, setRoomTypes] = useState<PublicRoomType[]>([]);
   const [roomsLoading, setRoomsLoading] = useState(true);
   const [roomsError, setRoomsError] = useState('');
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const propertyCode = import.meta.env.VITE_DEFAULT_PROPERTY_CODE || 'HNE-BTW';
+    testimonialRequest<{ testimonials: Testimonial[] }>(`/published?propertyCode=${encodeURIComponent(propertyCode)}`, { signal: controller.signal })
+      .then((result) => setTestimonials(result.testimonials))
+      .catch((error: Error) => { if (error.name !== 'AbortError') console.error('Unable to load guest feedback:', error.message); });
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -37,30 +49,7 @@ export default function HomePage() {
     return () => controller.abort();
   }, []);
 
-  const dynamicRooms = roomTypes.slice(0, 3).map(roomTypeToCard);
-  const testimonials = [
-    {
-      name: 'Pooja Bhattarai',
-      origin: 'Kathmandu, Nepal',
-      rating: 5,
-      comment: 'Conveniently located 5 minutes from Butwal Bus Park on Kalikapath. Dhiki Restaurant served authentic and delicious Nepali Bhojangriha thali, and our room was spotless.',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'
-    },
-    {
-      name: 'Santosh Sharma',
-      origin: 'Lumbini Transit Guest',
-      rating: 5,
-      comment: 'Hotel New Era is the ideal base in Butwal. Quiet, clean rooms, reliable 60 Mbps fiber net, and warm attentive staff.',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80'
-    },
-    {
-      name: 'Rajesh & Suman Shrestha',
-      origin: 'Corporate Convention Organizer',
-      rating: 5,
-      comment: 'Hosted our regional summit in Nilkantha Ballroom. The central kitchen catered fresh hot meals for 200 pax seamlessly.',
-      avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=150&q=80'
-    }
-  ];
+  const dynamicRooms = roomTypes.map(roomTypeToCard);
 
   return (
     <div style={{ backgroundColor: '#FFFFFF' }}>
@@ -203,13 +192,13 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 30 }}>
+          <div>
             {roomsLoading && <div style={{ color: 'var(--text-muted)' }}>Loading room categories…</div>}
             {roomsError && <div style={{ color: 'var(--danger-red)' }}>{roomsError}</div>}
             {!roomsLoading && !roomsError && dynamicRooms.length === 0 && <div style={{ color: 'var(--text-muted)' }}>No active room categories are currently available.</div>}
-            {dynamicRooms.map((room) => (
+            <CardCarousel label="Accommodations" arrowTop={120} roomControls>{dynamicRooms.map((room) => (
               <RoomCard key={room.id} {...room} />
-            ))}
+            ))}</CardCarousel>
           </div>
         </div>
       </section>
@@ -329,7 +318,7 @@ export default function HomePage() {
       </section>
 
       {/* 6. Guest Testimonials */}
-      <section style={{ backgroundColor: '#FFFFFF', padding: '80px 24px', borderTop: '1px solid var(--border)' }}>
+      {testimonials.length > 0 && <section id="guest-feedback" style={{ backgroundColor: '#FFFFFF', padding: '80px 24px', borderTop: '1px solid var(--border)' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', maxWidth: 640, margin: '0 auto 48px' }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--brand-crimson)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
@@ -341,17 +330,18 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24 }}>
-            {testimonials.map((t, idx) => (
+          <CardCarousel label="Guest Feedback">
+            {testimonials.map((t) => (
               <div
-                key={idx}
+                key={t.id}
                 className="hne-card"
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 16,
                   backgroundColor: '#FFFFFF',
-                  border: '1px solid var(--border)'
+                  border: '1px solid var(--border)',
+                  flex: 1
                 }}
               >
                 <div style={{ display: 'flex', gap: 4 }}>
@@ -363,11 +353,11 @@ export default function HomePage() {
                   "{t.comment}"
                 </p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
-                  <img
+                  {t.avatar ? <img
                     src={t.avatar}
                     alt={t.name}
                     style={{ width: 44, height: 44, borderRadius: 'var(--radius-full)', objectFit: 'cover' }}
-                  />
+                  /> : <span aria-hidden="true" style={{ width: 44, height: 44, borderRadius: '50%', backgroundColor: 'var(--brand-crimson-light)', color: 'var(--brand-crimson)', display: 'grid', placeItems: 'center', fontWeight: 700 }}>{t.name.charAt(0).toUpperCase()}</span>}
                   <div>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>{t.name}</div>
                     <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{t.origin}</div>
@@ -375,9 +365,9 @@ export default function HomePage() {
                 </div>
               </div>
             ))}
-          </div>
+          </CardCarousel>
         </div>
-      </section>
+      </section>}
     </div>
   );
 }

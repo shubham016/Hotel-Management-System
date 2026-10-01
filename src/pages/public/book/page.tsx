@@ -85,7 +85,7 @@ export default function BookPage() {
     name: option.roomType.name,
     price: option.quote.nightlyRate,
     desc: option.roomType.description || `${option.roomType.bed_category} bed category · ${option.availableRooms} room(s) available`,
-    img: ROOM_IMAGES[option.roomType.code] || DEFAULT_ROOM_IMAGE
+    img: option.roomType.image_url || ROOM_IMAGES[option.roomType.code] || DEFAULT_ROOM_IMAGE
   }]));
   const selectedOption = availability.find((option) => option.roomType.code === selectedRoomCode);
   const selectedRoom = roomsCatalog[selectedRoomCode] || { name: 'Select a room category', price: 0, desc: '', img: DEFAULT_ROOM_IMAGE };

@@ -464,21 +464,37 @@ class ReservationsTest < ActionDispatch::IntegrationTest
     assert_equal 6_000.0, Reservation.find(response.parsed_body.dig("data", "id")).service_total.to_f
   end
 
-  test "combined occupancy limit applies to availability and reservations" do
+  test "calculated capacity and individual guest limits apply to availability and reservations" do
     @room_type.update!(max_adults: 3, max_children: 2, max_occupancy: 3)
     url = "/api/v1/availability?propertyCode=#{@property.code}&checkInDate=#{@check_in.iso8601}&checkOutDate=#{@check_out.iso8601}"
 
-    get "#{url}&adultsCount=2&childrenCount=1"
+    assert_equal 5, @room_type.reload.max_occupancy
+    get "#{url}&adultsCount=3&childrenCount=2"
     assert_response :success
     assert_not_empty response.parsed_body["data"]
+    assert_equal 5, response.parsed_body.dig("data", 0, "roomType", "max_occupancy")
 
-    get "#{url}&adultsCount=3&childrenCount=1"
+    get "#{url}&adultsCount=4&childrenCount=0"
     assert_response :success
     assert_empty response.parsed_body["data"]
 
-    post "/api/v1/reservations", params: valid_payload.merge(adultsCount: 3, childrenCount: 1), as: :json
+    get "#{url}&adultsCount=1&childrenCount=3"
+    assert_response :success
+    assert_empty response.parsed_body["data"]
+
+    post "/api/v1/reservations", params: valid_payload.merge(adultsCount: 4, childrenCount: 0), as: :json
     assert_response :unprocessable_entity
     assert_equal "INVALID_OCCUPANCY", response.parsed_body["code"]
+
+    post "/api/v1/reservations", params: valid_payload.merge(adultsCount: 1, childrenCount: 3), as: :json
+    assert_response :unprocessable_entity
+    assert_equal "INVALID_OCCUPANCY", response.parsed_body["code"]
+
+    post "/api/v1/reservations", params: valid_payload.merge(adultsCount: 3, childrenCount: 2), as: :json
+    assert_response :created
+    reservation = Reservation.find(response.parsed_body.dig("data", "id"))
+    assert_equal 3, reservation.adults_count
+    assert_equal 2, reservation.children_count
   end
 
   test "per person spa pricing and public add-on catalog are dynamic" do

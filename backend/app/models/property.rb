@@ -14,6 +14,7 @@ class Property < ApplicationRecord
   has_many :cms_pages, dependent: :restrict_with_error
   has_many :cms_offers, dependent: :restrict_with_error
   has_many :cms_media_assets, dependent: :restrict_with_error
+  has_many :cms_testimonials, dependent: :restrict_with_error
   has_many :contact_inquiries, dependent: :restrict_with_error
   has_many :restaurants, dependent: :restrict_with_error
   has_many :stores, dependent: :restrict_with_error

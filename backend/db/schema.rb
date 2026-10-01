@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_30_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_01_000003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -191,6 +191,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_30_000001) do
     t.datetime "updated_at", null: false
     t.index ["cms_page_id", "section_key"], name: "index_cms_sections_on_cms_page_id_and_section_key", unique: true
     t.index ["cms_page_id"], name: "index_cms_sections_on_cms_page_id"
+  end
+
+  create_table "cms_testimonials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.boolean "active", default: true, null: false
+    t.text "avatar"
+    t.text "comment", null: false
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.string "origin"
+    t.uuid "property_id", null: false
+    t.integer "rating", default: 5, null: false
+    t.integer "sort_order", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["property_id"], name: "index_cms_testimonials_on_property_id"
+    t.check_constraint "rating >= 1 AND rating <= 5", name: "cms_testimonials_valid_rating"
+    t.check_constraint "sort_order >= 0", name: "cms_testimonials_valid_order"
   end
 
   create_table "companies", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -603,6 +619,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_30_000001) do
     t.string "code", null: false
     t.datetime "created_at", null: false
     t.text "description"
+    t.text "image_url"
     t.integer "max_adults", default: 2, null: false
     t.integer "max_children", default: 1, null: false
     t.integer "max_occupancy", default: 3, null: false
@@ -757,6 +774,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_30_000001) do
   add_foreign_key "cms_pages", "companies"
   add_foreign_key "cms_pages", "properties"
   add_foreign_key "cms_sections", "cms_pages"
+  add_foreign_key "cms_testimonials", "properties"
   add_foreign_key "contact_inquiries", "properties"
   add_foreign_key "document_sequences", "companies"
   add_foreign_key "document_sequences", "properties"

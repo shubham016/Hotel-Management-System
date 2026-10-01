@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { BedDouble, Building2, CheckCircle2, ClipboardList, Loader2 } from 'lucide-react';
-import { createRoomBatch, deleteRoomsOnFloor, deleteSetupRecord, loadHotelSetup, saveSetupRecord, updateRoomsOnFloor } from './api';
+import { createRoomBatch, deleteRoomsOnFloor, deleteSetupRecord, loadHotelSetup, saveSetupRecord, updateRoomsOnFloor, uploadRoomImage } from './api';
 import { BLANK_BULK_ROOM, BLANK_BULK_ROOM_UPDATE, BLANK_FLOOR, BLANK_ROOM, BLANK_ROOM_TYPE } from './constants';
 import { BulkRoomEditForm } from './components/BulkRoomEditForm';
 import { SetupForm } from './components/SetupForm';
@@ -24,6 +24,7 @@ export default function HotelSetupPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [floorForm, setFloorForm] = useState<FloorForm>(BLANK_FLOOR);
   const [roomTypeForm, setRoomTypeForm] = useState<RoomTypeForm>(BLANK_ROOM_TYPE);
+  const [roomImageFile, setRoomImageFile] = useState<File | null>(null);
   const [roomForm, setRoomForm] = useState<RoomForm>(BLANK_ROOM);
   const [bulkRoomForm, setBulkRoomForm] = useState<BulkRoomForm>(BLANK_BULK_ROOM);
   const [bulkRoomUpdateForm, setBulkRoomUpdateForm] = useState<BulkRoomUpdateForm>(BLANK_BULK_ROOM_UPDATE);
@@ -64,6 +65,7 @@ export default function HotelSetupPage() {
     setEditingId(null);
     setFloorForm(BLANK_FLOOR);
     setRoomTypeForm(BLANK_ROOM_TYPE);
+    setRoomImageFile(null);
     setRoomForm({ ...BLANK_ROOM, floor: floors[0]?.number || 1, room_type_id: roomTypes[0]?.id || '' });
     setBulkRoomForm({ ...BLANK_BULK_ROOM, floor: floors[0]?.number || 1, room_type_id: roomTypes[0]?.id || '' });
     setBulkRoomUpdateForm(BLANK_BULK_ROOM_UPDATE);
@@ -92,7 +94,10 @@ export default function HotelSetupPage() {
     setSaving(true);
     setError('');
     try {
-      const saved = await saveSetupRecord<Floor | RoomType | Room>(resource, key, data, editingId);
+      const payload = resource === 'room_types' && roomImageFile
+        ? { ...(data as RoomTypeForm), image_url: await uploadRoomImage(roomImageFile, (data as RoomTypeForm).name) }
+        : data;
+      const saved = await saveSetupRecord<Floor | RoomType | Room>(resource, key, payload, editingId);
       if (resource === 'floors') setFloors((current) => sortFloors(upsertById(current, saved as Floor)));
       if (resource === 'room_types') {
         const roomType = saved as RoomType;
@@ -189,7 +194,8 @@ export default function HotelSetupPage() {
 
   const editRoomType = (roomType: RoomType) => {
     setEditingId(roomType.id);
-    setRoomTypeForm({ ...roomType, description: roomType.description || '', amenities: roomType.amenities || [] });
+    setRoomTypeForm({ ...roomType, description: roomType.description || '', image_url: roomType.image_url || '', amenities: roomType.amenities || [] });
+    setRoomImageFile(null);
     setFormOpen(true);
   };
 
@@ -208,7 +214,7 @@ export default function HotelSetupPage() {
     {formOpen && <div className="hne-modal-backdrop" onClick={() => !saving && closeForm()}>
       <div className="hne-modal hne-setup-modal" role="dialog" aria-modal="true" aria-labelledby="hotel-setup-form-title" onClick={(event) => event.stopPropagation()}>
         <div className="hne-modal-header"><div><h2 id="hotel-setup-form-title" className="hne-modal-title">{bulkEditingFloor ? `Edit All Rooms on ${bulkEditingFloor.name}` : `${editingId ? 'Edit' : 'Add'} ${tab === 'floors' ? 'Floor' : tab === 'room_types' ? 'Room Category' : 'Rooms'}`}</h2><p className="hne-modal-subtitle">{bulkEditingFloor ? `Apply shared settings to ${bulkEditingFloor.count} rooms at once.` : tab === 'rooms' && !editingId ? 'Create one room or a consecutive room range.' : 'Complete the details below and save your changes.'}</p></div><button type="button" className="hne-modal-close" aria-label="Close form" onClick={closeForm} disabled={saving}>×</button></div>
-        <div className="hne-modal-body">{bulkEditingFloor ? <BulkRoomEditForm form={bulkRoomUpdateForm} setForm={setBulkRoomUpdateForm} floors={floors} roomTypes={roomTypes} saving={saving} roomCount={bulkEditingFloor.count} onSave={() => void saveRoomFloorBatch()} onCancel={closeForm} /> : <SetupForm tab={tab} editing={editingId !== null} saving={saving} floors={floors} roomTypes={roomTypes} floorForm={floorForm} roomTypeForm={roomTypeForm} roomForm={roomForm} bulkRoomForm={bulkRoomForm} setFloorForm={setFloorForm} setRoomTypeForm={setRoomTypeForm} setRoomForm={setRoomForm} setBulkRoomForm={setBulkRoomForm} onSave={(resource, key, data) => void save(resource, key, data)} onBulkSave={(data) => void saveRoomBatch(data)} onClear={clearForm} />}</div>
+        <div className="hne-modal-body">{bulkEditingFloor ? <BulkRoomEditForm form={bulkRoomUpdateForm} setForm={setBulkRoomUpdateForm} floors={floors} roomTypes={roomTypes} saving={saving} roomCount={bulkEditingFloor.count} onSave={() => void saveRoomFloorBatch()} onCancel={closeForm} /> : <SetupForm tab={tab} editing={editingId !== null} saving={saving} floors={floors} roomTypes={roomTypes} floorForm={floorForm} roomTypeForm={roomTypeForm} roomForm={roomForm} bulkRoomForm={bulkRoomForm} roomImageFile={roomImageFile} setRoomImageFile={setRoomImageFile} setFloorForm={setFloorForm} setRoomTypeForm={setRoomTypeForm} setRoomForm={setRoomForm} setBulkRoomForm={setBulkRoomForm} onSave={(resource, key, data) => void save(resource, key, data)} onBulkSave={(data) => void saveRoomBatch(data)} onClear={clearForm} />}</div>
       </div>
     </div>}
   </div>;

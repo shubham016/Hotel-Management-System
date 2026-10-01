@@ -1,0 +1,34 @@
+.hne-carousel-room-arrow {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 50%;
+  background: #fff;
+  color: #1e293b;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+  cursor: pointer;
+  transition: color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.hne-carousel-room-arrow:hover {
+  color: var(--brand-crimson);
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.16);
+}
+
+.hne-carousel-room-arrow:active {
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
+}
+
+.hne-carousel-room-arrow:focus-visible {
+  outline: 3px solid var(--brand-gold);
+  outline-offset: 3px;
+}
+
+.hne-carousel-room-viewport [data-carousel-draggable] {
+  cursor: inherit !important;
+}
