@@ -20,6 +20,7 @@ import { HeroBanner } from '@/components/public/HeroBanner';
 import { BookingWidget } from '@/components/public/BookingWidget';
 import { RoomCard } from '@/components/public/RoomCard';
 import { CardCarousel } from '@/components/public/CardCarousel';
+import { SpecialOffers } from '@/components/public/SpecialOffers';
 import { loadPublicRoomTypes, roomTypeToCard, type PublicRoomType } from '@/lib/room-catalog';
 import { testimonialRequest, type Testimonial } from '@/lib/testimonials';
 
@@ -202,6 +203,8 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      <SpecialOffers />
 
       {/* 5. 2 Dining Outlets & 3 Conference Halls */}
       <section style={{ padding: '80px 24px', maxWidth: 1280, margin: '0 auto', backgroundColor: '#FFFFFF' }}>

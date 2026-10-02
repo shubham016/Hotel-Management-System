@@ -15,6 +15,7 @@ import Link from '@/lib/router';
 
 export default function DiningPage() {
   const [pageInfo, setPageInfo] = useState({
+    heroImageUrl: '',
     heroHeading: 'Dining & Culinary Experiences',
     heroSubheading: '2 DINING OUTLETS • 1 CENTRAL KITCHEN',
     heroDescription: 'Experience traditional Nepalese Bhojangriha flavors at Dhiki Restaurant and open-air hospitality at the New Era Terrace Lounge & Bar.'
@@ -26,6 +27,7 @@ export default function DiningPage() {
       .then(data => {
         if (data.success && data.page) {
           setPageInfo({
+            heroImageUrl: data.page.heroImageUrl || '',
             heroHeading: data.page.heroHeading || 'Dining & Culinary Experiences',
             heroSubheading: data.page.heroSubheading || '2 DINING OUTLETS • 1 CENTRAL KITCHEN',
             heroDescription: data.page.heroDescription || 'Experience traditional Nepalese Bhojangriha flavors at Dhiki Restaurant and open-air hospitality at the New Era Terrace Lounge & Bar.'
@@ -98,6 +100,9 @@ export default function DiningPage() {
           color: '#FFFFFF',
           padding: '64px 24px',
           textAlign: 'center',
+          backgroundImage: pageInfo.heroImageUrl ? `linear-gradient(rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.85)), url(${JSON.stringify(pageInfo.heroImageUrl)})` : undefined,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
           borderBottom: '3px solid var(--brand-crimson)'
         }}
       >

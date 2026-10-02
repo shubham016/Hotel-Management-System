@@ -27,7 +27,8 @@ module Api
         def index
           property = public_property
           pages = DEFAULT_PAGES.deep_dup
-          property.company.cms_pages.includes(:cms_sections).find_each do |page|
+          pages["contact"][:contactInfo] = default_contact_info
+          property.company.cms_pages.where(property_id: [nil, property.id], published: true).includes(:cms_sections).find_each do |page|
             hero = page.cms_sections.find { |section| section.section_key == "hero" }
             fallback = pages[page.slug] || {}
             pages[page.slug] = {
@@ -40,6 +41,7 @@ module Api
               seoTitle: page.meta_title || fallback[:seoTitle] || page.title,
               seoDescription: page.meta_description || fallback[:seoDescription] || ""
             }
+            pages[page.slug][:contactInfo] = contact_info(page) if page.slug == "contact"
           end
 
           if params[:slug].present?
@@ -52,6 +54,8 @@ module Api
         def create
           property = default_property
           page = property.company.cms_pages.find_or_initialize_by(slug: params.require(:slug))
+          section = nil
+          CmsPage.transaction do
           page.update!(
             property:,
             title: params[:title].presence || "#{params[:slug].to_s.upcase} Page",
@@ -69,7 +73,12 @@ module Api
             sort_order: 0,
             enabled: true
           )
+          if page.slug == "contact" && params[:contactInfo].present?
+            details = params.require(:contactInfo).permit(:receptionPhone, :mobilePhone, :email, :address, :emergencyHotline, :receptionHours).to_h
+            page.cms_sections.find_or_initialize_by(section_key: "contact_info").update!(body_text: details.to_json, enabled: true)
+          end
           audit!("CMS", "UPDATE", "CmsPage", page.id, new_values: { slug: page.slug })
+          end
           render json: {
             success: true,
             message: "CMS Page [#{page.slug.upcase}] updated and published successfully!",
@@ -81,9 +90,23 @@ module Api
               heroDescription: section.body_text,
               heroImageUrl: section.image_url,
               seoTitle: page.meta_title,
-              seoDescription: page.meta_description
+              seoDescription: page.meta_description,
+              **(page.slug == "contact" ? { contactInfo: contact_info(page) } : {})
             }
           }
+        end
+
+        private
+
+        def default_contact_info
+          { receptionPhone: "+977-71-543833", mobilePhone: "+977-9857012345", email: "info@hotelnewera.com.np", address: "Kalikapath, New Buspark, Butwal-8, Rupandehi, Lumbini Province, Nepal", emergencyHotline: "", receptionHours: "24 Hours / 7 Days" }
+        end
+
+        def contact_info(page)
+          section = page.cms_sections.find_by(section_key: "contact_info")
+          default_contact_info.stringify_keys.merge(section ? JSON.parse(section.body_text) : {})
+        rescue JSON::ParserError
+          default_contact_info
         end
       end
     end

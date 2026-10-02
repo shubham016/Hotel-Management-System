@@ -117,6 +117,8 @@ export default function CMSPagesManager() {
   const [selectedSlug, setSelectedSlug] = useState('home');
   const [isSaving, setIsSaving] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState('');
+  const [isLoadingPages, setIsLoadingPages] = useState(true);
 
   // CMS Pages State
   const [cmsPages, setCmsPages] = useState<Record<string, any>>({
@@ -223,9 +225,12 @@ export default function CMSPagesManager() {
       .then(data => {
         if (data.success && data.pages) {
           setCmsPages(prev => ({ ...prev, ...data.pages }));
+          if (data.pages.contact?.contactInfo) setContactInfo(prev => ({ ...prev, ...data.pages.contact.contactInfo }));
         }
+        else setLoadError(data.error || 'Unable to load saved CMS pages.');
       })
-      .catch(console.error);
+      .catch(() => setLoadError('Unable to load saved CMS pages. Refresh before editing.'))
+      .finally(() => setIsLoadingPages(false));
 
     fetch('/api/cms/offers')
       .then(res => res.json())
@@ -239,6 +244,8 @@ export default function CMSPagesManager() {
 
   const currentPage = cmsPages[selectedSlug] || cmsPages.home;
 
+  const pagePayload = () => selectedSlug === 'contact' ? { ...currentPage, contactInfo } : currentPage;
+
   const handleSavePage = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
@@ -246,10 +253,11 @@ export default function CMSPagesManager() {
       const res = await fetch('/api/cms/pages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(currentPage)
+        body: JSON.stringify(pagePayload())
       });
       const data = await res.json();
-      if (data.success) {
+      if (res.ok && data.success) {
+        if (data.page) setCmsPages(prev => ({ ...prev, [data.page.slug]: data.page }));
         setFeedback(`Published updates for [${currentPage.title}] successfully!`);
         setTimeout(() => setFeedback(null), 4000);
       } else {
@@ -343,7 +351,7 @@ export default function CMSPagesManager() {
               <button
                 key={p.slug}
                 aria-current={selectedSlug === p.slug ? 'page' : undefined}
-                onClick={() => setSelectedSlug(p.slug)}
+                onClick={() => { setSelectedSlug(p.slug); setFeedback(null); setShowOfferModal(false); }}
                 style={{
                   padding: '10px 14px',
                   borderRadius: 'var(--radius-md)',
@@ -374,7 +382,11 @@ export default function CMSPagesManager() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           {selectedSlug === 'guest-feedback' && <GuestFeedbackManager />}
           {/* Main Hero & SEO Editor */}
-          {selectedSlug !== 'guest-feedback' && <Card title={`Page CMS: ${currentPage.title} (/${currentPage.slug})`}>
+          {loadError && <p role="alert" style={{ color: 'var(--danger-red)' }}>{loadError}</p>}
+          {isLoadingPages && <p role="status">Loading saved page settings...</p>}
+          {selectedSlug !== 'guest-feedback' && <details key={selectedSlug} open={!['offers', 'contact'].includes(selectedSlug)}>
+          <summary style={{ cursor: 'pointer', fontWeight: 600, marginBottom: 12 }}>Banner & SEO settings for {currentPage.title}</summary>
+          <Card title={`Page CMS: ${currentPage.title} (/${currentPage.slug})`}>
             <form onSubmit={handleSavePage} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
               {/* Hero Section */}
               <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: 20 }}>
@@ -447,13 +459,13 @@ export default function CMSPagesManager() {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-                <Button type="submit" variant="primary" size="lg" disabled={isSaving}>
+                <Button type="submit" variant="primary" size="lg" disabled={isSaving || isLoadingPages || Boolean(loadError)}>
                   <Save size={16} />
                   <span>{isSaving ? 'Publishing...' : 'Publish CMS Updates'}</span>
                 </Button>
               </div>
             </form>
-          </Card>}
+          </Card></details>}
 
           {/* Conditional Sub-Managers */}
 
@@ -462,7 +474,7 @@ export default function CMSPagesManager() {
             <Card title="Live Promotional Packages & Promo Codes Engine">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                  Manage promotional packages shown on <code>/offers</code> and direct booking engine promo discounts
+                  Manage promotional packages displayed on the homepage and Special Offers page.
                 </p>
                 <Button
                   variant="primary"
@@ -554,6 +566,7 @@ export default function CMSPagesManager() {
           {/* 2. CONTACT US & RECEPTION COORDINATES (Active when 'contact' is selected) */}
           {selectedSlug === 'contact' && (
             <Card title="Hotel Contact & Reception Channel Manager">
+              <form onSubmit={handleSavePage}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
                 <div className="hne-form-group">
                   <label className="hne-label">Primary Reception Telephone</label>
@@ -595,6 +608,9 @@ export default function CMSPagesManager() {
                   />
                 </div>
               </div>
+
+              <Button type="submit" variant="primary" disabled={isSaving || isLoadingPages || Boolean(loadError)} style={{ marginTop: 16 }}><Save size={16} /><span>{isSaving ? 'Publishing...' : 'Publish Contact Details'}</span></Button>
+              </form>
 
               <div style={{ marginTop: 16, padding: 14, backgroundColor: '#F8FAFC', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
                 <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary-orange)', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>

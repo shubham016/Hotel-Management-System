@@ -5,10 +5,13 @@ import { Button } from '@/components/ui/Button';
 
 export default function ContactPage() {
   const [pageInfo, setPageInfo] = useState({
+    heroImageUrl: '',
     heroHeading: 'Contact Hotel New Era',
     heroSubheading: 'WE ARE HERE TO WELCOME YOU',
     heroDescription: 'Located in Kalikapath, Butwal. We are here to assist with room reservations, banquet hall bookings, and dining inquiries.'
   });
+
+  const [contactInfo, setContactInfo] = useState({ receptionPhone: '+977-71-543833', mobilePhone: '+977-9857012345', email: 'info@hotelnewera.com.np', address: 'Kalikapath, New Buspark, Butwal-8, Rupandehi, Lumbini Province, Nepal', receptionHours: '24 Hours / 7 Days' });
 
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -25,7 +28,9 @@ export default function ContactPage() {
       .then(res => res.json())
       .then(data => {
         if (data.success && data.page) {
+          if (data.page.contactInfo) setContactInfo(current => ({ ...current, ...data.page.contactInfo }));
           setPageInfo({
+            heroImageUrl: data.page.heroImageUrl || '',
             heroHeading: data.page.heroHeading || 'Contact Hotel New Era',
             heroSubheading: data.page.heroSubheading || 'WE ARE HERE TO WELCOME YOU',
             heroDescription: data.page.heroDescription || 'Located in Kalikapath, Butwal. We are here to assist with room reservations, banquet hall bookings, and dining inquiries.'
@@ -75,7 +80,7 @@ export default function ContactPage() {
           color: '#FFFFFF',
           padding: '80px 24px 60px',
           textAlign: 'center',
-          backgroundImage: 'linear-gradient(rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.85)), url(https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=1600&q=80)',
+          backgroundImage: pageInfo.heroImageUrl ? `linear-gradient(rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.85)), url(${JSON.stringify(pageInfo.heroImageUrl)})` : undefined,
           backgroundSize: 'cover',
           backgroundPosition: 'center'
         }}
@@ -108,7 +113,7 @@ export default function ContactPage() {
                   <div>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>Location Address</div>
                     <div style={{ fontSize: 13.5, color: 'var(--text-secondary)', marginTop: 2 }}>
-                      Kalikapath, New Buspark, Butwal-8, Rupandehi, Lumbini Province, Nepal
+                      {contactInfo.address}
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
                       (5 minutes walk from New Buspark, near Tilottama / Tinau River)
@@ -123,7 +128,7 @@ export default function ContactPage() {
                   <div>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>Telephone & Reservations</div>
                     <div style={{ fontSize: 13.5, color: 'var(--text-secondary)', marginTop: 2 }}>
-                      (+977) - 71 - 543833 / +977-9857012345
+                      {contactInfo.receptionPhone} / {contactInfo.mobilePhone}
                     </div>
                   </div>
                 </div>
@@ -135,7 +140,7 @@ export default function ContactPage() {
                   <div>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>Official Email</div>
                     <div style={{ fontSize: 13.5, color: 'var(--text-secondary)', marginTop: 2 }}>
-                      info@hotelnewera.com.np
+                      {contactInfo.email}
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
                       www.hotelnewera.com.np
@@ -150,7 +155,7 @@ export default function ContactPage() {
                   <div>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>Operating Hours</div>
                     <div style={{ fontSize: 13.5, color: 'var(--text-secondary)', marginTop: 2 }}>
-                      Front Desk: 24 Hours / 7 Days
+                      Front Desk: {contactInfo.receptionHours}
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
                       Dhiki Restaurant: 06:30 AM – 10:30 PM

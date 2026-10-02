@@ -16,6 +16,7 @@ import Link from '@/lib/router';
 
 export default function AboutPage() {
   const [pageInfo, setPageInfo] = useState({
+    heroImageUrl: '',
     heroHeading: 'Our Heritage & Story',
     heroSubheading: 'SINCE 1982 • BUTWAL, NEPAL',
     heroDescription: 'Over four decades of authentic Nepalese hospitality, security, and cleanliness in the heart of Rupandehi, Lumbini Province.'
@@ -27,6 +28,7 @@ export default function AboutPage() {
       .then(data => {
         if (data.success && data.page) {
           setPageInfo({
+            heroImageUrl: data.page.heroImageUrl || '',
             heroHeading: data.page.heroHeading || 'Our Heritage & Story',
             heroSubheading: data.page.heroSubheading || 'SINCE 1982 • BUTWAL, NEPAL',
             heroDescription: data.page.heroDescription || 'Over four decades of authentic Nepalese hospitality, security, and cleanliness in the heart of Rupandehi, Lumbini Province.'
@@ -45,6 +47,9 @@ export default function AboutPage() {
           color: '#FFFFFF',
           padding: '64px 24px',
           textAlign: 'center',
+          backgroundImage: pageInfo.heroImageUrl ? `linear-gradient(rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.85)), url(${JSON.stringify(pageInfo.heroImageUrl)})` : undefined,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
           borderBottom: '3px solid var(--brand-crimson)'
         }}
       >

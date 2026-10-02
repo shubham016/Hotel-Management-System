@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/Card';
 
 export default function BanquetPublicPage() {
   const [pageInfo, setPageInfo] = useState({
+    heroImageUrl: '',
     heroHeading: 'Conference & Function Halls',
     heroSubheading: 'BANQUETS & MEETINGS IN BUTWAL',
     heroDescription: 'Host impactful conferences, executive board meetings, and memorable wedding celebrations at Nilkantha, Tulki Devi, and Devakala halls.'
@@ -16,6 +17,7 @@ export default function BanquetPublicPage() {
       .then(data => {
         if (data.success && data.page) {
           setPageInfo({
+            heroImageUrl: data.page.heroImageUrl || '',
             heroHeading: data.page.heroHeading || 'Conference & Function Halls',
             heroSubheading: data.page.heroSubheading || 'BANQUETS & MEETINGS IN BUTWAL',
             heroDescription: data.page.heroDescription || 'Host impactful conferences, executive board meetings, and memorable wedding celebrations at Nilkantha, Tulki Devi, and Devakala halls.'
@@ -73,7 +75,7 @@ export default function BanquetPublicPage() {
           color: '#FFFFFF',
           padding: '80px 24px 60px',
           textAlign: 'center',
-          backgroundImage: 'linear-gradient(rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.85)), url(https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=1600&q=80)',
+          backgroundImage: pageInfo.heroImageUrl ? `linear-gradient(rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.85)), url(${JSON.stringify(pageInfo.heroImageUrl)})` : undefined,
           backgroundSize: 'cover',
           backgroundPosition: 'center'
         }}

@@ -9,7 +9,7 @@ const arrowStyle: CSSProperties = {
   color: 'var(--brand-crimson)', boxShadow: 'var(--shadow-md)', cursor: 'pointer', zIndex: 1
 };
 
-export function CardCarousel({ children, label, arrowTop = '50%', roomControls = false }: { children: ReactNode; label: string; arrowTop?: CSSProperties['top']; roomControls?: boolean }) {
+export function CardCarousel({ children, label, arrowTop = '50%', roomControls = false, gap = 24 }: { children: ReactNode; label: string; arrowTop?: CSSProperties['top']; roomControls?: boolean; gap?: number }) {
   const cards = Children.toArray(children);
   const count = cards.length;
   const viewport = useRef<HTMLDivElement>(null);
@@ -25,7 +25,7 @@ export function CardCarousel({ children, label, arrowTop = '50%', roomControls =
   const [focused, setFocused] = useState(false);
   const visible = Math.max(1, Math.min(count, width >= 1000 ? 3 : width >= 640 ? 2 : 1));
   const clones = count > 1 ? visible : 0;
-  const step = (width + 24) / visible;
+  const step = (width + gap) / visible;
   const buttonStyle: CSSProperties = roomControls ? { position: 'absolute', transform: 'translateY(-50%)', zIndex: 1 } : arrowStyle;
 
   useEffect(() => {
@@ -121,7 +121,7 @@ export function CardCarousel({ children, label, arrowTop = '50%', roomControls =
       onPointerLeave={(event) => { if (!event.currentTarget.hasPointerCapture(event.pointerId)) finishDrag(event, true); }}
       onDragStart={(event) => { if (roomControls) event.preventDefault(); }}
       onClickCapture={(event) => { if (suppressClick.current) { event.preventDefault(); event.stopPropagation(); suppressClick.current = false; } }}>
-      <div style={{ display: 'flex', gap: 24, alignItems: 'stretch', transform: `translateX(${-(position + clones) * step + dragOffset}px)`, transition: animated && !dragging ? 'transform 450ms ease' : 'none' }}
+      <div style={{ display: 'flex', gap, alignItems: 'stretch', transform: `translateX(${-(position + clones) * step + dragOffset}px)`, transition: animated && !dragging ? 'transform 450ms ease' : 'none' }}
         onTransitionEnd={(event) => {
           if (event.target !== event.currentTarget || event.propertyName !== 'transform') return;
           moving.current = false;
@@ -135,7 +135,7 @@ export function CardCarousel({ children, label, arrowTop = '50%', roomControls =
           const active = original >= 0 && original < count && Array.from({ length: visible }, (_, offset) => (position + offset + count) % count).includes(original);
           return <div key={index} role="group" aria-roledescription="slide" aria-label={`${(index - clones + count) % count + 1} of ${count}`} aria-hidden={!active}
             ref={(element) => { if (active) element?.removeAttribute('inert'); else element?.setAttribute('inert', ''); }}
-            style={{ flex: `0 0 calc((100% - ${(visible - 1) * 24}px) / ${visible})`, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+            style={{ flex: `0 0 calc((100% - ${(visible - 1) * gap}px) / ${visible})`, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
             {card}
           </div>;
         })}

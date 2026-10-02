@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, Calendar, Tag, ArrowRight, Check } from 'lucide-react';
 import Link from '@/lib/router';
+import { useLocation } from 'react-router-dom';
 
 export default function OffersPage() {
+  const { hash } = useLocation();
   const [pageInfo, setPageInfo] = useState({
+    heroImageUrl: '',
     heroHeading: 'Special Offers & Escapes',
     heroSubheading: 'CURATED PACKAGES & PROMOTIONS',
     heroDescription: 'Exclusive rates and value-added experiences when you book directly with Hotel New Era, Butwal.'
@@ -51,12 +54,17 @@ export default function OffersPage() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   useEffect(() => {
+    if (hash.startsWith('#offer-')) document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView({ block: 'start' });
+  }, [hash, offers]);
+
+  useEffect(() => {
     // Fetch CMS Page Data
     fetch('/api/cms/pages?slug=offers')
       .then(res => res.json())
       .then(data => {
         if (data.success && data.page) {
           setPageInfo({
+            heroImageUrl: data.page.heroImageUrl || '',
             heroHeading: data.page.heroHeading || 'Special Offers & Escapes',
             heroSubheading: data.page.heroSubheading || 'CURATED PACKAGES & PROMOTIONS',
             heroDescription: data.page.heroDescription || 'Exclusive rates and value-added experiences when you book directly with Hotel New Era.'
@@ -91,6 +99,9 @@ export default function OffersPage() {
           color: '#FFFFFF',
           padding: '60px 24px',
           textAlign: 'center',
+          backgroundImage: pageInfo.heroImageUrl ? `linear-gradient(rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.85)), url(${JSON.stringify(pageInfo.heroImageUrl)})` : undefined,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
           borderBottom: '3px solid var(--primary-orange)'
         }}
       >
@@ -110,7 +121,7 @@ export default function OffersPage() {
       <div style={{ maxWidth: 1200, margin: '50px auto', padding: '0 24px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 32 }}>
           {offers.map((offer) => (
-            <div key={offer.id} className="hne-card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div key={offer.id} id={`offer-${offer.id}`} className="hne-card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', scrollMarginTop: 110 }}>
               <div style={{ height: 220, position: 'relative', overflow: 'hidden' }}>
                 <img
                   src={offer.bannerUrl || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80'}

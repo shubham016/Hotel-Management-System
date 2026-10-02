@@ -8,6 +8,7 @@ export default function RoomsPage() {
   const [roomsLoading, setRoomsLoading] = useState(true);
   const [roomsError, setRoomsError] = useState('');
   const [pageInfo, setPageInfo] = useState({
+    heroImageUrl: '',
     heroHeading: 'Rooms & Suites Catalog',
     heroSubheading: '45 LISTED ROOMS • 5 LEVELS',
     heroDescription: 'Every room includes high-speed fiber internet, Cable TV, attached modern bathroom, and personalized room service.'
@@ -27,6 +28,7 @@ export default function RoomsPage() {
       .then(data => {
         if (data.success && data.page) {
           setPageInfo({
+            heroImageUrl: data.page.heroImageUrl || '',
             heroHeading: data.page.heroHeading || 'Rooms & Suites Catalog',
             heroSubheading: data.page.heroSubheading || '45 LISTED ROOMS • 5 LEVELS',
             heroDescription: data.page.heroDescription || 'Every room includes high-speed fiber internet, Cable TV, attached modern bathroom, and personalized room service.'
@@ -48,6 +50,9 @@ export default function RoomsPage() {
           color: '#FFFFFF',
           padding: '64px 24px',
           textAlign: 'center',
+          backgroundImage: pageInfo.heroImageUrl ? `linear-gradient(rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.85)), url(${JSON.stringify(pageInfo.heroImageUrl)})` : undefined,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
           borderBottom: '3px solid var(--brand-crimson)'
         }}
       >

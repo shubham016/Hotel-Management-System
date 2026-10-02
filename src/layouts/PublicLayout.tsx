@@ -5,6 +5,7 @@ import { Navbar } from '@/components/public/Navbar';
 import { Footer } from '@/components/public/Footer';
 import { ScrollToTop } from '@/components/public/ScrollToTop';
 import { BookingModal } from '@/components/booking/BookingModal';
+import { useCmsPageMeta } from '@/lib/cms-page-meta';
 
 export default function PublicLayout({
   children,
@@ -14,6 +15,7 @@ export default function PublicLayout({
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+  useCmsPageMeta(pathname);
   const isEmbeddedBooking = pathname === '/book' && searchParams.get('embedded') === 'true';
   const isPublicBooking = pathname === '/book' && !isEmbeddedBooking;
 
