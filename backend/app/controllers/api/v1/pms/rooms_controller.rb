@@ -62,14 +62,10 @@ module Api
           check_out = Date.iso8601(params.require(:checkOutDate))
           raise ApiError.new("Check-out must be after check-in", code: "INVALID_STAY") unless check_out > check_in
 
-          conflicting_ids = ReservationRoom
-            .joins(:reservation)
-            .where(reservations: { property_id: property.id, status: Reservation::INVENTORY_BLOCKING_STATUSES })
-            .where("reservations.check_in_date < ? AND reservations.check_out_date > ?", check_out, check_in)
-            .where.not(room_id: nil)
-            .select(:room_id)
-
-          rooms.where.not(id: conflicting_ids).where.not(status: %w[OUT_OF_ORDER OUT_OF_SERVICE])
+          available_ids = property.room_types.where(id: rooms.select(:room_type_id)).flat_map do |room_type|
+            Availability::RoomInventory.available_rooms(property:, room_type:, check_in_date: check_in, check_out_date: check_out).pluck(:id)
+          end
+          rooms.where(id: available_ids)
         rescue Date::Error
           raise ApiError.new("Dates must be valid", status: :bad_request, code: "INVALID_REQUEST")
         end

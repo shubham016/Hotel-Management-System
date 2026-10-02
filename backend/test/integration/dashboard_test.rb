@@ -53,6 +53,7 @@ class DashboardTest < ActionDispatch::IntegrationTest
 
   test "live guest counters reflect booking, check-in, and checkout statuses" do
     today = Date.current
+    travel_to today.in_time_zone.change(hour: 10)
     arriving = create_reservation(status: "CONFIRMED", check_in_date: today, check_out_date: today + 1.day, adults_count: 1)
     staying = create_reservation(status: "CHECKED_IN", check_in_date: today, check_out_date: today + 1.day, adults_count: 2, children_count: 1)
     departing = create_reservation(status: "CHECKED_IN", check_in_date: today - 1.day, check_out_date: today, adults_count: 1)
@@ -94,6 +95,23 @@ class DashboardTest < ActionDispatch::IntegrationTest
     assert_equal 0, response.parsed_body.dig("guests", "todayDepartures")
     assert_equal 1, response.parsed_body.dig("guests", "overdueArrivals")
     assert_equal 1, response.parsed_body.dig("guests", "overdueDepartures")
+  end
+
+  test "departures become overdue at the property's checkout time" do
+    today = Date.current
+    @property.update!(check_out_time: "14:30")
+    reservation = create_reservation(status: "CHECKED_IN", check_in_date: today - 1.day, check_out_date: today, adults_count: 1)
+    travel_to today.in_time_zone.change(hour: 14, min: 29) do
+      get "/api/v1/dashboard", headers: auth_headers
+      assert_response :success
+      assert_equal 0, response.parsed_body.dig("guests", "overdueDepartures")
+      travel 1.minute
+      get "/api/v1/dashboard", headers: auth_headers
+      assert_response :success
+      assert_equal 1, response.parsed_body.dig("guests", "overdueDepartures")
+      assert_equal "CHECKED_IN", reservation.reload.status
+      assert_equal today, reservation.check_out_date
+    end
   end
 
   private

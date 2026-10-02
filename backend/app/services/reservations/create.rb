@@ -17,6 +17,7 @@ module Reservations
 
       Reservation.transaction do
         lock_inventory!
+        @selected_room&.lock!
         ensure_availability!
         guest = find_or_create_guest!
         quote = build_quote
@@ -87,13 +88,8 @@ module Reservations
     end
 
     def ensure_selected_room_available!
-      conflict = ReservationRoom
-        .joins(:reservation)
-        .where(room: @selected_room)
-        .where(reservations: { property_id: @property.id, status: Reservation::INVENTORY_BLOCKING_STATUSES })
-        .where("reservations.check_in_date < ? AND reservations.check_out_date > ?", @check_out_date, @check_in_date)
-        .exists?
-      raise ApiError.new("The selected room is no longer available for these dates", status: :conflict, code: "ROOM_UNAVAILABLE") if conflict
+      available = Availability::RoomInventory.room_available?(room: @selected_room, check_in_date: @check_in_date, check_out_date: @check_out_date)
+      raise ApiError.new("The selected room is no longer available for these dates", status: :conflict, code: "ROOM_UNAVAILABLE") unless available
     end
 
     def find_or_create_guest!
@@ -165,7 +161,7 @@ module Reservations
         room = index.zero? ? @selected_room : nil
         reservation.reservation_rooms.create!(room_type: @room_type, room:, nightly_rate: quote.nightly_rate, nights: quote.nights)
       end
-      @selected_room&.update!(status: "RESERVED")
+      @selected_room.update!(status: "RESERVED") if @selected_room&.status.in?(%w[VACANT_CLEAN RESERVED])
       reservation
     end
 

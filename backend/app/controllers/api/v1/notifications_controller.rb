@@ -22,6 +22,8 @@ module Api
         role = Current.user.role
         return if role.name == "SUPER_ADMIN" || role.allows?("NOTIFICATIONS", inferred_authorization_action)
         return if role.allows?("RESERVATIONS", "read")
+        return if role.allows?("PMS_FRONTDESK", "read")
+        return if role.allows?("TASKS", "read") || role.allows?("HOUSEKEEPING", "view")
 
         super
       end

@@ -5,6 +5,10 @@ module Api
         def create
           folio = default_property.folios.includes(:reservation, :guest, :payments, :folio_items).find(params.require(:folioId))
           Folio.transaction do
+            folio.lock!
+            unless folio.reservation.status == "CHECKED_IN" && folio.status.in?(%w[OPEN SETTLED])
+              raise ApiError.new("Only an active checked-in guest folio can be checked out", status: :conflict, code: "FOLIO_NOT_ACTIVE")
+            end
             update_totals!(folio)
             if folio.balance_due.positive?
               folio.payments.create!(

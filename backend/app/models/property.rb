@@ -26,4 +26,11 @@ class Property < ApplicationRecord
 
   validates :name, :code, presence: true
   validates :code, uniqueness: { scope: :company_id }
+  validates :check_out_time, format: { with: /\A(?:[01]\d|2[0-3]):[0-5]\d\z/ }
+
+  def overdue_departure_cutoff_date(now: Time.current)
+    hour, minute = check_out_time.split(":").map(&:to_i)
+    deadline = now.change(hour: hour, min: minute, sec: 0)
+    now >= deadline ? now.to_date : now.to_date - 1.day
+  end
 end

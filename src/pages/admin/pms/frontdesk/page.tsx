@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/Button';
 import { formatDualDate } from '@/lib/nepali-calendar';
 import Link, { useRouter, useSearchParams } from '@/lib/router';
 import { PaymentRequestModal } from '@/components/payments/PaymentRequestModal';
+import { useRoomUpdates } from '@/lib/room-updates';
 
 export default function FrontDeskPage() {
   const searchParams = useSearchParams();
@@ -62,30 +63,30 @@ export default function FrontDeskPage() {
   const [extensionReason, setExtensionReason] = useState('');
   const [showCheckoutPayment, setShowCheckoutPayment] = useState(false);
 
-  const fetchFrontDeskData = async () => {
+  const fetchFrontDeskData = async (showLoading = true) => {
     try {
-      setIsLoading(true);
+      if (showLoading) setIsLoading(true);
       const res = await fetch('/api/pms/frontdesk');
       const json = await res.json();
       if (json.success) {
         setFolios(json.folios || []);
         setArrivals(json.arrivals || []);
-        const folioToKeep = selectedFolio?.id || (requestedFolio ? json.folios.find((f: any) => f.folioNumber === requestedFolio)?.id : null);
-        if (folioToKeep) {
-          const updatedSelected = json.folios.find((f: any) => f.id === folioToKeep);
-          if (updatedSelected) setSelectedFolio(updatedSelected);
-        }
+        setSelectedFolio((current: any) => {
+          const folioToKeep = current?.id || (requestedFolio ? json.folios.find((f: any) => f.folioNumber === requestedFolio)?.id : null);
+          return folioToKeep ? json.folios.find((f: any) => f.id === folioToKeep) || null : null;
+        });
       }
     } catch (err) {
       console.error('Failed to load front desk data:', err);
     } finally {
-      setIsLoading(false);
+      if (showLoading) setIsLoading(false);
     }
   };
 
   useEffect(() => {
     fetchFrontDeskData();
   }, [requestedFolio]);
+  useRoomUpdates(() => fetchFrontDeskData(false));
 
   const handleCheckInArrival = async (arrival: any) => {
     if (!confirm(`Check in guest ${arrival.guestName} to Room #${arrival.roomNumber}?`)) return;
@@ -277,7 +278,7 @@ export default function FrontDeskPage() {
         </div>
 
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <Button variant="secondary" size="sm" onClick={fetchFrontDeskData} disabled={isLoading}>
+          <Button variant="secondary" size="sm" onClick={() => fetchFrontDeskData()} disabled={isLoading}>
             <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} /> Refresh
           </Button>
 

@@ -19,6 +19,7 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import Link from '@/lib/router';
 import { BookingModal } from '@/components/booking/BookingModal';
+import { useRoomUpdates } from '@/lib/room-updates';
 
 type DashboardData = {
   businessDate: string;
@@ -59,7 +60,7 @@ const roomStatusStyles = {
   RESERVED: { label: 'Reserved', background: '#FFF7ED', border: '#FB923C', text: '#C2410C', muted: '#C2410C' },
   VACANT_CLEAN: { label: 'Clean', background: '#ECFDF5', border: '#86EFAC', text: '#047857', muted: '#047857' },
   VACANT_DIRTY: { label: 'Dirty', background: '#FFFBEB', border: '#FBBF24', text: '#B45309', muted: '#B45309' },
-  INSPECTION_REQUIRED: { label: 'Inspected', background: '#EFF6FF', border: '#7DD3FC', text: '#0369A1', muted: '#0369A1' },
+  INSPECTION_REQUIRED: { label: 'Needs Inspection', background: '#EFF6FF', border: '#7DD3FC', text: '#0369A1', muted: '#0369A1' },
   OUT_OF_ORDER: { label: 'Out of Order', background: '#FFF1F2', border: '#FDA4AF', text: '#BE123C', muted: '#BE123C' },
   OUT_OF_SERVICE: { label: 'Out of Service', background: '#F3F4F6', border: '#9CA3AF', text: '#4B5563', muted: '#4B5563' },
   DUE_OUT: { label: 'Due Out', background: '#FEF2F2', border: '#FCA5A5', text: '#B91C1C', muted: '#B91C1C' }
@@ -94,7 +95,7 @@ function RoomStatusIcon({ status, size = 14 }: { status: RoomBoardRoom['status']
     case 'VACANT_DIRTY':
       return <AlertTriangle size={size} aria-label="Dirty" />;
     case 'INSPECTION_REQUIRED':
-      return <CheckCircle2 size={size} aria-label="Inspected" />;
+      return <CheckCircle2 size={size} aria-label="Needs Inspection" />;
     case 'OUT_OF_ORDER':
     case 'OUT_OF_SERVICE':
       return <Wrench size={size} aria-label="Out of Order" />;
@@ -133,19 +134,8 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     loadDashboard();
-
-    const refreshWhenVisible = () => {
-      if (document.visibilityState === 'visible') loadDashboard();
-    };
-    window.addEventListener('focus', loadDashboard);
-    document.addEventListener('visibilitychange', refreshWhenVisible);
-    const refreshTimer = window.setInterval(loadDashboard, 30_000);
-    return () => {
-      window.removeEventListener('focus', loadDashboard);
-      document.removeEventListener('visibilitychange', refreshWhenVisible);
-      window.clearInterval(refreshTimer);
-    };
   }, []);
+  useRoomUpdates(loadDashboard);
 
   useEffect(() => {
     const handleBookingCreated = (event: MessageEvent) => {

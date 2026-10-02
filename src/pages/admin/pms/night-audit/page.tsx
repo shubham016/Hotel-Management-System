@@ -60,7 +60,7 @@ export default function NightAuditPage() {
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800 }}>Night Audit & Daily Business Closing</h1>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            Systematic day-end reconciliation, automated room revenue rollover, and financial ledger lock
+            Overnight stay extensions and extra-night folio charges. Existing booking charges are preserved.
           </p>
         </div>
         <div style={{ textAlign: 'right' }}>
@@ -93,7 +93,7 @@ export default function NightAuditPage() {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', backgroundColor: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>In-House Guest Folios Ready for Night Posting</div>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>Active In-House Guest Folios</div>
                 <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
                   {statusData?.openFoliosCount || 0} Active Folios (Unsettled Balance: Rs. {(statusData?.unsettledBalanceTotal || 0).toLocaleString()})
                 </div>
@@ -124,7 +124,7 @@ export default function NightAuditPage() {
 
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <Button variant="primary" onClick={() => setCurrentStep(2)}>
-              <span>Proceed to Step 2: Rate Posting Execution</span>
+              <span>Proceed to Step 2: Overnight Extensions</span>
               <ArrowRight size={16} />
             </Button>
           </div>
@@ -140,7 +140,7 @@ export default function NightAuditPage() {
 
             <h3 style={{ fontSize: 20, marginBottom: 8 }}>Ready to Execute Night Audit</h3>
             <p style={{ fontSize: 14, color: 'var(--text-secondary)', maxWidth: 500, margin: '0 auto 24px', lineHeight: 1.6 }}>
-                  Clicking below will batch post daily accommodation charges plus 13% VAT to all in-house guest folios, record automated General Ledger sales journal vouchers, and advance the system date.
+                  After 02:06, guests still checked in past yesterday's departure receive extra nights at their booked rates. Conflicting room assignments are flagged for staff. Repeating this check does not duplicate charges; checkout creates the accounting journal.
             </p>
 
             <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
@@ -164,9 +164,9 @@ export default function NightAuditPage() {
             </div>
 
             <Badge variant="success" style={{ marginBottom: 12 }}>Night Audit Successfully Completed & Posted</Badge>
-            <h3 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Business Date Reconciled</h3>
+            <h3 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Overnight Stay Check Complete</h3>
             <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 24 }}>
-              Business date {auditResult?.businessDateAD} (BS: {auditResult?.businessDateBS}) successfully audited and closed.
+              Overdue stays checked on {auditResult?.businessDateAD}. Review any extension conflicts before accepting incoming guests.
             </p>
 
             <div style={{ backgroundColor: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)', padding: 20, textAlign: 'left', marginBottom: 24, border: '1px solid var(--border)' }}>
@@ -182,11 +182,11 @@ export default function NightAuditPage() {
                   </div>
                 </div>
                 <div>
-                  <span style={{ color: 'var(--text-muted)' }}>GL Sales Journal Ref:</span>
-                  <div style={{ fontWeight: 700, color: 'var(--brand-crimson)' }}>{auditResult?.glVoucherNumber || 'JV-NA-POSTED'}</div>
+                  <span style={{ color: 'var(--text-muted)' }}>Extension Conflicts:</span>
+                  <div style={{ fontWeight: 700, color: 'var(--brand-crimson)' }}>{auditResult?.extensionConflicts || 0} needing staff attention</div>
                 </div>
                 <div>
-                  <span style={{ color: 'var(--text-muted)' }}>Next Active Business Date:</span>
+                  <span style={{ color: 'var(--text-muted)' }}>Current Calendar Date:</span>
                   <div style={{ fontWeight: 700 }}>{dualBusinessDate.adFormatted} (Active)</div>
                 </div>
               </div>

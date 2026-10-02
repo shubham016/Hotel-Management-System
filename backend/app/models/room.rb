@@ -20,6 +20,17 @@ class Room < ApplicationRecord
   validates :floor, numericality: { only_integer: true, greater_than: 0 }
   validates :status, inclusion: { in: STATUSES }
   validate :room_type_belongs_to_property
+  after_save :queue_housekeeping!, if: :saved_change_to_status?
+
+  def queue_housekeeping!
+    if status.in?(%w[VACANT_DIRTY INSPECTION_REQUIRED])
+      task_type = status == "VACANT_DIRTY" ? "CLEANING" : "INSPECTION"
+      task = housekeeping_tasks.find_or_create_by!(task_type:, status: "PENDING")
+      Housekeeping::NotifyStaff.call(room: self, task:)
+    elsif status == "VACANT_CLEAN"
+      housekeeping_tasks.where(status: "PENDING").update_all(status: "COMPLETED", completed_at: Time.current, updated_at: Time.current)
+    end
+  end
 
   private
 

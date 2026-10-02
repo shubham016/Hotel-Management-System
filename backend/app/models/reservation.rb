@@ -3,7 +3,7 @@ class Reservation < ApplicationRecord
   # A booking awaiting staff confirmation still holds its requested inventory;
   # otherwise the same room could be sold to someone else before reception
   # verifies the guest's details.
-  INVENTORY_BLOCKING_STATUSES = (ACTIVE_STATUSES + %w[INQUIRY CHECKED_OUT]).freeze
+  INVENTORY_BLOCKING_STATUSES = (ACTIVE_STATUSES + %w[INQUIRY]).freeze
   STATUSES = %w[INQUIRY CONFIRMED CHECKED_IN CHECKED_OUT CANCELLED NO_SHOW ARCHIVED].freeze
   SOURCES = %w[WALK_IN ONLINE PHONE TRAVEL_AGENCY PARTNER_HOTEL].freeze
 

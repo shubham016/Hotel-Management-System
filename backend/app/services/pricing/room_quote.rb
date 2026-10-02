@@ -13,7 +13,7 @@ module Pricing
       :tax_lines
     )
 
-    def self.call(property:, room_type:, rate_plan:, check_in_date:, check_out_date:, rooms_count:, adults_count:, children_count: 0, add_on_codes:)
+    def self.call(property:, room_type:, rate_plan:, check_in_date:, check_out_date:, rooms_count:, adults_count:, children_count: 0, add_on_codes:, nightly_rate: nil, add_on_prices: {})
       new(
         property:,
         room_type:,
@@ -23,11 +23,13 @@ module Pricing
         rooms_count:,
         adults_count:,
         children_count:,
-        add_on_codes:
+        add_on_codes:,
+        nightly_rate:,
+        add_on_prices:
       ).call
     end
 
-    def initialize(property:, room_type:, rate_plan:, check_in_date:, check_out_date:, rooms_count:, adults_count:, children_count:, add_on_codes:)
+    def initialize(property:, room_type:, rate_plan:, check_in_date:, check_out_date:, rooms_count:, adults_count:, children_count:, add_on_codes:, nightly_rate: nil, add_on_prices: {})
       @property = property
       @room_type = room_type
       @rate_plan = rate_plan
@@ -37,11 +39,13 @@ module Pricing
       @adults_count = adults_count
       @children_count = children_count
       @add_on_codes = Array(add_on_codes).map { |code| code.to_s.upcase }.uniq
+      @nightly_rate = nightly_rate
+      @add_on_prices = add_on_prices
     end
 
     def call
       nights = (@check_out_date - @check_in_date).to_i
-      nightly_rate = @room_type.base_price + (@rate_plan&.price_modifier || 0)
+      nightly_rate = @nightly_rate || @room_type.base_price + (@rate_plan&.price_modifier || 0)
       room_total = nightly_rate * nights * @rooms_count
       add_on_lines = calculate_add_ons(nights)
       add_on_total = add_on_lines.sum { |line| line[:total] }
@@ -75,13 +79,14 @@ module Pricing
         else 1
         end
 
+        unit_price = @add_on_prices.fetch(offering.id, offering.unit_price)
         {
           id: offering.id,
           code: offering.code,
           name: offering.name,
           quantity:,
-          unit_price: offering.unit_price,
-          total: offering.unit_price * quantity,
+          unit_price:,
+          total: unit_price * quantity,
           taxable: offering.taxable
         }
       end

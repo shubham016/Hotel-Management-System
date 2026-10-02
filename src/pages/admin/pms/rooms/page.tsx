@@ -3,6 +3,7 @@ import { BedDouble, CheckCircle2, AlertTriangle, Sparkles, Filter, RefreshCw, Us
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { publishRoomUpdate, useRoomUpdates } from '@/lib/room-updates';
 
 export default function RoomsManagementPage() {
   const [selectedFloor, setSelectedFloor] = useState<number | 'ALL'>('ALL');
@@ -42,6 +43,7 @@ export default function RoomsManagementPage() {
   useEffect(() => {
     fetchRooms();
   }, []);
+  useRoomUpdates(() => fetchRooms(false));
 
   const updateRoomStatus = async (roomId: string, newStatus: string) => {
     try {
@@ -55,6 +57,7 @@ export default function RoomsManagementPage() {
       const json = await res.json();
       if (json.success) {
         await fetchRooms(false);
+        publishRoomUpdate();
       } else {
         setError(json.error || 'Failed to update room status');
       }

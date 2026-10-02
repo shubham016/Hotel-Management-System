@@ -334,8 +334,8 @@ class ReservationsTest < ActionDispatch::IntegrationTest
       source: "WALK_IN"
     ), headers: auth_headers(auth_token), as: :json
 
-    assert_response :conflict
-    assert_equal "ROOM_UNAVAILABLE", response.parsed_body["code"]
+    assert_response :created
+    assert_equal "VACANT_DIRTY", @second_room.reload.status
 
     post "/api/v1/reservations", params: valid_payload.merge(
       roomId: @second_room.id,
@@ -394,6 +394,140 @@ class ReservationsTest < ActionDispatch::IntegrationTest
     assert_response :success
     sources_by_id = response.parsed_body["data"].to_h { |entry| [ entry["id"], entry["source"] ] }
     assert_equal({ staff_reservation.id => "WALK_IN", website_reservation.id => "ONLINE" }, sources_by_id)
+  end
+
+  test "overdue stays block bookings until checkout but dirty rooms remain bookable" do
+    today = Date.current
+    travel_to today.in_time_zone.change(hour: 13) do
+      token = auth_token
+      post "/api/v1/reservations", params: valid_payload.merge(roomId: @first_room.id), as: :json
+      assert_response :created
+      reservation = Reservation.find(response.parsed_body.dig("data", "id"))
+      reservation.update!(status: "CHECKED_IN", check_in_date: today - 1.day, check_out_date: today, checked_in_at: 1.day.ago)
+      @first_room.update!(status: "OCCUPIED")
+      original_total = reservation.grand_total
+      payload = valid_payload.merge(checkInDate: today.iso8601, checkOutDate: (today + 1.day).iso8601, roomId: @first_room.id)
+
+      get "/api/v1/availability?propertyCode=#{@property.code}&checkInDate=#{today}&checkOutDate=#{today + 1.day}&adultsCount=2"
+      assert_response :success
+      assert_equal 1, response.parsed_body.dig("data", 0, "availableRooms")
+      assert_equal [ @second_room.id ], response.parsed_body.dig("data", 0, "rooms").pluck("id")
+      get "/api/v1/pms/rooms?availableOnly=true&checkInDate=#{today}&checkOutDate=#{today + 1.day}", headers: auth_headers(token)
+      assert_response :success
+      assert_equal [ @second_room.id ], response.parsed_body["data"].pluck("id")
+
+      [ {}, auth_headers(token) ].each do |headers|
+        assert_no_difference [ "Reservation.count", "ReservationRoom.count", "Folio.count" ] do
+          post "/api/v1/reservations", params: payload.merge(source: "WALK_IN"), headers:, as: :json
+        end
+        assert_response :conflict
+        assert_equal "ROOM_UNAVAILABLE", response.parsed_body["code"]
+      end
+      # An overdue guest has no confirmed departure, so future inventory stays held too.
+      get "/api/v1/availability?propertyCode=#{@property.code}&checkInDate=#{today + 7.days}&checkOutDate=#{today + 8.days}&adultsCount=2"
+      assert_response :success
+      assert_equal [ @second_room.id ], response.parsed_body.dig("data", 0, "rooms").pluck("id")
+      assert_equal today, reservation.reload.check_out_date
+      assert_equal original_total, reservation.grand_total
+      assert_equal "CHECKED_IN", reservation.status
+      assert_equal "OCCUPIED", @first_room.reload.status
+
+      assert_no_difference "HousekeepingTask.count" do
+        post "/api/v1/housekeeping/tasks", params: { roomId: @first_room.id, action: "MARK_CLEAN" }, headers: auth_headers(token), as: :json
+      end
+      assert_response :conflict
+      assert_equal "ROOM_OCCUPIED", response.parsed_body["code"]
+
+      post "/api/v1/folio", params: { operation: "SETTLE_AND_CHECKOUT", folioId: reservation.folio.id, settlementMethod: "CASH" }, headers: auth_headers(token), as: :json
+      assert_response :success
+      assert_equal "CHECKED_OUT", reservation.reload.status
+      assert_equal "VACANT_DIRTY", @first_room.reload.status
+      post "/api/v1/reservations", params: payload, as: :json
+      assert_response :created
+      next_reservation = Reservation.find(response.parsed_body.dig("data", "id"))
+      assert_equal "VACANT_DIRTY", @first_room.reload.status
+      patch "/api/v1/reservations/#{next_reservation.id}/check-in", params: { roomId: @first_room.id }, headers: auth_headers(token), as: :json
+      assert_response :conflict
+      assert_equal "ROOM_NOT_READY", response.parsed_body["code"]
+
+      post "/api/v1/housekeeping/tasks", params: { roomId: @first_room.id, action: "MARK_CLEAN" }, headers: auth_headers(token), as: :json
+      assert_response :success
+      assert_equal "VACANT_CLEAN", @first_room.reload.status
+      patch "/api/v1/reservations/#{next_reservation.id}/check-in", params: { roomId: @first_room.id }, headers: auth_headers(token), as: :json
+      assert_response :success
+      assert_equal "OCCUPIED", @first_room.reload.status
+    end
+  end
+
+  test "advance bookings preserve occupancy and overdue inventory counts a room only once" do
+    today = Date.current
+    travel_to today.in_time_zone.change(hour: 11) do
+      token = auth_token
+      post "/api/v1/reservations", params: valid_payload.merge(roomId: @first_room.id), as: :json
+      assert_response :created
+      staying = Reservation.find(response.parsed_body.dig("data", "id"))
+      staying.update!(status: "CHECKED_IN", check_in_date: today - 1.day, check_out_date: today, checked_in_at: 1.day.ago)
+      @first_room.update!(status: "OCCUPIED")
+      # Before the departure deadline a normal advance reservation is still allowed.
+      post "/api/v1/reservations", params: valid_payload.merge(roomId: @first_room.id, checkInDate: (today + 1.day).iso8601, checkOutDate: (today + 2.days).iso8601, phone: "+977-9800000065"), as: :json
+      assert_response :created
+      advance = Reservation.find(response.parsed_body.dig("data", "id"))
+      assert_equal "OCCUPIED", @first_room.reload.status
+
+      travel 2.hours
+      get "/api/v1/availability?propertyCode=#{@property.code}&checkInDate=#{today + 1.day}&checkOutDate=#{today + 2.days}&adultsCount=2"
+      assert_response :success
+      assert_equal 1, response.parsed_body.dig("data", 0, "availableRooms")
+      assert_equal [ @second_room.id ], response.parsed_body.dig("data", 0, "rooms").pluck("id")
+      patch "/api/v1/reservations/#{staying.id}/extend-stay", params: { additionalNights: 2, reason: "Guest has not departed" }, headers: auth_headers(token), as: :json
+      assert_response :conflict
+      assert_equal today, staying.reload.check_out_date
+
+      assert_no_difference "Payment.count" do
+        post "/api/v1/checkout", params: { folioId: advance.folio.id, paymentMethod: "CASH" }, headers: auth_headers(token), as: :json
+      end
+      assert_response :conflict
+      assert_equal "FOLIO_NOT_ACTIVE", response.parsed_body["code"]
+      assert_equal "OCCUPIED", @first_room.reload.status
+
+      travel 1.day
+      patch "/api/v1/reservations/#{advance.id}/check-in", params: { roomId: @first_room.id }, headers: auth_headers(auth_token), as: :json
+      assert_response :conflict
+      assert_equal "ROOM_UNAVAILABLE", response.parsed_body["code"]
+      assert_equal "INQUIRY", advance.reload.status
+      travel -1.day
+
+      patch "/api/v1/reservations/#{advance.id}/cancel", params: { reason: "Cancel advance booking" }, headers: auth_headers(token), as: :json
+      assert_response :success
+      assert_equal "OCCUPIED", @first_room.reload.status
+      patch "/api/v1/reservations/#{staying.id}/extend-stay", params: { additionalNights: 2, reason: "Guest confirmed extension" }, headers: auth_headers(token), as: :json
+      assert_response :success
+      assert_equal today + 2.days, staying.reload.check_out_date
+      assert_equal "OCCUPIED", @first_room.reload.status
+      assert_equal 3, staying.reservation_rooms.sole.nights
+    end
+  end
+
+  test "future booking cannot bypass housekeeping at check-in" do
+    @first_room.update!(status: "VACANT_DIRTY")
+    post "/api/v1/reservations", params: valid_payload.merge(roomId: @first_room.id), as: :json
+    assert_response :created
+    reservation = Reservation.find(response.parsed_body.dig("data", "id"))
+    assert_equal "VACANT_DIRTY", @first_room.reload.status
+
+    travel_to @check_in.in_time_zone.change(hour: 14) do
+      token = auth_token
+      patch "/api/v1/reservations/#{reservation.id}/check-in", params: { roomId: @first_room.id }, headers: auth_headers(token), as: :json
+      assert_response :conflict
+      assert_equal "ROOM_NOT_READY", response.parsed_body["code"]
+      assert_equal "INQUIRY", reservation.reload.status
+      post "/api/v1/housekeeping/tasks", params: { roomId: @first_room.id, action: "MARK_CLEAN" }, headers: auth_headers(token), as: :json
+      assert_response :success
+      patch "/api/v1/reservations/#{reservation.id}/check-in", params: { roomId: @first_room.id }, headers: auth_headers(token), as: :json
+      assert_response :success
+      assert_equal "CHECKED_IN", reservation.reload.status
+      assert_equal "OCCUPIED", @first_room.reload.status
+    end
   end
 
   test "modifying dates rejects a conflict on the already assigned room" do
@@ -638,11 +772,11 @@ class ReservationsTest < ActionDispatch::IntegrationTest
     reservation.update!(status: "CONFIRMED")
 
     patch "/api/v1/reservations/#{reservation.id}",
-      params: { checkOutDate: (@check_out + 1.day).iso8601, adultsCount: 1 },
+      params: { checkInDate: Date.current.iso8601, checkOutDate: (Date.current + 2.days).iso8601, adultsCount: 1 },
       headers: auth_headers(token),
       as: :json
     assert_response :success
-    assert_equal @check_out + 1.day, reservation.reload.check_out_date
+    assert_equal Date.current + 2.days, reservation.reload.check_out_date
 
     patch "/api/v1/reservations/#{reservation.id}/assign-room",
       params: { roomId: @second_room.id },
@@ -650,9 +784,6 @@ class ReservationsTest < ActionDispatch::IntegrationTest
       as: :json
     assert_response :success
     assert_equal "RESERVED", @second_room.reload.status
-
-    # A guest may be checked in only on their scheduled arrival date.
-    reservation.update!(check_in_date: Date.current, check_out_date: Date.current + 2.days)
 
     patch "/api/v1/reservations/#{reservation.id}/check-in",
       params: { roomId: @second_room.id },
@@ -800,6 +931,129 @@ class ReservationsTest < ActionDispatch::IntegrationTest
 
     assert_response :forbidden
     assert_equal "FORBIDDEN", response.parsed_body["code"]
+  end
+
+  test "housekeeping receives checkout tasks and completes cleaning and inspection for a reserved dirty room" do
+    role = @company.roles.create!(name: "HOUSEKEEPING_STAFF", permissions: { "TASKS" => %w[read create] })
+    staff = @company.users.create!(role:, email: "housekeeping@example.com", first_name: "Cleaning", last_name: "Staff", password: "Strong-Test-Password-2026!")
+    UserProperty.create!(user: staff, property: @property)
+    staff_headers = auth_headers(Authentication::Token.encode(staff))
+    token = auth_token
+
+    travel_to Date.current.in_time_zone.change(hour: 14) do
+      post "/api/v1/reservations", params: valid_payload.merge(roomId: @first_room.id, checkInDate: Date.current.iso8601, checkOutDate: (Date.current + 1.day).iso8601), as: :json
+      assert_response :created
+      old_stay = Reservation.find(response.parsed_body.dig("data", "id"))
+      patch "/api/v1/reservations/#{old_stay.id}/check-in", params: { roomId: @first_room.id }, headers: auth_headers(token), as: :json
+      assert_response :success
+      post "/api/v1/folio", params: { operation: "SETTLE_AND_CHECKOUT", folioId: old_stay.folio.id, settlementMethod: "CASH" }, headers: auth_headers(token), as: :json
+      assert_response :success
+      task = @first_room.housekeeping_tasks.find_by!(task_type: "CLEANING", status: "PENDING")
+      assert_equal "VACANT_DIRTY", @first_room.reload.status
+      assert_equal 1, staff.notifications.count
+      assert_includes staff.notifications.first.action_url, task.id
+      get "/api/v1/notifications", headers: staff_headers
+      assert_response :success
+      assert_equal "Room needs cleaning", response.parsed_body.dig("notifications", 0, "title")
+      patch "/api/v1/notifications/#{staff.notifications.first.id}", headers: staff_headers, as: :json
+      assert_response :success
+
+      [ {}, auth_headers(token) ].each_with_index do |headers, index|
+        post "/api/v1/reservations", params: valid_payload.merge(roomId: @first_room.id, source: "WALK_IN", checkInDate: (Date.current + index.days).iso8601, checkOutDate: (Date.current + index.days + 1.day).iso8601, phone: "+977-980000008#{index}"), headers:, as: :json
+        assert_response :created
+        assert_equal "VACANT_DIRTY", @first_room.reload.status
+        @new_stay = Reservation.find(response.parsed_body.dig("data", "id")) if index.zero?
+      end
+      assert_equal 1, @first_room.housekeeping_tasks.where(status: "PENDING").count
+      post "/api/v1/housekeeping/tasks", params: { roomId: @first_room.id, action: "MARK_FOR_INSPECTION" }, headers: staff_headers, as: :json
+      assert_response :success
+      assert_equal "INSPECTION_REQUIRED", @first_room.reload.status
+      assert_equal "Cleaning Staff", task.reload.assigned_to
+      assert_equal "COMPLETED", task.status
+      assert_equal 1, @first_room.housekeeping_tasks.where(task_type: "INSPECTION", status: "PENDING").count
+      assert_equal 2, staff.notifications.count
+      patch "/api/v1/reservations/#{@new_stay.id}/check-in", params: { roomId: @first_room.id }, headers: auth_headers(token), as: :json
+      assert_response :conflict
+      assert_equal "ROOM_NOT_READY", response.parsed_body["code"]
+      get "/api/v1/pms/rooms", headers: auth_headers(token)
+      assert_equal "INSPECTION_REQUIRED", response.parsed_body["data"].find { |room| room["id"] == @first_room.id }["status"]
+      post "/api/v1/housekeeping/tasks", params: { roomId: @first_room.id, action: "MARK_INSPECTED" }, headers: staff_headers, as: :json
+      assert_response :success
+      assert_equal "VACANT_CLEAN", @first_room.reload.status
+      assert_equal 0, @first_room.housekeeping_tasks.where(status: "PENDING").count
+      patch "/api/v1/reservations/#{@new_stay.id}/check-in", params: { roomId: @first_room.id }, headers: auth_headers(token), as: :json
+      assert_response :success
+      assert_equal "OCCUPIED", @first_room.reload.status
+    end
+  end
+
+  test "overnight extension charges only extra nights at booked prices and is repeat safe" do
+    post "/api/v1/reservations", params: valid_payload.merge(roomId: @first_room.id, addOns: { BREAKFAST: true, SPA: true }), as: :json
+    assert_response :created
+    stay = Reservation.find(response.parsed_body.dig("data", "id"))
+    stay.update!(status: "CHECKED_IN", checked_in_at: @check_in.in_time_zone)
+    @first_room.update!(status: "OCCUPIED")
+    original_total = stay.grand_total
+    @room_type.update!(base_price: 9_000)
+    @property.service_offerings.find_by!(code: "BREAKFAST").update!(unit_price: 3_000)
+    after_departure = (@check_out + 1.day).in_time_zone
+    travel_to after_departure.change(hour: 2, min: 5) do
+      assert_equal 0, Reservations::AutoExtendOverdue.call(property: @property)[:extended]
+      assert_equal @check_out, stay.reload.check_out_date
+    end
+    travel_to after_departure.change(hour: 2, min: 6) do
+      result = Reservations::AutoExtendOverdue.call(property: @property)
+      assert_equal 1, result[:extended]
+      assert_equal 6_780, result[:posted]
+      assert_equal @check_out + 1.day, stay.reload.check_out_date
+      assert_equal original_total + 6_780, stay.grand_total
+      assert_equal stay.grand_total, stay.folio.reload.balance_due
+      assert_equal 3, stay.reservation_rooms.sole.nights
+      assert_equal 4_000, stay.reservation_rooms.sole.nightly_rate
+      spa = stay.folio.folio_items.find_by!(source_module: "SERVICE", source_reference: @property.service_offerings.find_by!(code: "SPA").id)
+      assert_equal 8_000, spa.sub_total
+      assert_equal "OCCUPIED", @first_room.reload.status
+      assert_equal 1, AuditLog.where(entity_id: stay.id, action: "AUTO_EXTEND_STAY").count
+      assert_no_difference [ "FolioItem.count", "Notification.count", "AuditLog.count" ] do
+        assert_equal 0, Reservations::AutoExtendOverdue.call(property: @property)[:extended]
+      end
+      token = auth_token
+      post "/api/v1/night-audit", headers: auth_headers(token), as: :json
+      assert_response :success
+      assert_equal 0, response.parsed_body.dig("summary", "totalRevenuePosted")
+      assert_equal original_total + 6_780, stay.folio.reload.grand_total
+    end
+    travel_to after_departure.change(hour: 2, min: 6) + 1.day do
+      assert_equal 1, Reservations::AutoExtendOverdue.call(property: @property)[:extended]
+      assert_equal original_total + 13_560, stay.reload.grand_total
+      assert_equal 4, stay.reservation_rooms.sole.nights
+    end
+  end
+
+  test "automatic extension flags incoming bookings without double booking or charging" do
+    post "/api/v1/reservations", params: valid_payload.merge(roomId: @first_room.id), as: :json
+    assert_response :created
+    stay = Reservation.find(response.parsed_body.dig("data", "id"))
+    post "/api/v1/reservations", params: valid_payload.merge(roomId: @first_room.id, checkInDate: @check_out.iso8601, checkOutDate: (@check_out + 2.days).iso8601, phone: "+977-9800000091"), as: :json
+    assert_response :created
+    incoming = Reservation.find(response.parsed_body.dig("data", "id"))
+    stay.update!(status: "CHECKED_IN", checked_in_at: @check_in.in_time_zone)
+    @first_room.update!(status: "OCCUPIED")
+    total = stay.grand_total
+    travel_to (@check_out + 1.day).in_time_zone.change(hour: 2, min: 6) do
+      result = Reservations::AutoExtendOverdue.call(property: @property)
+      assert_equal 1, result[:conflicts]
+      assert_equal 0, result[:extended]
+      assert_equal @check_out, stay.reload.check_out_date
+      assert_equal total, stay.folio.reload.grand_total
+      assert_equal @check_out, incoming.reload.check_in_date
+      assert_equal "OCCUPIED", @first_room.reload.status
+      assert_equal 1, @user.notifications.where(title: "Overstay needs attention").count
+      assert_no_difference "Notification.count" do
+        Reservations::AutoExtendOverdue.call(property: @property)
+      end
+      assert_not Availability::RoomInventory.room_available?(room: @first_room, check_in_date: Date.current, check_out_date: Date.current + 1.day, exclude_reservation: incoming)
+    end
   end
 
   private

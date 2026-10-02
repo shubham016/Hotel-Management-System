@@ -42,5 +42,22 @@ services:
     volumes:
       - .:/rails
 
+  stay_monitor:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: bundle exec rails runner script/monitor_stays.rb
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_USERNAME: hotel_new_era
+      DB_PASSWORD: hotel_new_era_dev
+      RAILS_ENV: development
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/rails
+
 volumes:
   hotel_new_era_postgres:

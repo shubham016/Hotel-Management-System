@@ -69,7 +69,7 @@ module Api
           todayDepartures: departures_on(property, today),
           inHouseGuests: in_house.sum(:adults_count) + in_house.sum(:children_count),
           overdueArrivals: property.reservations.where(status: %w[INQUIRY CONFIRMED]).where("check_in_date < ?", today).count,
-          overdueDepartures: in_house.where("check_out_date < ?", today).count
+          overdueDepartures: in_house.where("check_out_date <= ?", property.overdue_departure_cutoff_date).count
         }
       end
 

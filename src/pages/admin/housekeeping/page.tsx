@@ -3,6 +3,7 @@ import { Sparkles, CheckCircle2, AlertTriangle, ShieldCheck, User, Wrench, Packa
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { publishRoomUpdate, useRoomUpdates } from '@/lib/room-updates';
 
 export default function HousekeepingPage() {
   const [rooms, setRooms] = useState<any[]>([]);
@@ -10,9 +11,9 @@ export default function HousekeepingPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
 
-  const fetchHousekeeping = async () => {
+  const fetchHousekeeping = async (showLoading = true) => {
     try {
-      setIsLoading(true);
+      if (showLoading) setIsLoading(true);
       const res = await fetch('/api/housekeeping/tasks');
       const json = await res.json();
       if (json.success) {
@@ -22,15 +23,16 @@ export default function HousekeepingPage() {
     } catch (err) {
       console.error('Failed to load housekeeping tasks:', err);
     } finally {
-      setIsLoading(false);
+      if (showLoading) setIsLoading(false);
     }
   };
 
   useEffect(() => {
     fetchHousekeeping();
   }, []);
+  useRoomUpdates(() => fetchHousekeeping(false));
 
-  const handleMarkClean = async (room: any) => {
+  const handleMarkClean = async (room: any, action = 'MARK_CLEAN') => {
     try {
       setIsUpdating(room.id);
       const res = await fetch('/api/housekeeping/tasks', {
@@ -38,14 +40,14 @@ export default function HousekeepingPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           roomId: room.id,
-          action: 'MARK_CLEAN'
+          action
         })
       });
 
       const json = await res.json();
       if (json.success) {
         alert(json.message);
-        fetchHousekeeping();
+        publishRoomUpdate();
       } else {
         alert(json.error || 'Failed to update status');
       }
@@ -74,12 +76,12 @@ export default function HousekeepingPage() {
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800 }}>Housekeeping & Room Turnaround</h1>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            Real-time room cleanliness tracking, task assignments, inspection verification, and 45-room turnaround
+            Dirty rooms remain bookable. Complete cleaning and inspection before guest check-in.
           </p>
         </div>
 
         <div style={{ display: 'flex', gap: 10 }}>
-          <Button variant="secondary" size="sm" onClick={fetchHousekeeping} disabled={isLoading}>
+          <Button variant="secondary" size="sm" onClick={() => fetchHousekeeping()} disabled={isLoading}>
             <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} /> Refresh Queue
           </Button>
         </div>
@@ -110,7 +112,7 @@ export default function HousekeepingPage() {
       </div>
 
       {/* Housekeeping List */}
-      <Card title="45 Room Housekeeping Status Queue" subtitle="Manage cleaning shifts, inspect rooms, and mark ready for arrivals">
+      <Card title={`${rooms.length} Room Housekeeping Status Queue`} subtitle="Updates automatically across housekeeping and room boards">
         {isLoading ? (
           <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
             Loading housekeeping queue from PostgreSQL...
@@ -140,21 +142,28 @@ export default function HousekeepingPage() {
                     <td style={{ fontWeight: 600 }}>{room.roomType}</td>
                     <td>{getStatusBadge(room.status)}</td>
                     <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                      {room.status === 'VACANT_DIRTY' ? 'Assigned: Sita Thapa' : 'Housekeeping Team'}
+                      {room.latestTask?.assigned_to || 'Housekeeping Team'}
                     </td>
                     <td>
-                      {room.status !== 'VACANT_CLEAN' ? (
+                      {['VACANT_DIRTY', 'INSPECTION_REQUIRED'].includes(room.status) ? (
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {room.status === 'VACANT_DIRTY' && (
+                          <Button variant="secondary" size="sm" onClick={() => handleMarkClean(room, 'MARK_FOR_INSPECTION')} disabled={isUpdating === room.id}>
+                            <ShieldCheck size={14} /> Cleaned, Needs Inspection
+                          </Button>
+                        )}
                         <Button
                           variant="success"
                           size="sm"
-                          onClick={() => handleMarkClean(room)}
+                          onClick={() => handleMarkClean(room, room.status === 'INSPECTION_REQUIRED' ? 'MARK_INSPECTED' : 'MARK_CLEAN')}
                           disabled={isUpdating === room.id}
                         >
-                          <CheckCircle2 size={14} /> Mark Clean
+                          <CheckCircle2 size={14} /> {room.status === 'INSPECTION_REQUIRED' ? 'Mark Inspected & Ready' : 'Mark Clean & Ready'}
                         </Button>
+                        </div>
                       ) : (
                         <span style={{ fontSize: 12, color: 'var(--brand-green)', fontWeight: 700 }}>
-                          ✓ Ready for Guest
+                          {room.status === 'VACANT_CLEAN' ? 'Ready for Guest' : 'Not in cleaning queue'}
                         </span>
                       )}
                     </td>

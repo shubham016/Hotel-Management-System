@@ -117,11 +117,16 @@ module Reservations
 
       Reservation.transaction do
         room = load_room!
+        lock_inventory!(room.room_type)
+        room.lock!
         reservation_room = load_reservation_room!(room.room_type)
         ensure_room_available!(room, @reservation.check_in_date, @reservation.check_out_date)
+        unless Availability::RoomInventory.room_available?(room:, check_in_date: @reservation.check_in_date, check_out_date: @reservation.check_out_date, exclude_reservation: @reservation)
+          raise ApiError.new("Room is not available for this stay window", status: :conflict, code: "ROOM_UNAVAILABLE")
+        end
         release_room!(reservation_room.room, "VACANT_CLEAN") if reservation_room.room && reservation_room.room != room
         reservation_room.update!(room:)
-        room.update!(status: "RESERVED")
+        room.update!(status: "RESERVED") if room.status.in?(%w[VACANT_CLEAN RESERVED])
         audit!("ASSIGN_ROOM", old_values, room_id: room.id, room_number: room.room_number)
       end
 
@@ -140,6 +145,8 @@ module Reservations
         room = @params[:roomId].present? ? load_room! : @reservation.reservation_rooms.first&.room
         raise ApiError.new("A room assignment is required for check-in", status: :bad_request, code: "ROOM_REQUIRED") unless room
 
+        lock_inventory!(room.room_type)
+        room.lock!
         reservation_room = load_reservation_room!(room.room_type)
         ensure_room_available!(room, @reservation.check_in_date, @reservation.check_out_date)
         ensure_room_ready!(room)
@@ -160,24 +167,32 @@ module Reservations
       reason = @params[:reason].to_s.strip
       raise ApiError.new("Extension must be between 1 and 365 nights", status: :unprocessable_content, code: "INVALID_EXTENSION") unless additional_nights.between?(1, 365)
       raise ApiError.new("A short reason is required to extend the stay", status: :unprocessable_content, code: "EXTENSION_REASON_REQUIRED") if reason.length < 3
-      new_check_out = @reservation.check_out_date + additional_nights.days
-
       Reservation.transaction do
         room_type = @reservation.reservation_rooms.first.room_type
         rooms_count = @reservation.reservation_rooms.count
         lock_inventory!(room_type)
+        @reservation.folio&.lock!
+        @reservation.lock!
+        ensure_status!("CHECKED_IN", "Only checked-in stays can be extended")
+        old_values = snapshot
+        new_check_out = @reservation.check_out_date + additional_nights.days
         ensure_assigned_rooms_available_until!(new_check_out)
-        quote = build_quote(@reservation.check_in_date, new_check_out, room_type, @reservation.rate_plan, rooms_count, @reservation.adults_count, @reservation.children_count)
-        @reservation.reservation_rooms.update_all(nights: quote.nights, updated_at: Time.current)
+        service_items = @reservation.folio.folio_items.where(source_module: "SERVICE", voided: false).to_a
+        periodic_codes = @property.service_offerings.where(id: service_items.map(&:source_reference), pricing_unit: %w[PER_NIGHT PER_GUEST_PER_NIGHT]).pluck(:code)
+        quote = build_quote(@reservation.check_out_date, new_check_out, room_type, @reservation.rate_plan, rooms_count, @reservation.adults_count, @reservation.children_count,
+          nightly_rate: @reservation.reservation_rooms.first.nightly_rate, add_on_codes: periodic_codes,
+          add_on_prices: service_items.to_h { |item| [item.source_reference, item.unit_price] })
+        total_nights = (new_check_out - @reservation.check_in_date).to_i
+        @reservation.reservation_rooms.update_all(nights: total_nights, updated_at: Time.current)
         @reservation.update!(
           check_out_date: new_check_out,
-          room_total: quote.room_total,
-          service_total: quote.add_on_total,
-          tax_total: quote.vat_amount,
-          grand_total: quote.grand_total
+          room_total: @reservation.room_total + quote.room_total,
+          service_total: @reservation.service_total + quote.add_on_total,
+          tax_total: @reservation.tax_total + quote.vat_amount,
+          grand_total: @reservation.grand_total + quote.grand_total
         )
-        sync_room_lines!(quote, room_type, rooms_count)
-        audit!("EXTEND_STAY", old_values, check_out_date: new_check_out, additional_nights:, reason:)
+        sync_extension_lines!(quote, room_type, total_nights)
+        audit!(@params[:automatic] ? "AUTO_EXTEND_STAY" : "EXTEND_STAY", old_values, check_out_date: new_check_out, additional_nights:, reason:)
       end
 
       @reservation.reload
@@ -191,6 +206,8 @@ module Reservations
 
       Reservation.transaction do
         new_room = load_room!
+        lock_inventory!(new_room.room_type)
+        new_room.lock!
         current_rr = @reservation.reservation_rooms.includes(:room).find { |rr| rr.room.present? }
         raise ApiError.new("Current room assignment was not found", status: :conflict, code: "ROOM_ASSIGNMENT_REQUIRED") unless current_rr
         raise ApiError.new("Transfer room must match the booked room type", status: :unprocessable_content, code: "ROOM_TYPE_MISMATCH") unless new_room.room_type_id == current_rr.room_type_id
@@ -207,6 +224,22 @@ module Reservations
     end
 
     private
+
+    def sync_extension_lines!(quote, room_type, total_nights)
+      folio = @reservation.folio
+      item = folio.folio_items.find_by!(source_module: "ROOM", source_reference: @reservation.id, voided: false)
+      old_taxes = item.calculation_snapshot.to_h["taxes"] || []
+      item.update!(description: "#{room_type.name} - #{total_nights} night(s)",
+        unit_price: item.unit_price + quote.nightly_rate * quote.nights,
+        sub_total: item.sub_total + quote.room_total, tax_amount: item.tax_amount + quote.vat_amount,
+        total_amount: item.total_amount + quote.grand_total,
+        calculation_snapshot: { taxes: old_taxes + quote.tax_lines })
+      quote.add_on_lines.each do |line|
+        service = folio.folio_items.find_by!(source_module: "SERVICE", source_reference: line[:id], voided: false)
+        service.update!(quantity: service.quantity + line[:quantity], sub_total: service.sub_total + line[:total], total_amount: service.total_amount + line[:total])
+      end
+      Folios::Recalculate.call(folio)
+    end
 
     def load_modified_context!
       @check_in_date = @params[:checkInDate].present? ? parse_date!(@params[:checkInDate]) : @reservation.check_in_date
@@ -287,7 +320,7 @@ module Reservations
       end
     end
 
-    def build_quote(check_in_date, check_out_date, room_type, rate_plan, rooms_count, adults_count, children_count)
+    def build_quote(check_in_date, check_out_date, room_type, rate_plan, rooms_count, adults_count, children_count, nightly_rate: nil, add_on_codes: nil, add_on_prices: {})
       Pricing::RoomQuote.call(
         property: @property,
         room_type:,
@@ -297,7 +330,9 @@ module Reservations
         rooms_count:,
         adults_count:,
         children_count:,
-        add_on_codes: reservation_add_on_codes
+        add_on_codes: add_on_codes || reservation_add_on_codes,
+        nightly_rate:,
+        add_on_prices:
       )
     end
 
@@ -336,12 +371,9 @@ module Reservations
     end
 
     def ensure_room_available!(room, check_in_date, check_out_date)
-      conflict = ReservationRoom
-        .joins(:reservation)
-        .where(room:)
-        .where(reservations: { property_id: @property.id, status: Reservation::INVENTORY_BLOCKING_STATUSES })
-        .where.not(reservations: { id: @reservation.id })
-        .where("reservations.check_in_date < ? AND reservations.check_out_date > ?", check_out_date, check_in_date)
+      conflict = Availability::RoomInventory.conflicting_reservation_rooms(
+        property: @property, room_type: room.room_type, check_in_date:, check_out_date:, exclude_reservation: @reservation
+      ).where(room_id: room.id)
         .exists?
       raise ApiError.new("Room is already assigned for this stay window", status: :conflict, code: "ROOM_UNAVAILABLE") if conflict
     end
@@ -389,7 +421,12 @@ module Reservations
     end
 
     def release_room!(room, status)
-      room&.update!(status:)
+      return unless room
+      return if room.reservation_rooms.joins(:reservation).where(reservations: { status: "CHECKED_IN" }).where.not(reservations: { id: @reservation.id }).exists?
+      # Cancelling an advance booking must not clean a room awaiting housekeeping.
+      return if status == "VACANT_CLEAN" && !room.status.in?(%w[VACANT_CLEAN RESERVED])
+
+      room.update!(status:)
     end
 
     def lock_inventory!(room_type)
