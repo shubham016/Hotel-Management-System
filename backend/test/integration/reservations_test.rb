@@ -349,6 +349,53 @@ class ReservationsTest < ActionDispatch::IntegrationTest
     assert_equal "WALK_IN", Reservation.find(response.parsed_body.dig("data", "id")).source
   end
 
+  test "staff and website bookings persist together and staff bookings block public inventory" do
+    token = auth_token
+
+    assert_difference [ "Reservation.count", "ReservationRoom.count", "Folio.count" ], 1 do
+      post "/api/v1/reservations", params: valid_payload.merge(
+        roomId: @first_room.id,
+        source: "WALK_IN"
+      ), headers: auth_headers(token), as: :json
+    end
+    assert_response :created
+    staff_reservation = @property.reservations.find(response.parsed_body.dig("data", "id"))
+    assert_equal "WALK_IN", staff_reservation.source
+    assert_equal @first_room.id, staff_reservation.reservation_rooms.sole.room_id
+    assert_equal @property.id, staff_reservation.folio.property_id
+
+    get "/api/v1/availability?propertyCode=#{@property.code}&checkInDate=#{@check_in.iso8601}&checkOutDate=#{@check_out.iso8601}&adultsCount=2&childrenCount=0"
+    assert_response :success, response.body
+    assert_equal 1, response.parsed_body.dig("data", 0, "availableRooms")
+    assert_equal [ @second_room.id ], response.parsed_body.dig("data", 0, "rooms").pluck("id")
+
+    assert_no_difference [ "Reservation.count", "ReservationRoom.count", "Folio.count" ] do
+      post "/api/v1/reservations", params: valid_payload.merge(
+        roomId: @first_room.id,
+        phone: "+977-9800000061"
+      ), as: :json
+    end
+    assert_response :conflict
+    assert_equal "ROOM_UNAVAILABLE", response.parsed_body["code"]
+
+    assert_difference [ "Reservation.count", "ReservationRoom.count", "Folio.count" ], 1 do
+      post "/api/v1/reservations", params: valid_payload.merge(
+        roomId: @second_room.id,
+        phone: "+977-9800000062"
+      ), as: :json
+    end
+    assert_response :created
+    website_reservation = @property.reservations.find(response.parsed_body.dig("data", "id"))
+    assert_equal "ONLINE", website_reservation.source
+    assert_equal @second_room.id, website_reservation.reservation_rooms.sole.room_id
+    assert_equal @property.id, website_reservation.folio.property_id
+
+    get "/api/v1/reservations", headers: auth_headers(token), as: :json
+    assert_response :success
+    sources_by_id = response.parsed_body["data"].to_h { |entry| [ entry["id"], entry["source"] ] }
+    assert_equal({ staff_reservation.id => "WALK_IN", website_reservation.id => "ONLINE" }, sources_by_id)
+  end
+
   test "modifying dates rejects a conflict on the already assigned room" do
     post "/api/v1/reservations", params: valid_payload.merge(
       roomId: @first_room.id,

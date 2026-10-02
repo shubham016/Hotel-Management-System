@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
 import { DualCalendarPicker } from '@/components/ui/DualCalendarPicker';
+import { RoomPhotoButton, RoomPhotoPreview, type RoomPhoto } from '@/components/booking/RoomPhotoPreview';
 import { formatDualDate } from '@/lib/nepali-calendar';
 import { createBooking, loadAddOnCatalog, loadBookingAvailability } from './api';
 import { DEFAULT_ROOM_IMAGE, PROPERTY_CODE, ROOM_IMAGES } from './constants';
@@ -59,6 +60,7 @@ export default function BookPage() {
   const [availability, setAvailability] = useState<AvailabilityOption[]>([]);
   const [roomsLoading, setRoomsLoading] = useState(false);
   const [roomsError, setRoomsError] = useState('');
+  const [previewRoom, setPreviewRoom] = useState<RoomPhoto | null>(null);
   
   // Add-on services are loaded from the backend catalog so future offerings
   // do not require changes to this booking page.
@@ -85,7 +87,10 @@ export default function BookPage() {
     name: option.roomType.name,
     price: option.quote.nightlyRate,
     desc: option.roomType.description || `${option.roomType.bed_category} bed category · ${option.availableRooms} room(s) available`,
-    img: option.roomType.image_url || ROOM_IMAGES[option.roomType.code] || DEFAULT_ROOM_IMAGE
+    img: option.roomType.image_url || ROOM_IMAGES[option.roomType.code] || DEFAULT_ROOM_IMAGE,
+    bedLabel: `${option.roomType.bed_count} ${option.roomType.bed_category && option.roomType.bed_category.toLowerCase() !== 'not specified' ? `${option.roomType.bed_category} ` : ''}bed${option.roomType.bed_count === 1 ? '' : 's'}`,
+    maxOccupancy: option.roomType.max_occupancy,
+    amenities: option.roomType.amenities
   }]));
   const selectedOption = availability.find((option) => option.roomType.code === selectedRoomCode);
   const selectedRoom = roomsCatalog[selectedRoomCode] || { name: 'Select a room category', price: 0, desc: '', img: DEFAULT_ROOM_IMAGE };
@@ -183,7 +188,7 @@ export default function BookPage() {
   };
 
   return (
-    <div style={{ padding: '40px 24px 80px', maxWidth: 1200, margin: '0 auto' }}>
+    <div className="hne-booking-page" style={{ padding: '40px 24px 80px', maxWidth: 1200, margin: '0 auto' }}>
       {/* Title */}
       <div style={{ textAlign: 'center', marginBottom: 36 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary-orange)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
@@ -283,7 +288,7 @@ export default function BookPage() {
                         transition: 'all 0.2s'
                       }}
                     >
-                      <img src={room.img} alt={room.name} style={{ width: 90, height: 75, borderRadius: 'var(--radius-sm)', objectFit: 'cover' }} />
+                      <RoomPhotoButton room={room} onOpen={() => setPreviewRoom(room)} />
                       <div style={{ flex: 1 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <h4 style={{ fontSize: 15, fontWeight: 700 }}>{room.name}</h4>
@@ -378,7 +383,7 @@ export default function BookPage() {
               </h3>
 
               <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-                <img src={selectedRoom.img} alt={selectedRoom.name} style={{ width: 70, height: 60, borderRadius: 'var(--radius-sm)', objectFit: 'cover' }} />
+                <RoomPhotoButton room={selectedRoom} compact disabled={!selectedOption} onOpen={() => setPreviewRoom(selectedRoom)} />
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{selectedRoom.name}</div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
@@ -555,6 +560,7 @@ export default function BookPage() {
           </div>
         </div>
       )}
+      {previewRoom && <RoomPhotoPreview room={previewRoom} onClose={() => setPreviewRoom(null)} />}
     </div>
   );
 }

@@ -214,16 +214,20 @@ h1, h2, h3, h4, h5, h6 {
   letter-spacing: -0.015em;
 }
 
-/* Public headings use an editorial face; forms and navigation use DM Sans. */
+/* Preserve the original embedded booking typography in every booking view. */
 .public-site main h1,
 .public-site main h2,
-.public-site main h3 {
+.public-site main h3,
+.hne-booking-page h1,
+.hne-booking-page h2,
+.hne-booking-page h3 {
   font-family: var(--font-family-editorial) !important;
   font-weight: 500 !important;
   letter-spacing: -0.02em;
 }
 
-.public-site main h3 {
+.public-site main h3,
+.hne-booking-page h3 {
   font-weight: 600 !important;
 }
 

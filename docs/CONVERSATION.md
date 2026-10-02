@@ -750,3 +750,48 @@ The user asked for a connected set of Hotel New Era PMS corrections: prevent ove
 2. Keep the earlier occupancy confirmations and inactive-room inquiry reassignment on the project follow-up list.
 
 ---
+
+## Record Entry: 2026-10-01 (Room Photos, Capacity, Carousels, and Guest Feedback)
+
+### Local database and booking deletion
+
+- The local application uses Docker PostgreSQL: `hotel_new_era_development` in `backend-db-1`. Windows PostgreSQL also listens on loopback port 5432; pgAdmin connecting to localhost reached that separate server and reported that the Docker database did not exist.
+- `RES-HNE-BTW-2026-000010` is a reservation number; its linked folio is `FOL-HNE-BTW-2026-000010`. An initiated eSewa sandbox request blocked archival. After the request expired, the user retried Delete successfully; the existing application workflow marked the expired sandbox request failed and archived the booking. No direct database deletion was performed.
+
+### Faster working preference
+
+- Saved the user's preference in root `AGENTS.md`: inspect relevant files, batch independent checks, use verification proportional to risk, stop after sufficient verification, and keep responses concise. Payments, booking rules, accounting, and database changes still require appropriate focused checks.
+
+### Dynamic room category photos and capacity
+
+- Hotel Setup → Room Categories supports an image upload or image URL, preview, removal, and a thumbnail in the category list. Uploads use the existing CMS media endpoint. The saved image is returned by Hotel Setup, room category, public catalog, and availability APIs and used on homepage, room catalog, and booking cards; existing image defaults are used when no category image is saved.
+- Migration `20261001000001_add_image_url_to_room_types` adds the persisted image URL. It was applied locally.
+- Maximum guests combined is now a read-only total of Maximum adults + Maximum children. The form saves that total, and `RoomType` recalculates it before validation so backend writes also stay consistent.
+- Migration `20261001000002_sync_room_category_capacity` corrected existing saved totals locally. Twin categories with 2 adults and 1 child now have capacity 3; Triple categories with 3 adults and 2 children have capacity 5.
+- Availability and reservation creation continue to enforce the individual adult and child limits as well as combined capacity. A total capacity of 5 with limits of 3 adults and 2 children does not allow 5 adults. The user's sum rule supersedes the earlier independently editable combined limit.
+
+### Homepage carousels and room selection
+
+- Added shared `CardCarousel` to Accommodations and Guest Feedback. Accommodations includes all active categories. Both sections loop with left/right arrows and 5-second autoplay; the initial 2-second interval was increased at the user's request. Autoplay pauses during hover or focus; there is no pause button.
+- Accommodations uses white circular controls with dark arrow icons, subtle borders and shadows, and hover/focus styling. Controls sit halfway over the outer image edges, centered at 120px for the 240px room photos. Guest Feedback retains its original smaller white chevron controls.
+- Accommodations supports mouse dragging and touch swiping, follows horizontal movement, and snaps to a room on release. Native image dragging is prevented; vertical touch scrolling remains available.
+- The whole RoomCard is a booking link that opens the existing Book a Room modal with the selected category. The Select Room visual is part of that link. Pointer capture begins only after horizontal movement so normal clicks work, and drag-release clicks are suppressed.
+
+### Dynamic Guest Feedback in CMS
+
+- Added `CmsTestimonial`, property association, CMS CRUD endpoints, and a separate public published-feedback endpoint. Administrative writes require CMS authorization and are scoped to the selected property; the public endpoint exposes active reviews in display order.
+- Migration `20261001000003_create_cms_testimonials` creates the table and moves the homepage's three existing testimonials into local database records. Ratings are limited to 1–5 and display order must be nonnegative.
+- CMS → Pages → Managed Pages now has **Guest Feedback directly above Contact Us**, with its own editor rather than an editor inside the Homepage tab. Fields include guest name, location/description, rating, review, optional photo upload or URL, display order, and Show on homepage. Reviews can be added, edited, hidden, and deleted.
+- The homepage fetches published reviews from the database and omits the section when none are published. A missing guest photo uses an initial. The preview link targets the homepage's `guest-feedback` section.
+- All Managed Pages entries now use the same font weight, white background, text color, and neutral Live badge. Only the border marks the selected entry. Guest Feedback editor labels and heading follow the other CMS form styles.
+
+### Verification and scope
+
+- Frontend TypeScript checks passed for the functional changes. Later menu and styling adjustments passed focused syntax checks or were literal/style-only edits.
+- Room image / Hotel Setup integration checks passed: 9 tests, 76 assertions, 0 failures.
+- Capacity-related focused checks passed: 7 tests, 60 assertions, 0 failures; verified valid bookings and rejection of excess adults or children. The local public catalog API returned the corrected capacities.
+- CMS testimonial integration checks passed: 3 tests, 24 assertions, 0 failures; covered persisted edits, active-only publishing, deletion without fallback reviews, authentication, property isolation, rating validation, and ordering. The local public feedback API returned the three migrated reviews.
+- A headless browser screenshot attempt did not complete and its helper processes were stopped. No completed automated browser interaction verification or full regression suite was recorded for these changes.
+- Changes and migrations were applied locally; no production deployment was performed in this session.
+
+---

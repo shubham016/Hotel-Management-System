@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
+import './RoomPhotoPreview.css';
 
 type BookingModalProps = {
   title: string;
