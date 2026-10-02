@@ -1,0 +1,17 @@
+.hne-offer-details { max-width: 1280px; margin: 0 auto; padding: 40px 24px 80px; }
+.hne-offer-back { display: inline-flex; align-items: center; gap: 8px; color: var(--brand-crimson); font-size: 13px; font-weight: 600; margin-bottom: 28px; }
+.hne-offer-detail-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: start; gap: 40px; }
+.hne-offer-detail-photo { position: relative; border-radius: var(--radius-lg); overflow: hidden; }
+.hne-offer-detail-photo img { display: block; width: 100%; height: 380px; object-fit: cover; }
+.hne-offer-detail-photo > span { position: absolute; top: 20px; left: 20px; background: var(--brand-crimson); color: white; border-radius: var(--radius-full); padding: 8px 15px; font-size: 13px; font-weight: 700; }
+.hne-offer-detail-eyebrow { color: var(--brand-crimson); text-transform: uppercase; letter-spacing: .08em; font-size: 11px; font-weight: 700; margin-bottom: 12px; }
+.hne-offer-detail-content h1 { font-size: clamp(28px, 3vw, 40px); line-height: 1.2; margin-bottom: 20px; }
+.hne-offer-detail-description { color: var(--text-secondary); line-height: 1.8; font-size: 15px; white-space: pre-line; margin-bottom: 24px; }
+.hne-offer-detail-facts { display: flex; gap: 24px; flex-wrap: wrap; padding: 20px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.hne-offer-detail-facts dt { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); margin-bottom: 7px; }
+.hne-offer-detail-facts dd { margin: 0; font-size: 14px; font-weight: 600; }
+.hne-offer-detail-facts .hne-offer-detail-price { font-size: 23px; font-weight: 700; }
+.hne-offer-detail-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+.hne-offer-unavailable { padding: 48px 0; }
+.hne-offer-unavailable p { color: var(--text-secondary); margin: 16px 0 24px; }
+@media (max-width: 767px) { .hne-offer-details { padding: 28px 20px 48px; } .hne-offer-detail-grid { grid-template-columns: minmax(0, 1fr); gap: 28px; } .hne-offer-detail-photo img { height: 260px; } }

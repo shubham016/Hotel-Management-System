@@ -20,7 +20,7 @@ export const Footer: React.FC = () => {
             </p>
             <div style={{ display: 'flex', gap: 10 }}>
               <span style={{ fontSize: 11, backgroundColor: 'rgba(255,255,255,0.1)', padding: '4px 10px', borderRadius: 4, color: 'var(--golden)' }}>
-                ⭐ Security • Cleanliness • Hospitality
+                Security • Cleanliness • Hospitality
               </span>
             </div>
           </div>

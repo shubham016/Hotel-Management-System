@@ -81,7 +81,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
             textTransform: 'uppercase'
           }}
         >
-          <Sparkles size={14} color="var(--golden)" />
+          {/* <Sparkles size={14} color="var(--golden)" /> */}
           <span>{content.subheading}</span>
         </div>
 

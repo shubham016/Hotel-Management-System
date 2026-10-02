@@ -60,7 +60,7 @@ export function SpecialOffers() {
                     {offer.priceStartingAt && offer.priceStartingAt > 0 ? (
                       <div className="hne-home-offer-price"><span>Starting from</span><strong>Rs. {offer.priceStartingAt.toLocaleString('en-IN')}</strong></div>
                     ) : <span className="hne-home-offer-package">Stay packages</span>}
-                    <Link href={`/offers#offer-${encodeURIComponent(offer.id)}`} className="hne-home-offer-link">View Offer <ArrowRight size={16} /></Link>
+                    <Link href={`/offers/${encodeURIComponent(offer.id)}`} className="hne-home-offer-link">View Offer <ArrowRight size={16} /></Link>
                   </div>
                 </div>
               </article>

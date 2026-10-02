@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, Calendar, Tag, ArrowRight, Check } from 'lucide-react';
 import Link from '@/lib/router';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 export default function OffersPage() {
   const { hash } = useLocation();
+  const navigate = useNavigate();
   const [pageInfo, setPageInfo] = useState({
     heroImageUrl: '',
     heroHeading: 'Special Offers & Escapes',
@@ -54,8 +55,8 @@ export default function OffersPage() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   useEffect(() => {
-    if (hash.startsWith('#offer-')) document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView({ block: 'start' });
-  }, [hash, offers]);
+    if (hash.startsWith('#offer-')) navigate(`/offers/${hash.slice(7)}`, { replace: true });
+  }, [hash, navigate]);
 
   useEffect(() => {
     // Fetch CMS Page Data
@@ -177,8 +178,8 @@ export default function OffersPage() {
                   <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                     Valid until {offer.validUntil}
                   </span>
-                  <Link href={`/book?promo=${offer.code}`} className="hne-btn hne-btn-primary hne-btn-sm">
-                    <span>Book With Offer</span>
+                  <Link href={`/offers/${encodeURIComponent(offer.id)}`} className="hne-btn hne-btn-primary hne-btn-sm">
+                    <span>View Offer</span>
                     <ArrowRight size={14} />
                   </Link>
                 </div>

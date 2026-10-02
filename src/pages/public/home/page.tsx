@@ -76,10 +76,8 @@ export default function HomePage() {
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 6,
-                padding: '4px 14px',
-                backgroundColor: 'var(--brand-crimson-light)',
+                padding: '4px 0',
                 color: 'var(--brand-crimson)',
-                borderRadius: 'var(--radius-full)',
                 fontSize: 12,
                 fontWeight: 700,
                 marginBottom: 14,
@@ -87,7 +85,8 @@ export default function HomePage() {
                 letterSpacing: '0.05em'
               }}
             >
-              <Sparkles size={14} /> Atithi Devo Bhava • Est. 1982
+              {/* <Sparkles size={14} />  */}
+              Atithi Devo Bhava • Est. 1982
             </div>
             <h2 style={{ fontSize: 'clamp(26px, 3.5vw, 38px)', lineHeight: 1.2, marginBottom: 18 }}>
               Butwal’s Landmark of Hospitality & Trust
