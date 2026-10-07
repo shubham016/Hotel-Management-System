@@ -1,6 +1,7 @@
 require "net/http"
 require "openssl"
 require "base64"
+require "ipaddr"
 
 module Payments
   class Gateway
@@ -21,11 +22,36 @@ module Payments
       (ENV["FRONTEND_PUBLIC_URL"].presence || ENV.fetch("FRONTEND_ORIGINS", "http://localhost:3000").split(",").first).to_s.delete_suffix("/")
     end
 
+    def self.public_available
+      return [] unless public_return_url?
+
+      available.select { |gateway, configured| configured && modes[gateway] == "LIVE" }.keys
+    end
+
+    def self.public_return_url?
+      uri = URI(frontend_url)
+      return false unless uri.scheme == "https" && uri.host.present? && uri.userinfo.nil? && uri.query.nil? && uri.fragment.nil?
+      return false if uri.host == "localhost" || uri.host.end_with?(".localhost", ".local")
+
+      begin
+        address = IPAddr.new(uri.hostname)
+        return false if address.private? || address.loopback? || address.link_local?
+      rescue IPAddr::InvalidAddressError
+        # A named public HTTPS host is expected for a deployed guest website.
+      end
+      true
+    rescue URI::InvalidURIError
+      false
+    end
+
     def self.start(request, gateway)
+      if request.public_checkout && !public_available.include?(gateway.to_sym)
+        raise ApiError.new("This wallet is not available for guest payments", status: :unprocessable_content, code: "GATEWAY_UNAVAILABLE")
+      end
       raise ApiError.new("This gateway is not configured", status: :unprocessable_content, code: "GATEWAY_UNAVAILABLE") unless available[gateway.to_sym]
 
       case gateway
-      when "ESEWA" then esewa_form(request)
+      when "ESEWA" then esewa_checkout(request)
       when "KHALTI" then khalti_link(request)
       end
     end
@@ -53,10 +79,46 @@ module Payments
         fields: {
           amount:, tax_amount: "0", total_amount: amount, transaction_uuid: reference,
           product_code:, product_service_charge: "0", product_delivery_charge: "0",
-          success_url: "#{return_url}?gateway=ESEWA", failure_url: "#{return_url}?gateway=ESEWA&cancelled=1",
+          success_url: "#{return_url}/return/ESEWA/success", failure_url: "#{return_url}/return/ESEWA/cancelled",
           signed_field_names: "total_amount,transaction_uuid,product_code", signature:
         }
       }
+    end
+
+    def self.resumable_esewa?(request)
+      return false unless request.gateway == "ESEWA" && request.status == "INITIATED" && request.gateway_reference.present?
+
+      uri = URI(request.gateway_url.to_s)
+      host = ENV["ESEWA_MODE"] == "live" ? "epay.esewa.com.np" : "rc-epay.esewa.com.np"
+      uri.scheme == "https" && uri.host == host && uri.path == "/epay" && URI.decode_www_form(uri.query.to_s).any? { |key, value| key == "bookingId" && value.present? }
+    rescue URI::InvalidURIError, ArgumentError
+      false
+    end
+
+    def self.esewa_checkout(request)
+      if request.status == "INITIATED"
+        return { reference: request.gateway_reference, url: request.gateway_url } if resumable_esewa?(request)
+
+        raise ApiError.new("This eSewa checkout was already opened. Please use the original eSewa tab or contact the front desk.", status: :conflict, code: "PAYMENT_IN_PROGRESS")
+      end
+
+      form = esewa_form(request)
+      response = post_form(URI(form.fetch(:url)), form.fetch(:fields))
+      url = response["location"].to_s
+      candidate = PaymentRequest.new(gateway: "ESEWA", status: "INITIATED", gateway_reference: form.fetch(:reference), gateway_url: url)
+      unless response.is_a?(Net::HTTPRedirection) && resumable_esewa?(candidate)
+        raise ApiError.new("eSewa could not open the checkout. Please contact the front desk.", status: :bad_gateway, code: "GATEWAY_ERROR")
+      end
+
+      { reference: form.fetch(:reference), url: }
+    end
+
+    def self.post_form(uri, fields)
+      http_request = Net::HTTP::Post.new(uri)
+      http_request.set_form_data(fields)
+      Net::HTTP.start(uri.host, uri.port, use_ssl: true, open_timeout: 5, read_timeout: 10) { |http| http.request(http_request) }
+    rescue IOError, SocketError, Timeout::Error, OpenSSL::SSL::SSLError
+      raise ApiError.new("Payment gateway is temporarily unavailable", status: :bad_gateway, code: "GATEWAY_ERROR")
     end
 
     def self.khalti_link(request)
@@ -79,14 +141,14 @@ module Payments
     end
 
     def self.verify_esewa(request)
-      base = ENV["ESEWA_MODE"] == "live" ? "https://epay.esewa.com.np" : "https://uat.esewa.com.np"
+      base = ENV["ESEWA_MODE"] == "live" ? "https://esewa.com.np" : "https://rc.esewa.com.np"
       query = URI.encode_www_form(product_code: ENV.fetch("ESEWA_PRODUCT_CODE"), total_amount: request.amount.to_s("F"), transaction_uuid: request.gateway_reference)
       response = get_json("#{base}/api/epay/transaction/status/?#{query}")
       amount = BigDecimal((response["total_amount"] || response["totalAmount"] || "0").to_s)
       reference = response["transaction_uuid"] || response["pid"]
       product = response["product_code"] || response["scd"]
       valid = amount == request.amount && response["status"] == "COMPLETE" && (response["ref_id"].present? || response["refId"].present?)
-      valid = valid && (reference.blank? || reference == request.gateway_reference) && (product.blank? || product == ENV.fetch("ESEWA_PRODUCT_CODE"))
+      valid = valid && reference == request.gateway_reference && product == ENV.fetch("ESEWA_PRODUCT_CODE")
       { complete: valid, failed: %w[NOT_FOUND CANCELED FULL_REFUND PARTIAL_REFUND].include?(response["status"]), transaction_id: response["ref_id"] || response["refId"] }
     end
 

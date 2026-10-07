@@ -3,8 +3,12 @@ module Api
     module Pms
       class PaymentRequestsController < BackendController
         self.authorization_module_name = "FOLIOS"
-        skip_before_action :authenticate!, only: %i[show start verify]
-        skip_before_action :authorize_request!, only: %i[show start verify]
+        skip_before_action :authenticate!, only: %i[show start verify options]
+        skip_before_action :authorize_request!, only: %i[show start verify options]
+
+        def options
+          render json: { success: true, data: { availableGateways: Payments::Gateway.public_available } }
+        end
 
         def create
           folio = default_property.folios.includes(:reservation).find(params.require(:folioId))
@@ -37,11 +41,13 @@ module Api
         private
 
         def find_request
-          PaymentRequest.includes(folio: :reservation).find_by!(public_token: params[:id])
+          PaymentRequest.includes(:payment, folio: [ :guest, { reservation: { reservation_rooms: :room_type } } ]).find_by!(public_token: params[:id])
         end
 
         def serialize(payment_request)
           folio = payment_request.folio
+          reservation = folio.reservation
+          payment = payment_request.payment
           {
             token: payment_request.public_token,
             kind: payment_request.kind,
@@ -51,13 +57,25 @@ module Api
             currency: "NPR",
             folioNumber: folio.folio_number,
             confirmationNumber: folio.reservation.confirmation_number,
+            guestName: folio.guest.full_name,
+            checkInDate: reservation.check_in_date,
+            checkOutDate: reservation.check_out_date,
+            nights: (reservation.check_out_date - reservation.check_in_date).to_i,
+            roomDescription: reservation.reservation_rooms.map { |room| room.room_type.name }.tally.map { |name, count| count > 1 ? "#{count} × #{name}" : name }.join(", "),
+            adultsCount: reservation.adults_count,
+            childrenCount: reservation.children_count,
+            reservationStatus: reservation.status,
+            bookingTotal: folio.grand_total.to_f,
+            paidAt: payment&.paid_at,
+            paymentMethod: payment&.payment_method,
             balanceDue: folio.balance_due.to_f,
             totalPaid: folio.total_paid.to_f,
-            receiptNumber: payment_request.payment&.receipt_number,
+            receiptNumber: payment&.receipt_number,
             paymentUrl: "#{Payments::Gateway.frontend_url}/pay/#{payment_request.public_token}",
             expiresAt: payment_request.expires_at,
-            availableGateways: Payments::Gateway.available.select { |_gateway, configured| configured }.keys,
-            gatewayModes: Payments::Gateway.modes
+            availableGateways: payment_request.public_checkout ? Payments::Gateway.public_available : Payments::Gateway.available.select { |_gateway, configured| configured }.keys,
+            gatewayModes: Payments::Gateway.modes,
+            canResume: Payments::Gateway.resumable_esewa?(payment_request)
           }
         end
       end

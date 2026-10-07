@@ -25,11 +25,13 @@ export function BookingModal({ title, subtitle, onClose, children }: BookingModa
 
   return (
     <div
+      className="booking-modal-backdrop"
       role="presentation"
       onMouseDown={onClose}
       style={{ position: 'fixed', inset: 0, zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, backgroundColor: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(2px)' }}
     >
       <div
+        className="booking-modal-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby="booking-modal-title"

@@ -35,6 +35,8 @@ const CmsPages = lazy(() => import('@/pages/admin/cms/pages/page'));
 const HotelSetup = lazy(() => import('@/pages/admin/cms/hotel-setup/page'));
 const Settings = lazy(() => import('@/pages/admin/settings/page'));
 const AuditLogs = lazy(() => import('@/pages/admin/audit-logs/page'));
+const StaffAccess = lazy(() => import('@/pages/admin/staff-access/page'));
+const Profile = lazy(() => import('@/pages/admin/profile/page'));
 
 const fallback = <div style={{ minHeight: '40vh', display: 'grid', placeItems: 'center', color: 'var(--text-secondary)' }}>Loading…</div>;
 
@@ -44,13 +46,16 @@ export default function App() {
   const backgroundLocation = (location.state as { backgroundLocation?: Location } | null)?.backgroundLocation;
   const showBookingModal = Boolean(backgroundLocation && location.pathname === '/book');
 
-  return <Suspense fallback={fallback}><Routes location={backgroundLocation || location}>
+  return <Suspense fallback={fallback}><Routes location={showBookingModal ? backgroundLocation : location}>
     <Route element={<PublicLayout><Outlet /></PublicLayout>}>
       <Route path="/offers/:offerId" element={<OfferDetails />} />
-      <Route path="/" element={<Home />} /><Route path="/about" element={<About />} /><Route path="/rooms" element={<Rooms />} /><Route path="/dining" element={<Dining />} /><Route path="/banquet" element={<Banquet />} /><Route path="/offers" element={<Offers />} /><Route path="/contact" element={<Contact />} /><Route path="/book" element={<Book />} /><Route path="/pay/:token" element={<Pay />} />
+      <Route path="/" element={<Home />} /><Route path="/about" element={<About />} /><Route path="/rooms" element={<Rooms />} /><Route path="/dining" element={<Dining />} /><Route path="/banquet" element={<Banquet />} /><Route path="/offers" element={<Offers />} /><Route path="/contact" element={<Contact />} /><Route path="/book" element={<Book />} />
     </Route>
+    <Route path="/pay/:token" element={<Pay />} />
+    <Route path="/pay/:token/return/:gateway/:outcome" element={<Pay />} />
     <Route path="/login" element={<Login />} />
     <Route path="/admin" element={<AdminLayout />}>
+      <Route path="staff-access" element={<StaffAccess />} /><Route path="profile" element={<Profile />} />
       <Route index element={<Navigate to="dashboard" replace />} /><Route path="dashboard" element={<Dashboard />} /><Route path="apps" element={<Apps />} />
       <Route path="pms/reservations" element={<Reservations />} /><Route path="pms/rooms" element={<RoomStatus />} /><Route path="pms/frontdesk" element={<FrontDesk />} /><Route path="pms/night-audit" element={<NightAudit />} />
       <Route path="pos/tables" element={<Tables />} /><Route path="pos/kot" element={<Kot />} /><Route path="banquet" element={<BanquetAdmin />} /><Route path="housekeeping" element={<Housekeeping />} /><Route path="inventory" element={<Inventory />} /><Route path="procurement" element={<Procurement />} /><Route path="crm" element={<Crm />} />

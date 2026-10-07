@@ -6,5 +6,7 @@ namespace :api do
     post "auth/password", to: "identity/passwords#create"
     patch "auth/password", to: "identity/passwords#update"
     get "auth/me", to: "identity/sessions#me"
+    resources :users, only: %i[index create update], controller: "identity/users"
+    patch "auth/profile", to: "identity/profiles#update"
   end
 end

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Link from '@/lib/router';
 import { Phone, Calendar, Menu, X, Sparkles, MapPin } from 'lucide-react';
 import { SocialLinks } from './SocialLinks';
+import './Navbar.css';
 
 export const Navbar: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -60,6 +61,7 @@ export const Navbar: React.FC = () => {
 
       {/* Main navigation */}
       <div
+        className="public-nav-row"
         style={{
           maxWidth: 1280,
           margin: '0 auto',
@@ -80,6 +82,7 @@ export const Navbar: React.FC = () => {
           }}
         >
           <img
+            className="public-nav-logo"
             src="/logo.png"
             alt="Hotel New Era Logo"
             style={{
@@ -126,8 +129,10 @@ export const Navbar: React.FC = () => {
             <Calendar size={16} />
             <span>Book A Room</span>
           </Link>
+          <button className="public-mobile-toggle" type="button" aria-label={mobileMenuOpen ? 'Close navigation' : 'Open navigation'} aria-expanded={mobileMenuOpen} aria-controls="public-mobile-menu" onClick={() => setMobileMenuOpen((open) => !open)}>{mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}</button>
         </div>
       </div>
+      {mobileMenuOpen && <nav id="public-mobile-menu" className="public-mobile-menu" aria-label="Main navigation">{navLinks.map((link) => <Link key={link.href} href={link.href} onClick={() => setMobileMenuOpen(false)}>{link.name}</Link>)}</nav>}
     </header>
   );
 };

@@ -73,15 +73,23 @@ module Reservations
       old_values = snapshot
 
       Reservation.transaction do
-        if @reservation.folio&.payments&.exists?
-          raise ApiError.new("Reservation has payments and cannot be cancelled without a refund workflow", status: :conflict, code: "PAYMENT_EXISTS")
-        end
+        folio = @reservation.folio
+        folio&.lock!
+        @reservation.lock!
+        return @reservation.reload if @reservation.status == "CANCELLED"
+        ensure_status_in!([ "INQUIRY", "CONFIRMED" ], "Only pending or confirmed reservations can be cancelled before check-in")
         ensure_no_gateway_payment!
+        paid = folio ? folio.payments.sum(:amount) : 0.to_d
+        if paid.positive? && BigDecimal(@params[:expectedPaidAmount].to_s, exception: false) != paid
+          raise ApiError.new("Payment amount changed. Refresh the booking and review the refund before cancelling.", status: :conflict, code: "REFUND_REVIEW_REQUIRED")
+        end
+        invalidate_payment_requests!(folio, reason: "Booking cancelled by staff")
+        refund = Payments::CancellationRefunds.create!(folio) if folio
 
         release_rooms!("VACANT_CLEAN")
         @reservation.update!(status: "CANCELLED")
-        @reservation.folio&.update!(status: "VOID", balance_due: 0)
-        audit!("CANCEL", old_values, reason: @params[:reason].presence)
+        folio&.update!(status: "VOID", balance_due: 0, total_paid: paid)
+        audit!("CANCEL", old_values, reason: @params[:reason].presence, refund_amount: refund&.refund_amount&.to_s, cancellation_deduction: refund&.deduction_amount&.to_s)
       end
 
       @reservation.reload
@@ -93,10 +101,14 @@ module Reservations
 
       Reservation.transaction do
         folio = @reservation.folio
-        if @reservation.status != "CHECKED_OUT" && folio&.payments&.exists?
+        folio&.lock!
+        @reservation.lock!
+        refund = folio&.cancellation_refund
+        refunded_cancellation = @reservation.status == "CANCELLED" && refund&.status == "PAID" && refund.paid_amount == folio.payments.sum(:amount)
+        if @reservation.status != "CHECKED_OUT" && folio&.payments&.exists? && !refunded_cancellation
           raise ApiError.new("This active booking has payments and requires a refund before it can be deleted", status: :conflict, code: "PAYMENT_EXISTS")
         end
-        ensure_no_gateway_payment!
+        invalidate_payment_requests!(folio)
 
         if @reservation.status == "CHECKED_IN"
           release_rooms!("VACANT_DIRTY")
@@ -418,6 +430,20 @@ module Reservations
       return unless requests.exists?
 
       raise ApiError.new("A gateway payment is in progress for this booking", status: :conflict, code: "PAYMENT_IN_PROGRESS")
+    end
+
+    def invalidate_payment_requests!(folio, reason: "Booking deleted by staff")
+      return unless folio
+
+      folio.payment_requests.where(status: %w[PENDING INITIATED]).lock.each do |request|
+        request.update!(status: "FAILED", expires_at: Time.current)
+        AuditLog.create!(
+          company: @property.company, property: @property, user: Current.user,
+          module_name: "PAYMENTS", action: "CANCEL", entity_type: "PaymentRequest", entity_id: request.id,
+          new_values: { status: "FAILED", reason: },
+          request_id: Current.request_id, ip_address: Current.ip_address
+        )
+      end
     end
 
     def release_room!(room, status)

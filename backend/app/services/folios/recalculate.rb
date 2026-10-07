@@ -16,8 +16,11 @@ module Folios
       service_charge = items.sum { |item| tax_amount(item, "SERVICE_CHARGE") }
       vat_amount = combined_tax - service_charge
       total_paid = @folio.payments.sum(:amount)
+      refund = @folio.cancellation_refund
+      total_paid -= refund.refund_amount if refund&.status == "PAID"
       grand_total = sub_total + service_charge + vat_amount
       balance_due = [ grand_total - total_paid, 0 ].max
+      balance_due = 0 if @folio.status == "VOID"
       status = if @folio.status.in?(%w[CLOSED VOID])
         @folio.status
       else

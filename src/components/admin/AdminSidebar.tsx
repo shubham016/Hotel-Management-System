@@ -1,6 +1,8 @@
 import React from 'react';
 import Link, { usePathname } from '@/lib/router';
 import { ADMIN_NAV_SECTIONS } from '@/lib/admin-nav';
+import { usePortalProfile } from '@/lib/portal-context';
+import { canOpenPage, portalHome } from '@/lib/portal-access';
 
 interface SidebarProps {
   collapsed?: boolean;
@@ -9,7 +11,9 @@ interface SidebarProps {
 export const AdminSidebar: React.FC<SidebarProps> = ({ collapsed }) => {
   const pathname = usePathname();
 
-  const navSections = ADMIN_NAV_SECTIONS;
+  const profile = usePortalProfile();
+  const navSections = ADMIN_NAV_SECTIONS.map(section => ({ ...section, items: section.items.filter(item => canOpenPage(profile, item.href)) })).filter(section => section.items.length);
+  const home = portalHome(profile);
 
   return (
     <aside
@@ -41,7 +45,7 @@ export const AdminSidebar: React.FC<SidebarProps> = ({ collapsed }) => {
         }}
       >
         {!collapsed ? (
-          <Link href="/admin/dashboard" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
+          <Link href={home} style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
             <img
               src="/logo.png"
               alt="Hotel New Era"
@@ -53,7 +57,7 @@ export const AdminSidebar: React.FC<SidebarProps> = ({ collapsed }) => {
             />
           </Link>
         ) : (
-          <Link href="/admin/dashboard" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', textDecoration: 'none' }}>
+          <Link href={home} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', textDecoration: 'none' }}>
             <img
               src="/logo.png"
               alt="Hotel New Era"

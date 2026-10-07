@@ -1,0 +1,26 @@
+.booking-voucher { max-width: 680px; margin: 0 auto; text-align: center; padding: 32px; }
+.booking-voucher-details { display: grid; gap: 14px; text-align: left; padding: 20px; border: 1px solid var(--border); border-radius: 12px; }
+.booking-voucher-details > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); gap: 12px; font-size: 13px; line-height: 1.6; }
+.booking-voucher-details dt { color: var(--text-secondary); }
+.booking-voucher-details dd { font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+.booking-voucher-details small { display: block; font-weight: 400; font-size: 11px; color: var(--text-secondary); }
+.booking-voucher-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 24px; }
+@media (max-width: 600px) {
+  .hne-booking-page { padding: 24px 12px 40px !important; }
+  .hne-booking-page .booking-selection-grid { grid-template-columns: minmax(0, 1fr) !important; }
+  .hne-booking-page .booking-progress { gap: 10px !important; flex-wrap: wrap; }
+  .hne-booking-page .booking-progress > span { display: none; }
+  .hne-booking-page .booking-guest-grid { grid-template-columns: minmax(0, 1fr) !important; }
+  .booking-voucher { padding: 24px 16px; }
+  .booking-voucher-details { padding: 14px; }
+  .booking-voucher-actions > button { width: 100%; }
+}
+@media print {
+  .booking-modal-backdrop:has(.booking-voucher),
+  .booking-modal-backdrop:has(.booking-voucher) .booking-modal-dialog,
+  .booking-modal-backdrop:has(.booking-voucher) .booking-modal-scroll { position: static !important; width: 100% !important; height: auto !important; max-height: none !important; overflow: visible !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; background: #fff !important; backdrop-filter: none !important; }
+  .booking-voucher, .booking-voucher * { visibility: visible !important; }
+  .booking-voucher { position: absolute; inset: 0 auto auto 0; width: 100%; max-width: none; border: 0; box-shadow: none; background: #fff; color: #18232e; }
+  .booking-voucher-actions { display: none; }
+  .booking-voucher-details { break-inside: avoid; }
+}

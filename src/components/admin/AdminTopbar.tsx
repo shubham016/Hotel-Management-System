@@ -1,29 +1,26 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link, { usePathname, useRouter } from '@/lib/router';
-import { User, LogOut, ChevronDown, ExternalLink, LayoutGrid } from 'lucide-react';
+import { User, LogOut, ChevronDown, ExternalLink, LayoutGrid, Menu } from 'lucide-react';
 import { AdminSearch } from './AdminSearch';
 import { ThemeToggle } from './ThemeToggle';
 import { NotificationsBell } from './NotificationsBell';
 import { ADMIN_APPS } from '@/lib/admin-nav';
 import { authClient } from '@/lib/auth-client';
+import { usePortalProfile } from '@/lib/portal-context';
+import { canOpenPage, hasAccess } from '@/lib/portal-access';
 
 interface TopbarProps {
   propertyName?: string;
   userFullName?: string;
   userRole?: string;
   userEmail?: string;
+  onToggleNavigation?: () => void;
+  navigationOpen?: boolean;
 }
-
-// Temporary selector data while multi-property records are being connected to
-// the Rails API. The first entry is the real seeded development property.
-const SEEDED_HOTELS = [
-  { value: 'Hotel New Era - Butwal', label: 'Hotel New Era · Butwal' },
-  { value: 'Hotel New Era - Kathmandu', label: 'Hotel New Era · Kathmandu' },
-  { value: 'Hotel New Era - Pokhara', label: 'Hotel New Era · Pokhara' }
-];
 
 function formatRoleLabel(role?: string) {
   if (!role) return '';
+  if (!role.includes('_')) return role;
   return role
     .split('_')
     .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
@@ -40,9 +37,12 @@ export const AdminTopbar: React.FC<TopbarProps> = ({
   propertyName = 'Hotel New Era - Butwal',
   userFullName = 'Staff Member',
   userRole,
-  userEmail
+  userEmail,
+  onToggleNavigation,
+  navigationOpen
 }) => {
   const router = useRouter();
+  const profile = usePortalProfile();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [appSwitcherOpen, setAppSwitcherOpen] = useState(false);
@@ -79,6 +79,7 @@ export const AdminTopbar: React.FC<TopbarProps> = ({
 
   return (
     <header
+      className="portal-topbar"
       style={{
         height: 78,
         backgroundColor: 'var(--bg-card)',
@@ -92,7 +93,8 @@ export const AdminTopbar: React.FC<TopbarProps> = ({
         zIndex: 30
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+      <button className="portal-menu-toggle" aria-label="Toggle navigation" aria-expanded={navigationOpen} onClick={onToggleNavigation}><Menu size={20} /></button>
+      <div className="portal-property-tools" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         {/* App switcher, following Kamra's compact grid-button pattern. */}
         <div ref={appSwitcherRef} style={{ position: 'relative' }}>
           <button
@@ -132,7 +134,7 @@ export const AdminTopbar: React.FC<TopbarProps> = ({
               }}
             >
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 2 }}>
-                {ADMIN_APPS.map((app) => {
+                {ADMIN_APPS.filter(app => canOpenPage(profile, app.href)).map((app) => {
                   const Icon = app.icon;
                   const isActive = pathname === app.href || pathname?.startsWith(`${app.href}/`);
                   return (
@@ -180,7 +182,7 @@ export const AdminTopbar: React.FC<TopbarProps> = ({
               outline: 'none'
             }}
           >
-            {SEEDED_HOTELS.map((hotel) => <option key={hotel.value} value={hotel.value}>{hotel.label}</option>)}
+            <option value={propertyName}>{propertyName}</option>
           </select>
           <ChevronDown size={14} color="var(--text-muted)" aria-hidden style={{ position: 'absolute', top: '50%', right: 8, transform: 'translateY(-50%)', pointerEvents: 'none' }} />
         </div>
@@ -189,10 +191,11 @@ export const AdminTopbar: React.FC<TopbarProps> = ({
       {/* Quick-Nav Search — a direct flex sibling (not wrapped) so justifyContent:space-between
           on the header spaces all five items (property, search, live-website, bell, user)
           equally, instead of mismatching an outer 2-group gap against an inner 16px gap. */}
-      <div style={{ display: 'flex', flex: 1, alignItems: 'center', gap: 12, marginLeft: 12, minWidth: 0 }}>
-        <AdminSearch />
+      <div className="portal-topbar-tools" style={{ display: 'flex', flex: 1, alignItems: 'center', gap: 12, marginLeft: 12, minWidth: 0 }}>
+        {hasAccess(profile, 'RESERVATIONS') && <div className="portal-global-search" style={{ flex: 1, minWidth: 0 }}><AdminSearch /></div>}
 
       <Link
+        className="portal-website-link"
         href="/"
         target="_blank"
         style={{
@@ -247,7 +250,7 @@ export const AdminTopbar: React.FC<TopbarProps> = ({
             >
               {getInitials(userFullName)}
             </div>
-            <div style={{ textAlign: 'left' }}>
+            <div className="portal-user-label" style={{ textAlign: 'left' }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.1 }}>
                 {userFullName}
               </div>
@@ -278,7 +281,7 @@ export const AdminTopbar: React.FC<TopbarProps> = ({
                 )}
               </div>
               <Link
-                href="/admin/settings"
+                href="/admin/profile"
                 onClick={() => setMenuOpen(false)}
                 style={{
                   display: 'flex',

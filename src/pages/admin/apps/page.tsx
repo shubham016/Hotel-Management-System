@@ -1,7 +1,10 @@
 import Link from '@/lib/router';
 import { ADMIN_APPS } from '@/lib/admin-nav';
+import { usePortalProfile } from '@/lib/portal-context';
+import { canOpenPage } from '@/lib/portal-access';
 
 export default function AppsPage() {
+  const profile = usePortalProfile();
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <header>
@@ -10,7 +13,7 @@ export default function AppsPage() {
       </header>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
-        {ADMIN_APPS.map((app) => {
+        {ADMIN_APPS.filter(app => canOpenPage(profile, app.href)).map((app) => {
           const Icon = app.icon;
           return (
             <Link

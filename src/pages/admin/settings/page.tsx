@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { ClientDataEditor, type ClientRecord } from './ClientDataEditor';
+import Link from '@/lib/router';
 
 export default function SystemSettingsPage() {
   const [activeTab, setActiveTab] = useState<'PROPERTY' | 'TAX' | 'CALENDAR' | 'ROLES' | 'STAFF' | 'LAUNDRY' | 'EXTRAS'>('PROPERTY');
@@ -238,7 +239,7 @@ export default function SystemSettingsPage() {
         )}
 
         {activeTab === 'ROLES' && (
-          <Card title="Role-Based Access Control (RBAC)">
+          <Card title="Staff roles and portal access"><p style={{ marginBottom: 16 }}>Assign individual accounts from <Link href="/admin/staff-access">Staff Portal Access</Link>.</p>
             <div className="hne-table-container">
               <table className="hne-table">
                 <thead>
@@ -252,11 +253,12 @@ export default function SystemSettingsPage() {
                 </thead>
                 <tbody>
                   {[
-                    { role: 'SUPER_ADMIN', pms: 'Full Control', pos: 'Full Control', acc: 'Full Control', cms: 'Full Control' },
-                    { role: 'FRONT_DESK_USER', pms: 'Check-In / Out / Folio', pos: 'View / Room Post', acc: 'View Folios', cms: 'No Access' },
-                    { role: 'RESTAURANT_CASHIER', pms: 'Room Charge Only', pos: 'Full KOT & Billing', acc: 'No Access', cms: 'No Access' },
-                    { role: 'ACCOUNTANT', pms: 'View Only', pos: 'View Only', acc: 'Full GL / Postings', cms: 'No Access' },
-                    { role: 'HOUSEKEEPER', pms: 'Room Status Only', pos: 'No Access', acc: 'No Access', cms: 'No Access' }
+                    { role: 'Owner', pms: 'Full Control', pos: 'Full Control', acc: 'Full Control', cms: 'Full Control' },
+                    { role: 'All-rounder / Admin', pms: 'Full Control', pos: 'Full Control', acc: 'Full Control', cms: 'Full Control' },
+                    { role: 'Front Desk', pms: 'Reservations / Payments / Check-in / Checkout', pos: 'No Access', acc: 'Guest Folios Only', cms: 'No Access' },
+                    { role: 'Restaurant', pms: 'Room Charge Only', pos: 'Orders / Service / Billing', acc: 'No Access', cms: 'No Access' },
+                    { role: 'Kitchen Cook / Helper', pms: 'No Access', pos: 'Kitchen Tickets Only', acc: 'No Access', cms: 'No Access' },
+                    { role: 'Housekeeping / Cleaning', pms: 'Cleaning / Inspection Only', pos: 'No Access', acc: 'No Access', cms: 'No Access' }
                   ].map((r, i) => (
                     <tr key={i}>
                       <td style={{ fontWeight: 800 }}>{r.role}</td>
@@ -273,7 +275,7 @@ export default function SystemSettingsPage() {
         )}
 
         {clientDataError && ['STAFF', 'LAUNDRY', 'EXTRAS'].includes(activeTab) && <p role="alert" style={{ color: 'var(--red)' }}>{clientDataError}</p>}
-        {activeTab === 'STAFF' && <Card title="Client Staff Directory"><p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>Portal accounts require individual email addresses and are managed separately.</p><ClientDataEditor kind="staff" records={staff} onSaved={loadClientData} /></Card>}
+        {activeTab === 'STAFF' && <Card title="Client Staff Directory"><p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>Portal accounts require individual email addresses. Use Staff Portal Access to assign each employee a sign-in and role.</p><ClientDataEditor kind="staff" records={staff} onSaved={loadClientData} /></Card>}
         {activeTab === 'LAUNDRY' && <Card title="Laundry Tariffs"><ClientDataEditor kind="laundry" records={laundry} onSaved={loadClientData} /><div style={{ display: 'grid', gap: 12, marginTop: 20 }}><label className="hne-form-group"><span className="hne-label">Collection instructions</span><textarea className="hne-input" value={laundryCollection} onChange={(event) => setLaundryCollection(event.target.value)} /></label><label className="hne-form-group"><span className="hne-label">Return instructions</span><textarea className="hne-input" value={laundryReturn} onChange={(event) => setLaundryReturn(event.target.value)} /></label><button type="button" disabled={saving} className="hne-btn hne-btn-primary hne-btn-sm" onClick={saveLaundryInstructions}>Save laundry instructions</button></div></Card>}
         {activeTab === 'EXTRAS' && <Card title="Extra Services"><ClientDataEditor kind="extras" records={extras} onSaved={loadClientData} /></Card>}
 

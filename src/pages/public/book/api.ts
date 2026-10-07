@@ -1,5 +1,12 @@
 import type { AddOnOffering, AvailabilityOption, BookingConfirmation, BookingPayload } from './types';
 
+export async function loadPaymentOptions(signal?: AbortSignal) {
+  const response = await fetch('/api/payment_requests/options', { signal });
+  const result = await response.json() as ApiResponse<{ availableGateways: Array<'ESEWA' | 'KHALTI'> }>;
+  if (!response.ok || !result.success) throw new Error('Unable to load payment options.');
+  return result.data.availableGateways;
+}
+
 type ApiResponse<T> = { success: boolean; data: T; error?: string; code?: string };
 
 export async function loadAddOnCatalog(propertyCode: string, signal?: AbortSignal) {

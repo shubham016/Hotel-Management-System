@@ -16,8 +16,8 @@ export type AvailabilityOption = {
   quote: { nights: number; nightlyRate: number; roomTotal: number; addOnTotal: number; subTotal: number; vatAmount: number; grandTotal: number };
 };
 
-export type BookingConfirmation = { id: string; confirmationNumber: string; folioNumber: string; guestName: string; roomName: string; roomId: string; roomNumber: string; checkInDate: string; checkOutDate: string; checkInTime: string; checkOutTime: string; nights: number; subTotal: number; vatAmount: number; grandTotal: number; paymentStatus: string };
+export type BookingConfirmation = { id: string; confirmationNumber: string; folioNumber: string; guestName: string; roomName: string; roomId: string; roomNumber: string; checkInDate: string; checkOutDate: string; checkInTime: string; checkOutTime: string; nights: number; subTotal: number; vatAmount: number; grandTotal: number; paymentStatus: string; paymentToken?: string | null };
 
 export type BookingSource = 'WALK_IN' | 'ONLINE' | 'PHONE' | 'TRAVEL_AGENCY' | 'PARTNER_HOTEL';
 
-export type BookingPayload = { propertyCode: string; checkInDate: string; checkOutDate: string; roomTypeCode: string; roomId: string; roomsCount: number; adultsCount: number; childrenCount: number; firstName: string; lastName: string; email: string; phone: string; idType: string; idNumber: string; specialRequests: string; addOns: Record<string, boolean>; source: BookingSource };
+export type BookingPayload = { propertyCode: string; checkInDate: string; checkOutDate: string; roomTypeCode: string; roomId: string; roomsCount: number; adultsCount: number; childrenCount: number; firstName: string; lastName: string; email: string; phone: string; idType: string; idNumber: string; specialRequests: string; addOns: Record<string, boolean>; source: BookingSource; paymentChoice: 'HOTEL' | 'ONLINE'; advanceAmount?: number };

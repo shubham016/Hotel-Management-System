@@ -42,6 +42,7 @@ export const ADMIN_APPS: AdminApp[] = [
   { id: 'front-desk', name: 'Front Desk', description: 'Dashboard, reservations, rooms and night audit.', href: '/admin/dashboard', icon: LayoutDashboard },
   { id: 'restaurant', name: 'Restaurant', description: 'POS tables, kitchen orders and billing.', href: '/admin/pos/tables', icon: UtensilsCrossed },
   { id: 'operations', name: 'Operations', description: 'Housekeeping, guest service and banquets.', href: '/admin/housekeeping', icon: Sparkles },
+  { id: 'kitchen', name: 'Kitchen', description: 'Prepare and track kitchen order tickets.', href: '/admin/pos/kot', icon: UtensilsCrossed },
   { id: 'inventory', name: 'Inventory', description: 'Stores, stock and procurement workflows.', href: '/admin/inventory', icon: Boxes },
   { id: 'finance', name: 'Finance', description: 'Accounting, ledgers and business reports.', href: '/admin/accounting/journals', icon: ReceiptText },
   { id: 'website', name: 'Website', description: 'CMS pages, media and public-site content.', href: '/admin/cms/pages', icon: Globe }
@@ -84,7 +85,8 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
       { name: 'Website CMS Builder', href: '/admin/cms/pages', icon: Globe },
       { name: 'Hotel Setup', href: '/admin/cms/hotel-setup', icon: Boxes },
       { name: 'Audit Trail', href: '/admin/audit-logs', icon: ShieldAlert },
-      { name: 'System Settings', href: '/admin/settings', icon: Settings }
+      { name: 'System Settings', href: '/admin/settings', icon: Settings },
+      { name: 'Staff Portal Access', href: '/admin/staff-access', icon: Users }
     ]
   }
 ];

@@ -3,7 +3,7 @@ module Api
     module Identity
       class SessionsController < BaseController
         skip_before_action :authenticate!, only: %i[login refresh logout]
-        skip_before_action :authorize_request!, only: %i[login refresh logout]
+        skip_before_action :authorize_request!, only: %i[login refresh logout me]
 
         def login
           email = params.require(:email).to_s.strip.downcase
@@ -59,6 +59,9 @@ module Api
             firstName: user.first_name,
             lastName: user.last_name,
             role: user.role.name,
+            roleLabel: Access::StaffRoles::LABELS[user.role.name] || user.role.name.titleize,
+            permissions: user.role.permissions,
+            fullAccess: user.role.name.in?(%w[OWNER ADMIN SUPER_ADMIN]),
             companyId: user.company_id,
             properties: user.properties.map { |property| { id: property.id, code: property.code, name: property.name } }
           }

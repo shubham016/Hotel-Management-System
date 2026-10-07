@@ -9,8 +9,15 @@ module Api
 
         def index
           property = require_property!
-          reservations = property.reservations.where.not(status: "ARCHIVED").includes(:guest, :folio, reservation_rooms: %i[room room_type]).order(created_at: :desc).limit(100)
-          render json: { success: true, data: reservations.map { |reservation| serialize(reservation) } }
+          scope = property.reservations.where.not(status: "ARCHIVED").joins(:guest)
+          scope = scope.where(id: params[:reservationId]) if params[:reservationId].present?
+          scope = scope.where(status: params[:status]) if params[:status].present? && params[:status] != "ALL"
+          scope = Reservations::Search.call(scope, params[:query])
+          page = [params[:page].to_i, 1].max
+          per_page = params[:perPage].present? ? params[:perPage].to_i.clamp(1, 100) : 100
+          total = scope.count
+          reservations = scope.includes(:guest, { folio: :cancellation_refund }, reservation_rooms: %i[room room_type]).order(created_at: :desc, id: :desc).offset((page - 1) * per_page).limit(per_page)
+          render json: { success: true, data: reservations.map { |reservation| serialize(reservation) }, pagination: { page:, perPage: per_page, total:, totalPages: (total.to_f / per_page).ceil } }
         end
 
         def show
@@ -36,6 +43,20 @@ module Api
           reservation = require_property!.reservations.where.not(status: "ARCHIVED").includes(:guest, :folio, reservation_rooms: %i[room room_type]).find(params[:id])
           reservation = Reservations::Lifecycle.archive(reservation:, params: { reason: "Deleted by staff from Reservations Matrix" })
           render json: { success: true, message: "Booking removed from the Reservations Matrix", data: { id: reservation.id } }
+        end
+
+        def refund
+          authorize!("RESERVATIONS", "refund")
+          reservation = require_property!.reservations.find(params[:id])
+          reservation = Payments::CancellationRefunds.pay!(reservation:, params: params.permit(:refundMethod, :refundReference))
+          render json: { success: true, data: serialize(reservation) }
+        end
+
+        def advance
+          authorize!("FOLIOS", "create")
+          reservation = require_property!.reservations.find(params[:id])
+          Payments::ManualAdvance.call(reservation:, params: params.permit(:amount, :paymentMethod, :transactionRef, :idempotencyKey))
+          render json: { success: true, data: serialize(reservation.reload) }
         end
 
         def assign_room
@@ -94,12 +115,18 @@ module Api
               subTotal: result.quote.sub_total.to_f,
               vatAmount: result.quote.vat_amount.to_f,
               grandTotal: result.quote.grand_total.to_f,
-              paymentStatus: "PENDING"
+              paymentStatus: "PENDING",
+              paymentToken: result.payment_request&.public_token
             }
           }, status: :created
         end
 
         private
+
+        def inferred_authorization_action
+          return "read" if action_name == "advance"
+          super
+        end
 
         def authorize_reservation_create!
           role = Current.user.role
@@ -132,6 +159,8 @@ module Api
             :idNumber,
             :specialRequests,
             :source,
+            :paymentChoice,
+            :advanceAmount,
             addOns: {}
           )
         end
@@ -150,11 +179,13 @@ module Api
             :specialRequests,
             :roomId,
             :reason,
+            :expectedPaidAmount,
             :additionalNights
           )
         end
 
         def serialize(reservation)
+          refund = reservation.folio&.cancellation_refund
           rooms = reservation.reservation_rooms.map do |rr|
             {
               id: rr.id,
@@ -184,6 +215,8 @@ module Api
             childrenCount: reservation.children_count,
             grandTotal: reservation.grand_total.to_f,
             advancePaid: reservation.advance_paid.to_f,
+            totalPaid: reservation.folio&.total_paid.to_f,
+            cancellationRefund: refund && { status: refund.status, paidAmount: refund.paid_amount.to_f, deductionAmount: refund.deduction_amount.to_f, refundAmount: refund.refund_amount.to_f, paymentMethod: refund.payment_method, reference: refund.transaction_reference, paidAt: refund.paid_at },
             folioId: reservation.folio&.id,
             folioNumber: reservation.folio&.folio_number,
             rooms:

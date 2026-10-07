@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   UsersRound,
   BedDouble,
@@ -117,6 +117,7 @@ export default function AdminDashboardPage() {
   const [pendingRoomStatus, setPendingRoomStatus] = useState<RoomBoardRoom['status'] | null>(null);
   const [roomStatusError, setRoomStatusError] = useState('');
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const bookingFrame = useRef<HTMLIFrameElement>(null);
 
   const loadDashboard = () => {
     fetch('/api/dashboard')
@@ -139,7 +140,14 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     const handleBookingCreated = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin || event.data?.type !== 'hne:booking-created') return;
+      if (event.origin !== window.location.origin || event.source !== bookingFrame.current?.contentWindow) return;
+
+      if (event.data?.type === 'hne:booking-return') {
+        setIsBookingModalOpen(false);
+        loadDashboard();
+        return;
+      }
+      if (event.data?.type !== 'hne:booking-created') return;
 
       loadDashboard();
     };
@@ -623,6 +631,7 @@ export default function AdminDashboardPage() {
       {isBookingModalOpen && (
         <BookingModal title="New Room Booking" subtitle="Create a reservation without leaving the dashboard." onClose={() => setIsBookingModalOpen(false)}>
           <iframe
+            ref={bookingFrame}
             title="New room booking"
             src="/book?embedded=true"
             style={{ width: '100%', flex: 1, border: 'none', backgroundColor: 'var(--bg-main)' }}

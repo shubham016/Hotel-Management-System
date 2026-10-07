@@ -55,6 +55,7 @@ export function PaymentRequestModal({ folioId, kind, balanceDue, onClose, onComp
       <div className="hne-modal-header"><h3 className="hne-modal-title">{kind === 'ADVANCE' ? 'Advance Payment' : 'Checkout Payment'}</h3><button type="button" className="hne-modal-close" onClick={onClose} aria-label="Close">×</button></div>
       <div className="hne-modal-body" style={{ display: 'grid', gap: 14 }}>
         <div>Outstanding balance: <strong>Rs. {balanceDue.toLocaleString()}</strong></div>
+        {kind === 'ADVANCE' && <p style={{ fontSize: 12 }}>If the booking is cancelled before check-in, 10% of the advance paid is retained and 90% is refundable. Contact the front desk to arrange cancellation and your refund.</p>}
         {!request && <>
           {kind === 'ADVANCE' && <label className="hne-form-group">Advance amount (NPR)<input className="hne-input" type="number" min="0.01" max={balanceDue} step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} /></label>}
           <p style={{ fontSize: 12, color: 'var(--text-secondary)' }}>The QR opens a secure Hotel New Era payment page. The guest selects a configured gateway and sees the exact amount before paying.</p>

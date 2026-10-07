@@ -6,6 +6,8 @@ namespace :api do
       resources :reservations, only: %i[index show create update destroy] do
         member do
           patch :cancel
+          patch :refund
+          patch :advance
           patch :assign_room, path: "assign-room"
           patch :check_in, path: "check-in"
           patch :extend_stay, path: "extend-stay"
@@ -17,6 +19,7 @@ namespace :api do
       resource :frontdesk, only: %i[show create], controller: :frontdesk
       resource :folio, only: :create, controller: :folios
       resources :payment_requests, only: %i[create show] do
+        collection { get :options }
         member do
           post :start
           post :verify

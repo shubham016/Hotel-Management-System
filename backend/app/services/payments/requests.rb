@@ -9,7 +9,7 @@ module Payments
         reservation = folio.reservation
         allowed = kind == "ADVANCE" ? reservation.status.in?(%w[INQUIRY CONFIRMED]) : reservation.status == "CHECKED_IN"
         raise ApiError.new("This booking cannot accept this payment", status: :conflict, code: "PAYMENT_NOT_ALLOWED") unless allowed && folio.status.in?(%w[OPEN SETTLED])
-        raise ApiError.new("Amount must be positive and no more than the balance due", status: :unprocessable_content, code: "INVALID_PAYMENT") unless amount.positive? && amount <= folio.balance_due
+        raise ApiError.new("Amount must be positive, use at most two decimals, and be no more than the balance due", status: :unprocessable_content, code: "INVALID_PAYMENT") unless amount.finite? && amount.positive? && amount == amount.round(2) && amount <= folio.balance_due
         raise ApiError.new("A payment is already in progress for this folio", status: :conflict, code: "PAYMENT_IN_PROGRESS") if folio.payment_requests.where(status: "INITIATED").exists?
 
         folio.payment_requests.where(status: "PENDING").update_all(status: "FAILED", updated_at: Time.current)
@@ -45,6 +45,13 @@ module Payments
 
     def self.verify!(request)
       return request if request.status == "COMPLETED"
+      Folio.transaction do
+        folio = request.folio
+        folio.lock!
+        request.lock!
+        return request if request.status == "COMPLETED"
+        return request if request.gateway.blank? && deleted_booking?(folio)
+      end
       raise ApiError.new("Payment has not been started", status: :conflict, code: "PAYMENT_NOT_STARTED") if request.gateway.blank?
 
       result = Gateway.verify(request)
@@ -54,28 +61,37 @@ module Payments
           folio.lock!
           request.lock!
           return request if request.status == "COMPLETED"
+          deleted_booking = deleted_booking?(folio)
 
           payment = folio.payments.create!(
             receipt_number: DocumentNumbers::NextNumber.call(company: folio.property.company, property: folio.property, document_type: "PAYMENT"),
             payment_method: request.gateway,
             amount: request.amount,
             transaction_reference: result[:transaction_id].presence || request.gateway_reference,
-            notes: "Verified #{request.gateway} #{request.kind.downcase} payment",
+            notes: "Verified #{request.gateway} #{request.kind.downcase} payment#{deleted_booking ? ' received after booking deletion; refund review required' : ''}",
             paid_at: Time.current
           )
-          Folios::Recalculate.call(folio)
-          if request.kind == "ADVANCE"
+          if deleted_booking
+            folio.update!(total_paid: folio.payments.sum(:amount), balance_due: 0)
+          else
+            Folios::Recalculate.call(folio)
+          end
+          if request.kind == "ADVANCE" && !deleted_booking
             reservation = folio.reservation
             reservation.update!(advance_paid: reservation.advance_paid + request.amount)
           end
           request.update!(status: "COMPLETED", gateway_transaction_id: result[:transaction_id].presence || request.gateway_reference, payment:)
           AuditLog.create!(company: folio.property.company, property: folio.property, user: Current.user, module_name: "PAYMENTS", action: "VERIFY", entity_type: "Payment", entity_id: payment.id,
-            new_values: { payment_request_id: request.id, gateway: request.gateway, amount: request.amount.to_s, receipt_number: payment.receipt_number }, request_id: Current.request_id, ip_address: Current.ip_address)
+            new_values: { payment_request_id: request.id, gateway: request.gateway, amount: request.amount.to_s, receipt_number: payment.receipt_number, refund_review_required: deleted_booking }, request_id: Current.request_id, ip_address: Current.ip_address)
         end
       elsif result[:failed]
         request.with_lock { request.update!(status: "FAILED") unless request.status == "COMPLETED" }
       end
       request.reload
+    end
+
+    def self.deleted_booking?(folio)
+      folio.status == "VOID" || folio.reservation.status.in?(%w[ARCHIVED CANCELLED])
     end
   end
 end

@@ -10,18 +10,21 @@ export default function HousekeepingPage() {
   const [dirtyCount, setDirtyCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
+  const [error, setError] = useState('');
 
   const fetchHousekeeping = async (showLoading = true) => {
     try {
       if (showLoading) setIsLoading(true);
       const res = await fetch('/api/housekeeping/tasks');
       const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || 'Unable to load housekeeping tasks.');
       if (json.success) {
         setRooms(json.rooms || []);
         setDirtyCount(json.dirtyCount || 0);
+        setError('');
       }
     } catch (err) {
-      console.error('Failed to load housekeeping tasks:', err);
+      setError(err instanceof Error ? err.message : 'Unable to load housekeeping tasks.');
     } finally {
       if (showLoading) setIsLoading(false);
     }
@@ -88,6 +91,7 @@ export default function HousekeepingPage() {
       </div>
 
       {/* KPI Cards */}
+      {error && <p role="alert" style={{ color: 'var(--danger-red)' }}>{error}</p>}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
         <div className="hne-card" style={{ padding: 18, borderLeft: '4px solid #16A34A', backgroundColor: '#FFFFFF' }}>
           <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Vacant Clean & Ready</div>

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_01_000003) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_07_000004) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -129,6 +129,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_01_000003) do
     t.datetime "updated_at", null: false
     t.index ["property_id", "code"], name: "index_banquet_halls_on_property_id_and_code", unique: true
     t.index ["property_id"], name: "index_banquet_halls_on_property_id"
+  end
+
+  create_table "cancellation_refunds", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.decimal "deduction_amount", precision: 14, scale: 2, null: false
+    t.uuid "folio_id", null: false
+    t.decimal "paid_amount", precision: 14, scale: 2, null: false
+    t.datetime "paid_at"
+    t.string "payment_method"
+    t.decimal "refund_amount", precision: 14, scale: 2, null: false
+    t.string "status", default: "PENDING", null: false
+    t.string "transaction_reference"
+    t.datetime "updated_at", null: false
+    t.index ["folio_id"], name: "index_cancellation_refunds_on_folio_id", unique: true
+    t.check_constraint "paid_amount > 0::numeric AND deduction_amount >= 0::numeric AND refund_amount >= 0::numeric AND paid_amount = (deduction_amount + refund_amount)", name: "cancellation_refund_amounts"
+    t.check_constraint "status::text = ANY (ARRAY['PENDING'::character varying, 'PAID'::character varying]::text[])", name: "cancellation_refund_status"
   end
 
   create_table "cms_media_assets", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -377,6 +393,28 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_01_000003) do
     t.index ["journal_entry_id"], name: "index_journal_lines_on_journal_entry_id"
   end
 
+  create_table "kitchen_orders", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "idempotency_key", null: false
+    t.jsonb "items", default: [], null: false
+    t.text "notes"
+    t.uuid "property_id", null: false
+    t.datetime "ready_at"
+    t.uuid "restaurant_table_id", null: false
+    t.datetime "served_at"
+    t.datetime "settled_at"
+    t.string "status", default: "PLACED", null: false
+    t.string "ticket_number", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "user_id", null: false
+    t.index ["property_id", "idempotency_key"], name: "index_kitchen_orders_on_property_id_and_idempotency_key", unique: true
+    t.index ["property_id", "status"], name: "index_kitchen_orders_on_property_id_and_status"
+    t.index ["property_id", "ticket_number"], name: "index_kitchen_orders_on_property_id_and_ticket_number", unique: true
+    t.index ["property_id"], name: "index_kitchen_orders_on_property_id"
+    t.index ["restaurant_table_id"], name: "index_kitchen_orders_on_restaurant_table_id"
+    t.index ["user_id"], name: "index_kitchen_orders_on_user_id"
+  end
+
   create_table "laundry_items", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.boolean "active", default: true, null: false
     t.datetime "created_at", null: false
@@ -439,6 +477,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_01_000003) do
     t.string "gateway_url"
     t.string "kind", null: false
     t.uuid "payment_id"
+    t.boolean "public_checkout", default: false, null: false
     t.string "public_token", null: false
     t.string "status", default: "PENDING", null: false
     t.datetime "updated_at", null: false
@@ -454,6 +493,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_01_000003) do
     t.decimal "amount", precision: 14, scale: 2, null: false
     t.datetime "created_at", null: false
     t.uuid "folio_id", null: false
+    t.string "idempotency_key"
     t.text "notes"
     t.datetime "paid_at", null: false
     t.string "payment_method", null: false
@@ -461,6 +501,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_01_000003) do
     t.string "transaction_reference"
     t.datetime "updated_at", null: false
     t.index ["folio_id"], name: "index_payments_on_folio_id"
+    t.index ["idempotency_key"], name: "index_payments_on_idempotency_key", unique: true, where: "(idempotency_key IS NOT NULL)"
     t.index ["receipt_number"], name: "index_payments_on_receipt_number", unique: true
     t.check_constraint "amount > 0::numeric", name: "payments_positive_amount"
   end
@@ -751,10 +792,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_01_000003) do
     t.string "last_name", null: false
     t.string "password_digest", null: false
     t.uuid "role_id", null: false
+    t.uuid "staff_member_id"
     t.datetime "updated_at", null: false
     t.index "lower((email)::text)", name: "index_users_on_lower_email", unique: true
     t.index ["company_id"], name: "index_users_on_company_id"
     t.index ["role_id"], name: "index_users_on_role_id"
+    t.index ["staff_member_id"], name: "index_users_on_staff_member_id", unique: true
   end
 
   add_foreign_key "accounts", "companies"
@@ -768,6 +811,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_01_000003) do
   add_foreign_key "banquet_bookings", "guests"
   add_foreign_key "banquet_bookings", "properties"
   add_foreign_key "banquet_halls", "properties"
+  add_foreign_key "cancellation_refunds", "folios"
   add_foreign_key "cms_media_assets", "companies"
   add_foreign_key "cms_media_assets", "properties"
   add_foreign_key "cms_offers", "properties"
@@ -789,6 +833,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_01_000003) do
   add_foreign_key "journal_entries", "companies"
   add_foreign_key "journal_lines", "accounts"
   add_foreign_key "journal_lines", "journal_entries"
+  add_foreign_key "kitchen_orders", "properties"
+  add_foreign_key "kitchen_orders", "restaurant_tables"
+  add_foreign_key "kitchen_orders", "users"
   add_foreign_key "laundry_items", "properties"
   add_foreign_key "menu_items", "restaurants"
   add_foreign_key "notifications", "users"
@@ -827,4 +874,5 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_01_000003) do
   add_foreign_key "user_properties", "users"
   add_foreign_key "users", "companies"
   add_foreign_key "users", "roles"
+  add_foreign_key "users", "staff_members"
 end

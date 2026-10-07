@@ -5,6 +5,8 @@ class Role < ApplicationRecord
   validates :name, presence: true, uniqueness: { scope: :company_id }
 
   def allows?(module_name, action)
+    return true if name.in?(%w[OWNER ADMIN])
+
     permissions.fetch(module_name.to_s, []).include?(action.to_s)
   end
 end

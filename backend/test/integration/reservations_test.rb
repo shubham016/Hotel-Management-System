@@ -232,6 +232,25 @@ class ReservationsTest < ActionDispatch::IntegrationTest
     assert_equal 1_000, folio.reload.total_paid
     assert_equal folio.grand_total - 1_000, folio.balance_due
     assert_equal "ESEWA", payment_request.reload.payment.payment_method
+    receipt = response.parsed_body.fetch("data")
+    assert_equal reservation.guest.full_name, receipt["guestName"]
+    assert_equal reservation.confirmation_number, receipt["confirmationNumber"]
+    assert_equal reservation.check_in_date.iso8601, receipt["checkInDate"]
+    assert_equal reservation.check_out_date.iso8601, receipt["checkOutDate"]
+    assert_equal 2, receipt["nights"]
+    assert_equal @room_type.name, receipt["roomDescription"]
+    assert_equal reservation.adults_count, receipt["adultsCount"]
+    assert_equal reservation.children_count, receipt["childrenCount"]
+    assert_equal folio.grand_total.to_f, receipt["bookingTotal"]
+    assert_equal folio.balance_due.to_f, receipt["balanceDue"]
+    assert_equal "ESEWA", receipt["paymentMethod"]
+    assert_equal payment_request.payment.receipt_number, receipt["receiptNumber"]
+    assert_equal payment_request.payment.paid_at.to_i, Time.iso8601(receipt["paidAt"]).to_i
+    assert_not receipt.key?("phone")
+    assert_not receipt.key?("idNumber")
+    get "/api/v1/payment_requests/#{payment_request.public_token}", as: :json
+    assert_response :success
+    assert_equal receipt, response.parsed_body.fetch("data")
 
     assert_no_difference "Payment.count" do
       post "/api/v1/payment_requests/#{payment_request.public_token}/verify", as: :json
@@ -865,37 +884,75 @@ class ReservationsTest < ActionDispatch::IntegrationTest
     assert_not response.parsed_body["data"].any? { |entry| entry["id"] == reservation.id }
   end
 
-  test "expired sandbox payment request no longer blocks booking deletion" do
+  test "staff deletion invalidates active and pending payment requests without gateway blocking" do
+    @role.update!(name: "OWNER", permissions: { "RESERVATIONS" => %w[read create delete] })
     token = auth_token
     post "/api/v1/reservations", params: valid_payload.merge(roomId: @first_room.id, source: "WALK_IN"), headers: auth_headers(token), as: :json
     assert_response :created
     reservation = Reservation.find(response.parsed_body.dig("data", "id"))
-    payment_request = reservation.folio.payment_requests.create!(
-      kind: "ADVANCE", amount: 100, public_token: SecureRandom.hex(32),
-      gateway: "ESEWA", status: "INITIATED", expires_at: 1.hour.from_now
-    )
+    requests = [ ["ESEWA", "INITIATED"], ["KHALTI", "INITIATED"], [nil, "PENDING"] ].map do |gateway, status|
+      reservation.folio.payment_requests.create!(
+        kind: "ADVANCE", amount: 100, public_token: SecureRandom.hex(32),
+        gateway:, status:, expires_at: 1.hour.from_now
+      )
+    end
 
-    with_gateway_method(:modes, { ESEWA: "SANDBOX" }) do
-      delete "/api/v1/reservations/#{reservation.id}", headers: auth_headers(token), as: :json
-      assert_response :conflict
-      assert_equal "INQUIRY", reservation.reload.status
-
-      payment_request.update!(expires_at: 1.minute.ago)
-      with_gateway_method(:modes, { ESEWA: "LIVE" }) do
-        delete "/api/v1/reservations/#{reservation.id}", headers: auth_headers(token), as: :json
-        assert_response :conflict
-      end
+    with_gateway_method(:modes, { ESEWA: "LIVE", KHALTI: "LIVE" }) do
       delete "/api/v1/reservations/#{reservation.id}", headers: auth_headers(token), as: :json
       assert_response :success
     end
 
     assert_equal "ARCHIVED", reservation.reload.status
-    assert_equal "FAILED", payment_request.reload.status
     assert_equal 0, reservation.folio.payments.count
-    assert_equal "EXPIRE", AuditLog.where(entity_type: "PaymentRequest", entity_id: payment_request.id).last.action
+    requests.each do |payment_request|
+      assert_equal "FAILED", payment_request.reload.status
+      assert payment_request.expired?
+      assert_equal "CANCEL", AuditLog.where(entity_type: "PaymentRequest", entity_id: payment_request.id).last.action
+      post "/api/v1/payment_requests/#{payment_request.public_token}/start", params: { gateway: "ESEWA" }, as: :json
+      assert_response :conflict
+      with_gateway_method(:verify, { complete: false, failed: false }) do
+        assert_no_difference "Payment.count" do
+          post "/api/v1/payment_requests/#{payment_request.public_token}/verify", as: :json
+        end
+      end
+      assert_response :success
+      assert_equal "FAILED", response.parsed_body.dig("data", "status")
+    end
+  end
+
+  test "payment confirmation racing with deletion cannot revive an archived booking" do
+    token = auth_token
+    post "/api/v1/reservations", params: valid_payload, as: :json
+    reservation = Reservation.find(response.parsed_body.dig("data", "id"))
+    payment_request = reservation.folio.payment_requests.create!(
+      kind: "ADVANCE", amount: 100, public_token: SecureRandom.hex(32),
+      gateway: "ESEWA", status: "INITIATED", expires_at: 1.hour.from_now
+    )
+    original = Payments::Gateway.method(:verify)
+    Payments::Gateway.define_singleton_method(:verify) do |request|
+      Reservations::Lifecycle.archive(reservation: request.folio.reservation, params: {})
+      { complete: true, transaction_id: "late-confirmation" }
+    end
+    assert_difference "Payment.count", 1 do
+      post "/api/v1/payment_requests/#{payment_request.public_token}/verify", headers: auth_headers(token), as: :json
+    end
+    assert_response :success
+    assert_equal "ARCHIVED", reservation.reload.status
+    assert_equal "COMPLETED", payment_request.reload.status
+    assert_equal "VOID", reservation.folio.reload.status
+    assert_equal 0, reservation.folio.balance_due
+    assert_equal 100, reservation.folio.total_paid
+    assert_equal 0, reservation.advance_paid
+    assert_includes payment_request.payment.notes, "refund review required"
+    assert_no_difference "Payment.count" do
+      post "/api/v1/payment_requests/#{payment_request.public_token}/verify", as: :json
+    end
+  ensure
+    Payments::Gateway.define_singleton_method(:verify, original) if original
   end
 
   test "staff can archive an unpaid checked-in stay and release its room as dirty" do
+    @role.update!(name: "FRONT_DESK_STAFF", permissions: { "RESERVATIONS" => %w[read create delete] })
     token = auth_token
     post "/api/v1/reservations", params: valid_payload.merge(roomId: @first_room.id, source: "WALK_IN"), headers: auth_headers(token), as: :json
     assert_response :created
@@ -903,12 +960,361 @@ class ReservationsTest < ActionDispatch::IntegrationTest
     reservation.update!(status: "CHECKED_IN", check_in_date: Date.current, check_out_date: Date.current + 1.day, checked_in_at: Time.current)
     @first_room.update!(status: "OCCUPIED")
 
+    payment_request = reservation.folio.payment_requests.create!(
+      kind: "CHECKOUT", amount: 100, public_token: SecureRandom.hex(32),
+      gateway: "ESEWA", status: "INITIATED", expires_at: 1.hour.from_now
+    )
+
     delete "/api/v1/reservations/#{reservation.id}", headers: auth_headers(token), as: :json
 
     assert_response :success
     assert_equal "ARCHIVED", reservation.reload.status
     assert_equal "VOID", reservation.folio.reload.status
     assert_equal "VACANT_DIRTY", @first_room.reload.status
+    assert_equal "FAILED", payment_request.reload.status
+  end
+
+  test "active bookings with recorded payments still require a refund before deletion" do
+    token = auth_token
+    post "/api/v1/reservations", params: valid_payload, as: :json
+    reservation = Reservation.find(response.parsed_body.dig("data", "id"))
+    reservation.update!(status: "CHECKED_IN", checked_in_at: Time.current)
+    post "/api/v1/folio", params: { operation: "RECORD_PAYMENT", folioId: reservation.folio.id, amount: 100, paymentMethod: "CASH" }, headers: auth_headers(token), as: :json
+    assert_response :success
+    delete "/api/v1/reservations/#{reservation.id}", headers: auth_headers(token), as: :json
+    assert_response :conflict
+    assert_equal "PAYMENT_EXISTS", response.parsed_body["code"]
+    assert_equal "CHECKED_IN", reservation.reload.status
+    assert_equal 100, reservation.folio.reload.total_paid
+  end
+
+  test "cancellation refunds ninety percent of actual payments and posts balanced journals" do
+    token = auth_token
+    post "/api/v1/reservations", params: valid_payload.merge(roomId: @first_room.id), as: :json
+    reservation = Reservation.find(response.parsed_body.dig("data", "id"))
+    folio = reservation.folio
+    folio.payments.create!(receipt_number: "ADVANCE-A", payment_method: "CASH", amount: 3000, paid_at: Time.current)
+    folio.payments.create!(receipt_number: "ADVANCE-B", payment_method: "BANK_TRANSFER", amount: 2000, paid_at: Time.current)
+    Folios::Recalculate.call(folio)
+    reservation.update!(advance_paid: 1) # The refund must use recorded payments, not this cached field.
+    pending = folio.payment_requests.create!(kind: "ADVANCE", amount: 100, public_token: SecureRandom.hex(32), expires_at: 1.hour.from_now)
+
+    assert_difference "CancellationRefund.count", 1 do
+      patch "/api/v1/reservations/#{reservation.id}/cancel", params: { reason: "Customer cancelled", expectedPaidAmount: 5000, refundAmount: 5000 }, headers: auth_headers(token), as: :json
+    end
+    assert_response :success
+    refund = folio.reload.cancellation_refund
+    assert_equal "CANCELLED", reservation.reload.status
+    assert_equal "VOID", folio.status
+    assert_equal 0, folio.balance_due
+    assert_equal "VACANT_CLEAN", @first_room.reload.status
+    assert_equal "FAILED", pending.reload.status
+    assert_equal 5000, refund.paid_amount
+    assert_equal 500, refund.deduction_amount
+    assert_equal 4500, refund.refund_amount
+    assert_equal "PENDING", refund.status
+    assert_equal 4500, response.parsed_body.dig("data", "cancellationRefund", "refundAmount")
+    assert_equal 2, folio.payments.count
+    assert_equal "500.0", AuditLog.where(entity_type: "Reservation", entity_id: reservation.id, action: "CANCEL").last.new_values["cancellation_deduction"]
+
+    delete "/api/v1/reservations/#{reservation.id}", headers: auth_headers(token), as: :json
+    assert_response :conflict
+    patch "/api/v1/reservations/#{reservation.id}/refund", params: { refundMethod: "BANK_TRANSFER", refundReference: "REFUND-123", refundAmount: 5000 }, headers: auth_headers(token), as: :json
+    assert_response :success
+    assert_equal "PAID", refund.reload.status
+    assert_equal "REFUND-123", refund.transaction_reference
+    assert_equal 500, folio.reload.total_paid
+    assert_equal 4500, response.parsed_body.dig("data", "cancellationRefund", "refundAmount")
+    assert_equal "PAID", response.parsed_body.dig("data", "cancellationRefund", "status")
+    assert refund.paid_at.present?
+    Folios::Recalculate.call(folio)
+    assert_equal 500, folio.total_paid
+    assert_equal 0, folio.balance_due
+    journals = @company.journal_entries.where(source_module: "PMS_CANCELLATION")
+    assert_equal 2, journals.count
+    journals.each do |journal|
+      assert_equal journal.total_debit, journal.total_credit
+      assert_equal journal.journal_lines.sum(:debit), journal.journal_lines.sum(:credit)
+      assert_equal journal.total_debit, journal.journal_lines.sum(:debit)
+    end
+    payable = @company.accounts.find_by!(account_code: "2102")
+    assert_equal payable.journal_lines.sum(:debit), payable.journal_lines.sum(:credit)
+    assert_equal 500, @company.accounts.find_by!(account_code: "4003").journal_lines.sum(:credit)
+    assert_equal 1, AuditLog.where(entity_type: "CancellationRefund", entity_id: refund.id, action: "REFUND").count
+    assert_no_difference [ "JournalEntry.count", "CancellationRefund.count", "AuditLog.count" ] do
+      patch "/api/v1/reservations/#{reservation.id}/refund", params: { refundMethod: "BANK_TRANSFER", refundReference: "REFUND-123" }, headers: auth_headers(token), as: :json
+      assert_response :success
+    end
+    get "/api/v1/reservations", headers: auth_headers(token)
+    listed = response.parsed_body["data"].find { |item| item["id"] == reservation.id }
+    assert_equal "PAID", listed.dig("cancellationRefund", "status")
+    assert_equal 500, listed["totalPaid"]
+    delete "/api/v1/reservations/#{reservation.id}", headers: auth_headers(token), as: :json
+    assert_response :success
+    assert_equal "ARCHIVED", reservation.reload.status
+    assert_equal 2, folio.payments.count
+  end
+
+  test "cancellation deduction rounds to currency precision and requires reviewed payment amount" do
+    token = auth_token
+    post "/api/v1/reservations", params: valid_payload, as: :json
+    reservation = Reservation.find(response.parsed_body.dig("data", "id"))
+    reservation.folio.payments.create!(receipt_number: "ROUNDING-ADVANCE", payment_method: "CASH", amount: "100.05", paid_at: Time.current)
+    Folios::Recalculate.call(reservation.folio)
+    [ nil, "invalid", 100 ].each do |reviewed|
+      assert_no_difference "CancellationRefund.count" do
+        patch "/api/v1/reservations/#{reservation.id}/cancel", params: { expectedPaidAmount: reviewed }, headers: auth_headers(token), as: :json
+      end
+      assert_response :conflict
+      assert_equal "REFUND_REVIEW_REQUIRED", response.parsed_body["code"]
+      assert_equal "INQUIRY", reservation.reload.status
+    end
+    patch "/api/v1/reservations/#{reservation.id}/cancel", params: { expectedPaidAmount: "100.05" }, headers: auth_headers(token), as: :json
+    assert_response :success
+    refund = reservation.folio.cancellation_refund
+    assert_equal BigDecimal("10.01"), refund.deduction_amount
+    assert_equal BigDecimal("90.04"), refund.refund_amount
+    assert_no_difference "JournalEntry.count" do
+      patch "/api/v1/reservations/#{reservation.id}/cancel", params: { expectedPaidAmount: "100.05" }, headers: auth_headers(token), as: :json
+      assert_response :conflict
+    end
+    [ { refundMethod: "CASH" }, { refundMethod: "OTHER", refundReference: "R-1" } ].each do |invalid|
+      assert_no_difference "JournalEntry.count" do
+        patch "/api/v1/reservations/#{reservation.id}/refund", params: invalid, headers: auth_headers(token), as: :json
+      end
+      assert_response :unprocessable_content
+      assert_equal "PENDING", refund.reload.status
+    end
+  end
+
+  test "cancellation refunds require property access and separate payout permission" do
+    token = auth_token
+    post "/api/v1/reservations", params: valid_payload, as: :json
+    reservation = Reservation.find(response.parsed_body.dig("data", "id"))
+    reservation.folio.payments.create!(receipt_number: "PERMISSION-ADVANCE", payment_method: "CASH", amount: 100, paid_at: Time.current)
+    patch "/api/v1/reservations/#{reservation.id}/cancel", params: { expectedPaidAmount: 100 }, headers: auth_headers(token), as: :json
+    assert_response :success
+    @role.update!(name: "FRONT_DESK_STAFF", permissions: { "RESERVATIONS" => %w[read] })
+    patch "/api/v1/reservations/#{reservation.id}/refund", params: { refundMethod: "CASH", refundReference: "R-1" }, headers: auth_headers(token), as: :json
+    assert_response :forbidden
+    @role.update!(permissions: { "RESERVATIONS" => %w[read cancel] })
+    patch "/api/v1/reservations/#{reservation.id}/refund", params: { refundMethod: "CASH", refundReference: "R-1" }, headers: auth_headers(token), as: :json
+    assert_response :forbidden
+    @role.update!(permissions: { "RESERVATIONS" => %w[read cancel refund] })
+    other_property = @company.properties.create!(name: "Other Hotel", code: "OTHER-REFUND")
+    UserProperty.create!(user: @user, property: other_property)
+    patch "/api/v1/reservations/#{reservation.id}/refund", params: { refundMethod: "CASH", refundReference: "R-1" }, headers: auth_headers(token).merge("X-Property-Code" => other_property.code), as: :json
+    assert_response :not_found
+    patch "/api/v1/reservations/#{reservation.id}/refund", params: { refundMethod: "CASH", refundReference: "R-1" }, headers: auth_headers(token), as: :json
+    assert_response :success
+  end
+
+  test "cancellation cannot race an initiated gateway payment" do
+    token = auth_token
+    post "/api/v1/reservations", params: valid_payload, as: :json
+    reservation = Reservation.find(response.parsed_body.dig("data", "id"))
+    reservation.folio.payment_requests.create!(kind: "ADVANCE", amount: 100, public_token: SecureRandom.hex(32), gateway: "ESEWA", status: "INITIATED", expires_at: 1.hour.from_now)
+    assert_no_difference "CancellationRefund.count" do
+      patch "/api/v1/reservations/#{reservation.id}/cancel", headers: auth_headers(token), as: :json
+    end
+    assert_response :conflict
+    assert_equal "PAYMENT_IN_PROGRESS", response.parsed_body["code"]
+    assert_equal "INQUIRY", reservation.reload.status
+  end
+
+  test "booking never overwrites an existing guest through a matching phone or email" do
+    @property.rooms.create!(room_type: @room_type, room_number: "103", setup_managed: true)
+    post "/api/v1/reservations", params: valid_payload, as: :json
+    original = Reservation.find(response.parsed_body.dig("data", "id"))
+    attributes = original.guest.attributes
+    [ { firstName: "Different", idNumber: "NEW-ID" }, { firstName: "Other", phone: "+977-9800000999" } ].each do |change|
+      assert_difference "Guest.count", 1 do
+        post "/api/v1/reservations", params: valid_payload.merge(change), as: :json
+      end
+      assert_response :created
+      booking = Reservation.find(response.parsed_body.dig("data", "id"))
+      assert_not_equal original.guest_id, booking.guest_id
+      assert_equal change[:firstName], booking.guest.first_name
+      assert_equal attributes, original.guest.reload.attributes
+      assert_equal original.guest.full_name, original.folio.guest.full_name
+    end
+  end
+
+  test "reservation search and pagination include bookings older than the latest hundred" do
+    post "/api/v1/reservations", params: valid_payload, as: :json
+    template = Reservation.find(response.parsed_body.dig("data", "id"))
+    104.times do |index|
+      record = template.dup
+      record.confirmation_number = "OLDER-BOOKING-#{index.to_s.rjust(3, '0')}"
+      record.created_at = (200 - index).days.ago
+      record.status = "CANCELLED"
+      record.save!
+    end
+    get "/api/v1/reservations", params: { page: 11, perPage: 10 }, headers: auth_headers(auth_token)
+    assert_response :success
+    assert_equal 105, response.parsed_body.dig("pagination", "total")
+    assert_equal 5, response.parsed_body["data"].size
+    assert response.parsed_body["data"].any? { |booking| booking["confirmationNumber"] == "OLDER-BOOKING-000" }
+    get "/api/v1/reservations", params: { query: "OLDER-BOOKING-000", status: "CANCELLED", perPage: 10 }, headers: auth_headers(auth_token)
+    assert_response :success
+    assert_equal 1, response.parsed_body.dig("pagination", "total")
+    assert_equal "OLDER-BOOKING-000", response.parsed_body.dig("data", 0, "confirmationNumber")
+    get "/api/v1/reservations", params: { query: "OLDER-BOOKING-000", status: "INQUIRY" }, headers: auth_headers(auth_token)
+    assert_empty response.parsed_body["data"]
+  end
+
+  test "cash and bank advances are persisted before checkin and safe to retry" do
+    token = auth_token
+    post "/api/v1/reservations", params: valid_payload, as: :json
+    reservation = Reservation.find(response.parsed_body.dig("data", "id"))
+    [ ["CASH", "", 100], ["BANK_TRANSFER", "BANK-ADVANCE-1", 200] ].each do |method, reference, amount|
+      details = { amount:, paymentMethod: method, transactionRef: reference, idempotencyKey: SecureRandom.uuid }
+      assert_difference [ "Payment.count", "AuditLog.count" ], 1 do
+        patch "/api/v1/reservations/#{reservation.id}/advance", params: details, headers: auth_headers(token), as: :json
+      end
+      assert_response :success
+      payment = reservation.folio.payments.find_by!(idempotency_key: details[:idempotencyKey])
+      assert_equal amount, payment.amount
+      assert_equal method, payment.payment_method
+      assert payment.receipt_number.present?
+      assert_equal reservation.reload.advance_paid.to_f, response.parsed_body.dig("data", "advancePaid")
+      assert_equal reservation.folio.reload.total_paid.to_f, response.parsed_body.dig("data", "totalPaid")
+      assert_no_difference [ "Payment.count", "AuditLog.count" ] do
+        patch "/api/v1/reservations/#{reservation.id}/advance", params: details, headers: auth_headers(token), as: :json
+        assert_response :success
+      end
+      patch "/api/v1/reservations/#{reservation.id}/advance", params: details.merge(amount: amount + 1), headers: auth_headers(token), as: :json
+      assert_response :conflict
+    end
+    assert_equal "INQUIRY", reservation.reload.status
+    assert_equal 300, reservation.advance_paid
+    assert_equal 300, reservation.folio.reload.total_paid
+    assert_equal reservation.folio.grand_total - 300, reservation.folio.balance_due
+    patch "/api/v1/reservations/#{reservation.id}/advance", params: { amount: 200, paymentMethod: "BANK_TRANSFER", transactionRef: "BANK-ADVANCE-1", idempotencyKey: SecureRandom.uuid }, headers: auth_headers(token), as: :json
+    assert_response :conflict
+    patch "/api/v1/reservations/#{reservation.id}/cancel", params: { expectedPaidAmount: 300 }, headers: auth_headers(token), as: :json
+    assert_response :success
+    assert_equal 30, reservation.folio.cancellation_refund.deduction_amount
+    assert_equal 270, reservation.folio.cancellation_refund.refund_amount
+  end
+
+  test "advance recording validates method amount authorization and gateway locks" do
+    token = auth_token
+    post "/api/v1/reservations", params: valid_payload, as: :json
+    reservation = Reservation.find(response.parsed_body.dig("data", "id"))
+    details = { amount: 100, paymentMethod: "CASH", idempotencyKey: SecureRandom.uuid }
+    [ { amount: 0 }, { amount: "bad" }, { amount: "1.001" }, { paymentMethod: "ESEWA" }, { paymentMethod: "BANK_TRANSFER" }, { idempotencyKey: "" } ].each do |invalid|
+      assert_no_difference "Payment.count" do
+        patch "/api/v1/reservations/#{reservation.id}/advance", params: details.merge(invalid), headers: auth_headers(token), as: :json
+      end
+      assert_response :unprocessable_content
+    end
+    patch "/api/v1/reservations/#{reservation.id}/advance", params: details.merge(amount: reservation.grand_total + 1), headers: auth_headers(token), as: :json
+    assert_response :unprocessable_content
+    @role.update!(name: "FRONT_DESK_STAFF", permissions: { "RESERVATIONS" => %w[read] })
+    patch "/api/v1/reservations/#{reservation.id}/advance", params: details, headers: auth_headers(token), as: :json
+    assert_response :forbidden
+    @role.update!(permissions: { "RESERVATIONS" => %w[read], "FOLIOS" => %w[create] })
+    in_progress = reservation.folio.payment_requests.create!(kind: "ADVANCE", amount: 100, public_token: SecureRandom.hex(32), gateway: "ESEWA", status: "INITIATED", expires_at: 1.hour.from_now)
+    patch "/api/v1/reservations/#{reservation.id}/advance", params: details, headers: auth_headers(token), as: :json
+    assert_response :conflict
+    in_progress.update!(status: "FAILED")
+    reservation.update!(status: "CANCELLED")
+    patch "/api/v1/reservations/#{reservation.id}/advance", params: details, headers: auth_headers(token), as: :json
+    assert_response :conflict
+  end
+
+  test "public online booking atomically creates an advance link limited to live guest wallets" do
+    with_gateway_method(:available, { ESEWA: true, KHALTI: false }) do
+      with_gateway_method(:public_available, [ :ESEWA ]) do
+        get "/api/v1/payment_requests/options", as: :json
+        assert_response :success
+        assert_equal [ "ESEWA" ], response.parsed_body.dig("data", "availableGateways")
+        assert_difference [ "Reservation.count", "Folio.count", "PaymentRequest.count" ], 1 do
+          post "/api/v1/reservations", params: valid_payload.merge(paymentChoice: "ONLINE", advanceAmount: 1000), as: :json
+        end
+        assert_response :created
+        request = PaymentRequest.find_by!(public_token: response.parsed_body.dig("data", "paymentToken"))
+        assert request.public_checkout
+        assert_equal 1000, request.amount
+        assert_equal response.parsed_body.dig("data", "id"), request.folio.reservation_id
+        assert_equal 0, request.folio.total_paid
+        get "/api/v1/payment_requests/#{request.public_token}", as: :json
+        assert_equal [ "ESEWA" ], response.parsed_body.dig("data", "availableGateways")
+        post "/api/v1/payment_requests/#{request.public_token}/start", params: { gateway: "KHALTI" }, as: :json
+        assert_response :unprocessable_content
+        assert_equal "PENDING", request.reload.status
+      end
+    end
+  end
+
+  test "public online booking cannot use sandbox configuration or create a booking on invalid advance" do
+    with_gateway_method(:public_available, []) do
+      assert_no_difference [ "Reservation.count", "Folio.count", "Guest.count", "PaymentRequest.count" ] do
+        post "/api/v1/reservations", params: valid_payload.merge(paymentChoice: "ONLINE", advanceAmount: 1000), as: :json
+      end
+      assert_response :unprocessable_content
+      get "/api/v1/payment_requests/options", as: :json
+      assert_empty response.parsed_body.dig("data", "availableGateways")
+    end
+    with_gateway_method(:available, { ESEWA: true }) do
+      with_gateway_method(:public_available, [ :ESEWA ]) do
+        [ 0, "bad", 999999 ].each do |amount|
+          assert_no_difference [ "Reservation.count", "Folio.count", "Guest.count", "PaymentRequest.count" ] do
+            post "/api/v1/reservations", params: valid_payload.merge(paymentChoice: "ONLINE", advanceAmount: amount), as: :json
+          end
+          assert_response :unprocessable_content
+        end
+      end
+    end
+  end
+
+  test "dashboard reservation search supports guest details booking identifiers and exact matrix selection" do
+    post "/api/v1/reservations", params: valid_payload.merge(roomId: @first_room.id, firstName: "Search", lastName: "Guest", phone: "+977-9800000123", email: "search.guest@example.com", idType: "Citizenship", idNumber: "CIT-12-345"), as: :json
+    assert_response :created
+    booking = Reservation.find(response.parsed_body.dig("data", "id"))
+    archived = booking.dup
+    archived.confirmation_number = "ARCHIVED-SEARCH"
+    archived.status = "ARCHIVED"
+    archived.save!
+    other_property = @company.properties.create!(name: "Other Property", code: "OTHER-SEARCH")
+    other = booking.dup
+    other.property = other_property
+    other.confirmation_number = "OTHER-PROPERTY-SEARCH"
+    other.save!
+
+    %w[OWNER FRONT_DESK_STAFF].each do |role_name|
+      @role.update!(name: role_name, permissions: { "RESERVATIONS" => %w[read] })
+      token = auth_token
+      [ "search guest", "9800000123", "+977 980 000 0123", "CIT-12-345", "cit12345", "search.guest@example.com", booking.confirmation_number, booking.folio.folio_number, booking.id, booking.guest_id, "101" ].each do |query|
+        get "/api/v1/reservations", params: { query:, perPage: 8 }, headers: auth_headers(token)
+        assert_response :success
+        assert_equal [ booking.id ], response.parsed_body["data"].map { |result| result["id"] }, "Unexpected results for #{role_name} searching #{query}"
+        assert_equal booking.guest.full_name, response.parsed_body.dig("data", 0, "guest", "name")
+        assert_equal "CIT-12-345", response.parsed_body.dig("data", 0, "guest", "idNumber")
+      end
+      get "/api/v1/reservations", params: { reservationId: booking.id }, headers: auth_headers(token)
+      assert_response :success
+      assert_equal [ booking.id ], response.parsed_body["data"].map { |result| result["id"] }
+      assert_equal 1, response.parsed_body.dig("pagination", "total")
+      get "/api/v1/reservations/#{booking.id}", headers: auth_headers(token)
+      assert_response :success
+      assert_equal booking.id, response.parsed_body.dig("data", "id")
+      get "/api/v1/reservations", params: { reservationId: other.id }, headers: auth_headers(token)
+      assert_response :success
+      assert_empty response.parsed_body["data"]
+      get "/api/v1/reservations", params: { reservationId: archived.id }, headers: auth_headers(token)
+      assert_empty response.parsed_body["data"]
+      get "/api/v1/reservations", params: { query: "%%%", perPage: 8 }, headers: auth_headers(token)
+      assert_empty response.parsed_body["data"]
+    end
+  end
+
+  test "dashboard reservation search requires reservation read permission" do
+    @role.update!(name: "FRONT_DESK_STAFF", permissions: { "RESERVATIONS" => %w[create] })
+    get "/api/v1/reservations", params: { query: "Guest", perPage: 8 }, headers: auth_headers(auth_token)
+    assert_response :forbidden
+    assert_equal "FORBIDDEN", response.parsed_body["code"]
   end
 
   test "role without permission cannot access protected reservation list" do

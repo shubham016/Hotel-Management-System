@@ -1,6 +1,6 @@
 module Reservations
   class Create
-    Result = Data.define(:reservation, :folio, :quote)
+    Result = Data.define(:reservation, :folio, :quote, :payment_request)
 
     def self.call(params:, request_context: {})
       new(params:, request_context:).call
@@ -23,10 +23,16 @@ module Reservations
         quote = build_quote
         reservation = create_reservation!(guest, quote)
         folio = create_folio!(reservation, guest, quote)
+        payment_request = if @params[:paymentChoice] == "ONLINE"
+          raise ApiError.new("Online guest payments are not available yet. Choose pay at hotel.", status: :unprocessable_content, code: "GATEWAY_UNAVAILABLE") if Payments::Gateway.public_available.empty?
+          request = Payments::Requests.create!(folio:, kind: "ADVANCE", amount: @params[:advanceAmount])
+          request.update!(public_checkout: true)
+          request
+        end
         create_audit_log!(reservation, quote)
         Reservations::NotifyFrontDesk.call(reservation:) if reservation.source == "ONLINE"
 
-        Result.new(reservation:, folio:, quote:)
+        Result.new(reservation:, folio:, quote:, payment_request:)
       end
     end
 
@@ -51,6 +57,9 @@ module Reservations
     end
 
     def validate_request!
+      unless @params[:paymentChoice].blank? || @params[:paymentChoice].in?(%w[HOTEL ONLINE])
+        raise ApiError.new("Choose pay at hotel or online advance", status: :unprocessable_content, code: "INVALID_PAYMENT_CHOICE")
+      end
       required = %i[propertyCode checkInDate checkOutDate roomTypeCode firstName lastName phone]
       missing = required.select { |key| @params[key].blank? }
       raise ApiError.new("Missing required fields", status: :bad_request, code: "MISSING_FIELDS", details: missing) if missing.any?
@@ -94,17 +103,16 @@ module Reservations
 
     def find_or_create_guest!
       normalized_phone = @params[:phone].to_s.gsub(/\D/, "")
-      scope = @property.company.guests.where(normalized_phone:)
-      scope = scope.or(@property.company.guests.where("lower(email) = ?", @params[:email].to_s.downcase)) if @params[:email].present?
-      guest = scope.first_or_initialize
-      guest.assign_attributes(
+      attributes = {
         first_name: @params[:firstName],
         last_name: @params[:lastName],
         phone: @params[:phone],
-        email: @params[:email].presence,
+        email: @params[:email].to_s.strip.downcase.presence,
         id_type: @params[:idType].presence,
         id_number: @params[:idNumber].presence
-      )
+      }
+      # Booking a stay must never edit a guest identity or past booking receipts.
+      guest = @property.company.guests.where(attributes.merge(normalized_phone:)).first_or_initialize
       guest.save!
       guest
     end

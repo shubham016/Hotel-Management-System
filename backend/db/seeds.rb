@@ -110,6 +110,7 @@ front_desk_staff_role.update!(
 )
 
 admin_password = ENV["SEED_ADMIN_PASSWORD"].presence
+Access::StaffRoles.install!(company)
 if admin_password.blank?
   raise "SEED_ADMIN_PASSWORD is required in production" if Rails.env.production?
 

@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from '@/lib/router';
+import { useNavigate } from 'react-router-dom';
+import { authClient } from '@/lib/auth-client';
 import { Calendar, Users, BedDouble, CheckCircle2, CreditCard, ShieldCheck, ArrowRight, Sparkles, Building2, User, Phone, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -7,7 +9,10 @@ import { Card } from '@/components/ui/Card';
 import { DualCalendarPicker } from '@/components/ui/DualCalendarPicker';
 import { RoomPhotoButton, RoomPhotoPreview, type RoomPhoto } from '@/components/booking/RoomPhotoPreview';
 import { formatDualDate } from '@/lib/nepali-calendar';
-import { createBooking, loadAddOnCatalog, loadBookingAvailability } from './api';
+import { createBooking, loadAddOnCatalog, loadBookingAvailability, loadPaymentOptions } from './api';
+import { BookingPaymentOptions } from './components/BookingPaymentOptions';
+import { BookingVoucher } from './components/BookingVoucher';
+import './booking.css';
 import { DEFAULT_ROOM_IMAGE, PROPERTY_CODE, ROOM_IMAGES } from './constants';
 import type { AddOnOffering, AvailabilityOption, BookingConfirmation, BookingSource } from './types';
 
@@ -34,6 +39,15 @@ const bookingSourceOptions: Array<{ value: BookingSource; label: string }> = [
 export default function BookPage() {
   const searchParams = useSearchParams();
   const isEmbeddedBooking = searchParams.get('embedded') === 'true';
+  const navigate = useNavigate();
+  const returnToDashboard = isEmbeddedBooking || Boolean(authClient.token());
+  const returnFromBooking = () => {
+    if (isEmbeddedBooking && window.parent !== window) {
+      window.parent.postMessage({ type: 'hne:booking-return' }, window.location.origin);
+      return;
+    }
+    navigate(returnToDashboard ? '/admin/dashboard' : '/', { replace: true, state: null });
+  };
   const requestedSource = searchParams.get('source') as BookingSource | null;
   const initialBookingSource: BookingSource = bookingSourceOptions.some((option) => option.value === requestedSource)
     ? requestedSource as BookingSource
@@ -82,6 +96,15 @@ export default function BookPage() {
   // Booking Confirmation State
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmationData, setConfirmationData] = useState<BookingConfirmation | null>(null);
+  const [paymentGateways, setPaymentGateways] = useState<Array<'ESEWA' | 'KHALTI'>>([]);
+  const [paymentChoice, setPaymentChoice] = useState<'HOTEL' | 'ONLINE'>('HOTEL');
+  const [advanceAmount, setAdvanceAmount] = useState('');
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadPaymentOptions(controller.signal).then(setPaymentGateways).catch(() => undefined);
+    return () => controller.abort();
+  }, []);
 
   const roomsCatalog = Object.fromEntries(availability.map((option) => [option.roomType.code, {
     name: option.roomType.name,
@@ -173,7 +196,9 @@ export default function BookPage() {
           idNumber,
           specialRequests,
           addOns: selectedAddOns,
-          source: bookingSource
+          source: bookingSource,
+          paymentChoice,
+          advanceAmount: paymentChoice === 'ONLINE' ? Number(advanceAmount || grandTotal.toFixed(2)) : undefined
       });
       setConfirmationData(confirmation);
       setStep(3);
@@ -201,7 +226,7 @@ export default function BookPage() {
       </div>
 
       {/* Progress Tracker */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginBottom: 40 }}>
+      <div className="booking-progress" style={{ display: 'flex', justifyContent: 'center', gap: 24, marginBottom: 40 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: step >= 1 ? 'var(--primary-orange)' : 'var(--text-muted)', fontWeight: 700, fontSize: 14 }}>
           <span style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: step >= 1 ? 'var(--primary-orange)' : '#E5E7EB', color: step >= 1 ? '#FFFFFF' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>1</span>
           <span>Room Selection</span>
@@ -219,7 +244,7 @@ export default function BookPage() {
       </div>
 
       {step === 1 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 32 }}>
+        <div className="booking-selection-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 32 }}>
           {/* Left: Date & Room Options */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
             <Card title="1. Select Stay Dates & Guests (Dual Gregorian & Bikram Sambat Calendar)">
@@ -434,7 +459,7 @@ export default function BookPage() {
       {step === 2 && (
         <form onSubmit={handleCreateBooking} style={{ maxWidth: 840, margin: '0 auto' }}>
           <Card title="Enter Primary Guest Details & Identification">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div className="booking-guest-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <div className="hne-form-group">
                 <label className="hne-label">First Name *</label>
                 <input type="text" className="hne-input" required value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="e.g. Aarav" />
@@ -478,20 +503,14 @@ export default function BookPage() {
             </div>
 
             {/* Payment status */}
-            <div style={{ marginTop: 24, borderTop: '1px solid var(--border)', paddingTop: 20 }}>
-              <label className="hne-label" style={{ marginBottom: 12, display: 'block' }}>
-                Payment
-              </label>
-              <div style={{ padding: '14px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', backgroundColor: 'var(--bg-main)', fontSize: 13.5 }}>
-                <strong>Pay at hotel.</strong> Online payment gateways are not activated yet, so this form does not collect or mark any payment as completed.
-              </div>
-            </div>
+            <p style={{ fontSize: 13, marginTop: 16 }}>Cancellation before check-in: any advance paid is refundable after a 10% deduction. Contact the front desk to cancel your reservation in advance.</p>
+            <BookingPaymentOptions gateways={isEmbeddedBooking ? [] : paymentGateways} choice={paymentChoice} onChoice={setPaymentChoice} amount={advanceAmount} onAmount={setAdvanceAmount} total={grandTotal} />
 
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 32 }}>
               <Button type="button" variant="secondary" onClick={() => setStep(1)}>
                 Back to Room Selection
               </Button>
-              <Button type="submit" variant="primary" size="lg" isLoading={isSubmitting}>
+              <Button type="submit" variant="primary" size="lg" isLoading={isSubmitting} disabled={roomsLoading || !selectedRoomId}>
                 Confirm Reservation (Estimated Rs. {formatAmount(grandTotal)})
               </Button>
             </div>
@@ -499,67 +518,7 @@ export default function BookPage() {
         </form>
       )}
 
-      {step === 3 && confirmationData && (
-        <div style={{ maxWidth: 680, margin: '0 auto' }}>
-          <div className="hne-card" style={{ textAlign: 'center', padding: '40px 32px' }}>
-            <div style={{ marginBottom: 20 }}>
-              <img src="/logo.png" alt="Hotel New Era" style={{ height: 48, width: 'auto', objectFit: 'contain' }} />
-            </div>
-
-            <div style={{ width: 56, height: 56, borderRadius: '50%', backgroundColor: 'var(--green-light)', color: 'var(--green)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <CheckCircle2 size={32} />
-            </div>
-
-            <Badge variant="orange" style={{ marginBottom: 12 }}>Booking Request Received & Reserved in PMS</Badge>
-            <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8 }}>Thank You, {confirmationData.guestName}!</h2>
-            <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 24 }}>
-              Your room has been held in our Hotel Management System. Our team will verify the booking details and confirm it under:
-            </p>
-
-            <div style={{ backgroundColor: 'var(--bg-main)', borderRadius: 'var(--radius-lg)', padding: 24, textAlign: 'left', marginBottom: 28, border: '1px solid var(--border)' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, fontSize: 13.5 }}>
-                <div>
-                  <span style={{ color: 'var(--text-muted)' }}>Confirmation Ref:</span>
-                  <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--primary-orange)' }}>
-                    {confirmationData.confirmationNumber}
-                  </div>
-                </div>
-                <div>
-                  <span style={{ color: 'var(--text-muted)' }}>Folio Number:</span>
-                  <div style={{ fontWeight: 700 }}>{confirmationData.folioNumber}</div>
-                </div>
-                <div>
-                  <span style={{ color: 'var(--text-muted)' }}>Room Selected:</span>
-                  <div style={{ fontWeight: 700 }}>
-                    {confirmationData.roomNumber ? `Room ${confirmationData.roomNumber} · ` : ''}{confirmationData.roomName}
-                  </div>
-                </div>
-                <div>
-                  <span style={{ color: 'var(--text-muted)' }}>Duration:</span>
-                  <div style={{ fontWeight: 700 }}>{confirmationData.nights} Night(s)</div>
-                </div>
-                <div>
-                  <span style={{ color: 'var(--text-muted)' }}>Check-In:</span>
-                  <div style={{ fontWeight: 700 }}>{confirmationData.checkInDate} (From {confirmationData.checkInTime})</div>
-                </div>
-                <div>
-                  <span style={{ color: 'var(--text-muted)' }}>Check-Out:</span>
-                  <div style={{ fontWeight: 700 }}>{confirmationData.checkOutDate} (Until {confirmationData.checkOutTime})</div>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 16 }}>
-              <Button variant="secondary" onClick={() => window.print()}>
-                Print Voucher
-              </Button>
-              <Button variant="primary" onClick={() => (window.location.href = '/')}>
-                Return to Homepage
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {step === 3 && confirmationData && <BookingVoucher confirmation={confirmationData} returnToDashboard={returnToDashboard} onReturn={returnFromBooking} onPay={() => navigate(`/pay/${confirmationData.paymentToken}`, { state: null })} />}
       {previewRoom && <RoomPhotoPreview room={previewRoom} onClose={() => setPreviewRoom(null)} />}
     </div>
   );

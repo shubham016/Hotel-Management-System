@@ -4,10 +4,11 @@ import { Shield, Lock, Mail, KeyRound, Sparkles, Building2, CheckCircle2, ArrowR
 import { Button } from '@/components/ui/Button';
 import Link from '@/lib/router';
 import { authClient } from '@/lib/auth-client';
+import { portalHome } from '@/lib/portal-access';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('admin@hotelnewera.com');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -28,7 +29,7 @@ export default function LoginPage() {
       const data = await res.json();
       if (data.success && data.data?.token) {
         authClient.save(data.data, rememberMe);
-        router.replace('/admin/dashboard');
+        router.replace(portalHome(data.data));
       } else {
         setErrorMsg(data.error || 'Invalid credentials');
       }
@@ -40,10 +41,6 @@ export default function LoginPage() {
     }
   };
 
-  const handlePreset = (presetEmail: string, roleName: string) => {
-    setEmail(presetEmail);
-    setPassword('');
-  };
 
   return (
     <div
@@ -184,9 +181,7 @@ export default function LoginPage() {
             {/* <span style={{ fontSize: 11.5, color: 'var(--green)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
               <CheckCircle2 size={13} /> 256-Bit SSL Encrypted
             </span> */}
-            <a href="#" style={{ fontSize: 12, color: 'var(--primary-orange)', textDecoration: 'none', fontWeight: 600 }}>
-                Forgot Password?
-              </a>
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)', maxWidth: 180 }}>Forgot your password? Ask the Owner or Admin to reset it.</span>
           </div>
 
           <Button
@@ -201,35 +196,7 @@ export default function LoginPage() {
           </Button>
         </form>
 
-        {/* Quick Demo Role Selector */}
-        <div style={{ marginTop: 28, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 10, textAlign: 'center' }}>
-            Demo Accounts Presets
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
-            <button
-              type="button"
-              onClick={() => handlePreset('admin@hotelnewera.com', 'Super Admin')}
-              style={{ fontSize: 11.5, padding: '4px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', backgroundColor: 'var(--bg-main)', cursor: 'pointer', fontWeight: 600 }}
-            >
-              👑 Super Admin
-            </button>
-            <button
-              type="button"
-              onClick={() => handlePreset('frontdesk@hotelnewera.com', 'Front Desk')}
-              style={{ fontSize: 11.5, padding: '4px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', backgroundColor: 'var(--bg-main)', cursor: 'pointer', fontWeight: 600 }}
-            >
-              🛎️ Front Desk
-            </button>
-            <button
-              type="button"
-              onClick={() => handlePreset('accountant@hotelnewera.com', 'Accountant')}
-              style={{ fontSize: 11.5, padding: '4px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', backgroundColor: 'var(--bg-main)', cursor: 'pointer', fontWeight: 600 }}
-            >
-              📊 Finance/ERP
-            </button>
-          </div>
-        </div>
+        <p style={{ marginTop: 24, fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center' }}>Use your individual staff account. Your assigned role opens the correct workspace.</p>
       </div>
 
       <div style={{ marginTop: 24, fontSize: 12.5, color: 'var(--text-muted)' }}>

@@ -27,7 +27,7 @@ export default function PublicLayout({
         <Footer />
         <ScrollToTop />
         <BookingModal title="Book a Room" subtitle="Check live availability and create a secure direct reservation." onClose={() => router.push('/')}>
-          <div style={{ flex: 1, overflowY: 'auto', backgroundColor: 'var(--bg-main)' }}>{children}</div>
+          <div className="booking-modal-scroll" style={{ flex: 1, overflowY: 'auto', backgroundColor: 'var(--bg-main)' }}>{children}</div>
         </BookingModal>
       </div>
     );

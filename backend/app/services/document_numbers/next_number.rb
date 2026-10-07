@@ -6,7 +6,8 @@ module DocumentNumbers
       "PAYMENT" => "RCP",
       "PURCHASE_ORDER" => "PO",
       "BANQUET" => "BNQ",
-      "JOURNAL" => "JV"
+      "JOURNAL" => "JV",
+      "KOT" => "KOT"
     }.freeze
 
     def self.call(company:, property:, document_type:, date: Date.current)

@@ -7,6 +7,7 @@ class Folio < ApplicationRecord
   has_many :folio_items, dependent: :restrict_with_error
   has_many :payments, dependent: :restrict_with_error
   has_many :payment_requests, dependent: :restrict_with_error
+  has_one :cancellation_refund, dependent: :restrict_with_error
 
   validates :folio_number, presence: true, uniqueness: true
   validates :status, inclusion: { in: STATUSES }

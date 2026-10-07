@@ -6,8 +6,9 @@ module Api
           property = default_property
           restaurant = property.restaurants.find_by!(outlet_code: params[:outletCode].to_s)
           idempotency_key = params[:idempotencyKey].presence || SecureRandom.uuid
+          @kitchen_order_ids = Array(params[:kitchenOrderIds]).map(&:to_s).uniq
 
-          lines = priced_lines(restaurant)
+          lines = @kitchen_order_ids.any? ? ticket_lines(property, restaurant) : priced_lines(restaurant)
           raise ApiError.new("At least one order item is required", status: :bad_request, code: "EMPTY_ORDER") if lines.empty?
 
           sub = lines.sum { |line| line[:total] }
@@ -15,7 +16,8 @@ module Api
           tax = taxes.sum { |t| t[:amount] }
           grand = sub + tax
 
-          if ActiveModel::Type::Boolean.new.cast(params[:postToRoom]) && params[:roomNumber].present?
+          if ActiveModel::Type::Boolean.new.cast(params[:postToRoom])
+            raise ApiError.new("Select an in-house guest room", status: :unprocessable_content, code: "ROOM_REQUIRED") if params[:roomNumber].blank?
             return post_to_room(property, lines, taxes, sub, tax, grand, idempotency_key)
           end
 
@@ -25,7 +27,9 @@ module Api
           end
 
           voucher = ActiveRecord::Base.transaction do
+            lock_tickets!(property)
             v = create_journal!(property, property.company, grand, sub, tax, "POS Direct Settlement - Table #{params[:tableNumber]}", idempotency_key)
+            settle_tickets!
             audit!("POS", "CREATE", "RestaurantTable", SecureRandom.uuid, new_values: { table: params[:tableNumber], total: grand.to_s })
             v
           end
@@ -33,6 +37,39 @@ module Api
         end
 
         private
+
+        def ticket_lines(property, restaurant)
+          @tickets = property.kitchen_orders.includes(:restaurant_table).where(id: @kitchen_order_ids).to_a
+          unless @tickets.size == @kitchen_order_ids.size && @tickets.all? { |ticket| ticket.restaurant_table.restaurant_id == restaurant.id } && @tickets.map(&:restaurant_table_id).uniq.size == 1
+            raise ApiError.new("Select orders from one table in this outlet", status: :unprocessable_content, code: "INVALID_ORDERS")
+          end
+          @tickets.flat_map { |ticket| ticket.items.map { |item|
+            product = restaurant.menu_items.find(item.fetch("menuItemId"))
+            { item: product, quantity: item.fetch("quantity").to_d, unit_price: item.fetch("unitPrice").to_d, total: (item.fetch("unitPrice").to_d * item.fetch("quantity")).round(2) }
+          } }
+        end
+
+        def lock_tickets!(property)
+          return if @kitchen_order_ids.empty?
+          @tickets.first.restaurant_table.lock!
+          @tickets.each(&:lock!)
+          if @tickets.any?(&:settled_at)
+            raise ApiError.new("One or more orders are already settled. Refresh the table.", status: :conflict, code: "ORDER_SETTLED")
+          end
+          unless @tickets.all? { |ticket| ticket.status == "SERVED" }
+            raise ApiError.new("Mark all table orders served before settling", status: :conflict, code: "ORDER_NOT_SERVED")
+          end
+          all_ids = property.kitchen_orders.unsettled.where(restaurant_table_id: @tickets.first.restaurant_table_id).pluck(:id).sort
+          if all_ids != @kitchen_order_ids.sort
+            raise ApiError.new("The table orders changed. Refresh before settling.", status: :conflict, code: "ORDER_CHANGED")
+          end
+        end
+
+        def settle_tickets!
+          return unless @tickets
+          @tickets.each { |ticket| ticket.update!(settled_at: Time.current) }
+          @tickets.first.restaurant_table.update!(status: "AVAILABLE")
+        end
 
         def priced_lines(restaurant)
           requested = Array(params[:items]).map { |i| { id: i[:menuItemId], qty: BigDecimal((i[:quantity].presence || 1).to_s) } }
@@ -69,6 +106,11 @@ module Api
           end
 
           ActiveRecord::Base.transaction do
+            folio.lock!
+            unless folio.status == "OPEN" && folio.reservation.reload.status == "CHECKED_IN"
+              raise ApiError.new("The guest is no longer available for room charges", status: :conflict, code: "FOLIO_NOT_ACTIVE")
+            end
+            lock_tickets!(property)
             folio.folio_items.create!(
               source_module: "RESTAURANT",
               source_reference: idempotency_key,
@@ -79,11 +121,12 @@ module Api
               tax_amount: tax,
               total_amount: grand,
               calculation_snapshot: {
-                lines: lines.map { |l| { menuItemId: l[:item].id, name: l[:item].name, unitPrice: l[:item].price.to_f, quantity: l[:quantity].to_f, total: l[:total].to_f } },
+                lines: lines.map { |l| { menuItemId: l[:item].id, name: l[:item].name, unitPrice: (l[:unit_price] || l[:item].price).to_f, quantity: l[:quantity].to_f, total: l[:total].to_f } },
                 taxes: taxes.map { |t| { code: t[:tax].code, rate: t[:tax].rate.to_f, amount: t[:amount].to_f } }
               }
             )
             folio.update!(sub_total: folio.sub_total + sub, tax_amount: folio.tax_amount + tax, grand_total: folio.grand_total + grand, balance_due: folio.balance_due + grand)
+            settle_tickets!
             audit!("POS", "UPDATE", "Folio", folio.id, new_values: { total: grand.to_s })
           end
           render json: { success: true, message: "Bill of Rs. #{grand.to_f} successfully posted to Room ##{room.room_number} (#{reservation.guest.full_name})!", folioNumber: folio.folio_number }

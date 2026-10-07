@@ -3,7 +3,7 @@ module Api
     module Pos
       class MenuItemsController < BackendController
         def index
-          restaurants = default_property.restaurants.includes(:menu_items).order(:outlet_code)
+          restaurants = default_property.restaurants.where(active: true).includes(:menu_items).order(:outlet_code)
           render json: {
             success: true,
             outlets: restaurants.map do |restaurant|

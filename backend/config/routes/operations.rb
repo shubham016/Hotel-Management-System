@@ -7,6 +7,7 @@ namespace :api do
       resources :items, only: %i[index create]
     end
     namespace :pos do
+      resources :kitchen_orders, only: %i[index create update]
       resources :tables, only: :index
       resources :menu_items, only: :index
       resources :billing, only: :create
