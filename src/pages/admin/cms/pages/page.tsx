@@ -459,7 +459,7 @@ export default function CMSPagesManager() {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-                <Button type="submit" variant="primary" size="lg" disabled={isSaving || isLoadingPages || Boolean(loadError)}>
+                <Button type="submit" variant="primary" disabled={isSaving || isLoadingPages || Boolean(loadError)}>
                   <Save size={16} />
                   <span>{isSaving ? 'Publishing...' : 'Publish CMS Updates'}</span>
                 </Button>

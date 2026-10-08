@@ -419,9 +419,10 @@ a.public-social-link:focus-visible {
 }
 
 .hne-btn-lg {
-  padding: 14px 28px;
-  font-size: 16px;
-  border-radius: var(--radius-lg);
+  min-height: 40px;
+  padding: 9px 16px;
+  font-size: 14px;
+  border-radius: var(--radius-md);
 }
 
 /* Selectable booking-room tile: aligned with the Dashboard Room Board's clean-room palette. */

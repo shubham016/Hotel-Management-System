@@ -11,6 +11,8 @@ module Api
           user = User.includes(:role, :company, :properties).find_by("lower(email) = ?", email)
 
           unless user&.active? && user.authenticate(password)
+            reason = user.nil? ? "ACCOUNT_NOT_FOUND" : user.active? ? "PASSWORD_MISMATCH" : "ACCOUNT_INACTIVE"
+            Rails.logger.warn("Authentication failed request_id=#{request.request_id} reason=#{reason} user_id=#{user&.id || 'none'}")
             return render_error("Invalid email or password", status: :unauthorized, code: "INVALID_CREDENTIALS")
           end
 

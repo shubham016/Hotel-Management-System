@@ -1,0 +1,36 @@
+.hne-settings-tabs {
+  display: flex;
+  gap: 2px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.hne-settings-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 5px;
+  font-family: var(--font-family-body);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.hne-settings-tab:hover { background: var(--bg-main); color: var(--text-primary); }
+.hne-settings-tab[aria-pressed='true'] { background: var(--primary-orange); color: #FFFFFF; }
+.hne-settings-tab:focus-visible { outline: 2px solid var(--text-primary); outline-offset: -3px; }

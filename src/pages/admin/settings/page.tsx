@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { ClientDataEditor, type ClientRecord } from './ClientDataEditor';
 import Link from '@/lib/router';
+import './SettingsTabs.css';
 
 export default function SystemSettingsPage() {
   const [activeTab, setActiveTab] = useState<'PROPERTY' | 'TAX' | 'CALENDAR' | 'ROLES' | 'STAFF' | 'LAUNDRY' | 'EXTRAS'>('PROPERTY');
@@ -101,7 +102,7 @@ export default function SystemSettingsPage() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 8, backgroundColor: '#FFFFFF', padding: 6, borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', width: 'fit-content' }}>
+      <div className="hne-settings-tabs" role="group" aria-label="Settings sections">
         {[
           { id: 'PROPERTY', label: 'Property Profile' },
           { id: 'TAX', label: 'Tax & VAT Engine' },
@@ -112,18 +113,11 @@ export default function SystemSettingsPage() {
           { id: 'EXTRAS', label: 'Extra Services' }
         ].map((t) => (
           <button
+            type="button"
             key={t.id}
+            className="hne-settings-tab"
+            aria-pressed={activeTab === t.id}
             onClick={() => setActiveTab(t.id as any)}
-            style={{
-              padding: '8px 16px',
-              borderRadius: 'var(--radius-sm)',
-              border: 'none',
-              backgroundColor: activeTab === t.id ? 'var(--primary-orange)' : 'transparent',
-              color: activeTab === t.id ? '#FFFFFF' : 'var(--text-secondary)',
-              fontWeight: 700,
-              fontSize: 13,
-              cursor: 'pointer'
-            }}
           >
             {t.label}
           </button>
@@ -282,7 +276,7 @@ export default function SystemSettingsPage() {
         {saveError && <p role="alert" style={{ color: 'var(--red)', marginTop: 12 }}>{saveError}</p>}
         {saveMessage && <p role="status" style={{ color: 'var(--green)', marginTop: 12 }}>{saveMessage}</p>}
         {['PROPERTY', 'TAX'].includes(activeTab) && <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 24 }}>
-          <Button type="button" onClick={handleSaveSettings} disabled={saving} variant="primary" size="lg">
+          <Button type="button" onClick={handleSaveSettings} disabled={saving} variant="primary">
             <Save size={16} />
             <span>{saving ? 'Saving…' : 'Save Configuration'}</span>
           </Button>

@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { Pencil, Power } from 'lucide-react';
+import { FormDialog } from '@/components/admin/FormDialog';
 
 export type ClientRecord = {
   id: string;
@@ -49,6 +51,8 @@ function blank(kind: Kind, count: number): ClientRecord {
 
 export function ClientDataEditor({ kind, records, onSaved }: { kind: Kind; records: ClientRecord[]; onSaved: () => Promise<void> }) {
   const config = configurations[kind];
+  const recordName = kind === 'staff' ? 'staff member' : kind === 'laundry' ? 'laundry item' : 'service';
+  const description = kind === 'staff' ? 'Employee details for the hotel directory. Portal access is assigned separately.' : kind === 'laundry' ? 'Set the laundry item and its price before VAT.' : 'Set the service price, charging basis, and VAT treatment.';
   const [draft, setDraft] = useState<ClientRecord | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -88,24 +92,27 @@ export function ClientDataEditor({ kind, records, onSaved }: { kind: Kind; recor
     finally { setSaving(false); }
   }
 
+  const editor = draft && <form onSubmit={save} className="hne-form-grid" style={{ marginBottom: 0 }}>
+    {error && <p role="alert" style={{ color: 'var(--danger-red)', gridColumn: '1 / -1' }}>{error}</p>}
+    {config.fields.map((field) => <label key={field.key} className="hne-form-group">
+      <span className="hne-label">{field.label}</span>
+      {field.type === 'select' ? <select disabled={saving} className="hne-select" value={String(draft[field.key] ?? '')} onChange={(event) => setDraft({ ...draft, [field.key]: field.key === 'taxable' ? event.target.value === 'true' : event.target.value })}>
+        {field.options?.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+      </select> : <input disabled={saving} autoFocus={field.key === config.fields[0].key} required className="hne-input" type={field.type || 'text'} min={field.type === 'number' ? 0 : undefined} step={field.key === 'price' || field.key === 'unit_price' ? '0.01' : '1'} value={String(draft[field.key] ?? '')} onChange={(event) => setDraft({ ...draft, [field.key]: field.type === 'number' ? Number(event.target.value) : event.target.value })} />}
+    </label>)}
+    <label className="hne-form-group"><span className="hne-label">Status</span><select disabled={saving} className="hne-select" value={draft.active ? 'true' : 'false'} onChange={(event) => setDraft({ ...draft, active: event.target.value === 'true' })}><option value="true">Active</option><option value="false">Inactive</option></select></label>
+    <div className="hne-client-record-dialog-actions" style={{ display: 'flex', gap: 8, alignItems: 'end' }}><button type="button" disabled={saving} className="hne-btn hne-btn-secondary hne-btn-sm" onClick={() => { setDraft(null); setError(''); }}>Cancel</button><button disabled={saving} className="hne-btn hne-btn-primary hne-btn-sm" type="submit">{saving ? 'Saving…' : draft.id ? 'Save changes' : `Add ${recordName}`}</button></div>
+  </form>;
+
   return <div>
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
       <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Changes save to the database and appear in hotel operations immediately.</p>
-      <button type="button" className="hne-btn hne-btn-primary hne-btn-sm" onClick={() => { setDraft(blank(kind, records.length)); setError(''); }}>Add {kind === 'staff' ? 'staff member' : kind === 'laundry' ? 'laundry item' : 'service'}</button>
+      <button type="button" disabled={saving} className="hne-btn hne-btn-primary hne-btn-sm" onClick={() => { setDraft(blank(kind, records.length)); setError(''); }}>Add {kind === 'staff' ? 'staff member' : kind === 'laundry' ? 'laundry item' : 'service'}</button>
     </div>
-    {error && <p role="alert" style={{ color: 'var(--red)', marginBottom: 12 }}>{error}</p>}
-    {draft && <form onSubmit={save} className="hne-form-grid" style={{ marginBottom: 18 }}>
-      {config.fields.map((field) => <label key={field.key} className="hne-form-group">
-        <span className="hne-label">{field.label}</span>
-        {field.type === 'select' ? <select className="hne-select" value={String(draft[field.key] ?? '')} onChange={(event) => setDraft({ ...draft, [field.key]: field.key === 'taxable' ? event.target.value === 'true' : event.target.value })}>
-          {field.options?.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-        </select> : <input required className="hne-input" type={field.type || 'text'} min={field.type === 'number' ? 0 : undefined} step={field.key === 'price' || field.key === 'unit_price' ? '0.01' : '1'} value={String(draft[field.key] ?? '')} onChange={(event) => setDraft({ ...draft, [field.key]: field.type === 'number' ? Number(event.target.value) : event.target.value })} />}
-      </label>)}
-      <label className="hne-form-group"><span className="hne-label">Status</span><select className="hne-select" value={draft.active ? 'true' : 'false'} onChange={(event) => setDraft({ ...draft, active: event.target.value === 'true' })}><option value="true">Active</option><option value="false">Inactive</option></select></label>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'end' }}><button disabled={saving} className="hne-btn hne-btn-primary hne-btn-sm" type="submit">{saving ? 'Saving…' : 'Save'}</button><button type="button" className="hne-btn hne-btn-secondary hne-btn-sm" onClick={() => setDraft(null)}>Cancel</button></div>
-    </form>}
+    {error && !draft && <p role="alert" style={{ color: 'var(--red)', marginBottom: 12 }}>{error}</p>}
+    {draft && <FormDialog title={`${draft.id ? 'Edit' : 'Add'} ${recordName}`} description={description} saving={saving} onClose={() => { setDraft(null); setError(''); }}>{editor}</FormDialog>}
     <div className="hne-table-container"><table className="hne-table"><thead><tr>{config.fields.map((field) => <th key={field.key}>{field.label}</th>)}<th>Status</th><th>Actions</th></tr></thead><tbody>
-      {records.map((record) => <tr key={record.id}>{config.fields.map((field) => <td key={field.key}>{field.key === 'taxable' ? (record.taxable ? 'Applies' : 'No VAT') : field.key === 'pricing_unit' ? field.options?.find((option) => option.value === record.pricing_unit)?.label : String(record[field.key] ?? '')}</td>)}<td>{record.active ? 'Active' : 'Inactive'}</td><td><button type="button" className="hne-btn hne-btn-secondary hne-btn-sm" onClick={() => { setDraft({ ...record }); setError(''); }}>Edit</button>{record.active && <button type="button" className="hne-btn hne-btn-danger hne-btn-sm" style={{ marginLeft: 6 }} disabled={saving} onClick={() => deactivate(record)}>Deactivate</button>}</td></tr>)}
+      {records.map((record) => <tr key={record.id}>{config.fields.map((field) => <td key={field.key}>{field.key === 'taxable' ? (record.taxable ? 'Applies' : 'No VAT') : field.key === 'pricing_unit' ? field.options?.find((option) => option.value === record.pricing_unit)?.label : String(record[field.key] ?? '')}</td>)}<td>{record.active ? 'Active' : 'Inactive'}</td><td style={{ whiteSpace: 'nowrap' }}><button type="button" className="hne-btn hne-btn-secondary hne-btn-sm" style={kind === 'extras' ? { padding: 8 } : undefined} disabled={saving} aria-label={`Edit ${record.name}`} title="Edit" onClick={() => { setDraft({ ...record }); setError(''); }}>{kind === 'extras' ? <Pencil size={16} aria-hidden="true" /> : 'Edit'}</button>{record.active && <button type="button" className={`hne-btn ${kind === 'extras' ? 'hne-btn-secondary' : 'hne-btn-danger'} hne-btn-sm`} style={{ marginLeft: 6, ...(kind === 'extras' ? { padding: 8, color: 'var(--danger-red)' } : {}) }} disabled={saving} aria-label={`Deactivate ${record.name}`} title="Deactivate" onClick={() => deactivate(record)}>{kind === 'extras' ? <Power size={16} aria-hidden="true" /> : 'Deactivate'}</button>}</td></tr>)}
     </tbody></table></div>
   </div>;
 }

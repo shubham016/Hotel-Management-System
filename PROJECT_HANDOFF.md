@@ -1,8 +1,46 @@
 # Hotel New Era — Project Handoff
 
-**Updated:** 2026-09-29
+**Updated:** 2026-10-08
 **Backend direction:** Ruby on Rails JSON API
 **Current frontend:** React 18 + React Router + Vite 7 SPA; Rails owns every backend API
+
+## Resume Here (2026-10-07 session end)
+
+This entry supersedes older descriptions of demo logins, unrestricted staff navigation, sample kitchen tickets, and incomplete booking wiring. See the detailed **2026-10-07** entry in [`docs/CONVERSATION.md`](docs/CONVERSATION.md).
+
+### Current staff portals
+
+- Existing `admin@hotelnewera.com` remains **OWNER**. **ADMIN** is now **All-rounder / Admin**, with full hotel access within assigned properties. The owner account is protected from staff account edits.
+- One login at `/login` routes staff to their workspace. Owner/Admin open Dashboard; Front Desk opens `/admin/pms/frontdesk`; Housekeeping/Cleaning opens `/admin/housekeeping`; Restaurant opens `/admin/pos/tables`; Kitchen Cook/Helper opens `/admin/pos/kot`.
+- `/admin/staff-access` lets Owner/Admin create individual accounts from the existing Staff Directory, assign roles, change passwords, and activate/deactivate access. The **Sign-in email** column is the login ID. Passwords are not displayed. Role/password/access changes revoke existing sessions.
+- Keshav Bhattarai (`keshav@hotelnewera.com`, ADMIN) and Devi Thapa (`devi@hotelnewera.com`, FRONT_DESK_STAFF) now have active accounts; the user confirmed both logins work. Do not invent credentials for other employees or change existing passwords merely to verify them.
+- Forgot password now submits an administrator-assisted request. Pending requests and email-delivery status persist on users; same-company administrators sharing an assigned active property receive in-app notifications and queued email. Staff Portal Access shows requests and email links open the matching account editor. Owner/Admin set a replacement password and share it privately; staff choose their own password in My Profile. Public requests no longer expose raw reset tokens. SMTP setup remains required for real inbox delivery.
+- Helpers may use Kitchen and cleaners may use Housekeeping with individual accounts. A dedicated Dishwasher portal is unnecessary for current workflows.
+- Backend permissions, page guards, sidebar, app switcher and search enforce role access. Front Desk can manage bookings, advances, folios and checkout; Owner/Admin record refund payouts and delete/archive bookings. `/admin/profile` lets every authenticated employee change their own password.
+- Restaurant/Kitchen now use persisted tables and KOT tickets, not sample browser-only orders: Restaurant sends -> Cook prepares/marks ready -> Restaurant marks served -> settlement or posting to an actual in-house room. Menu prices are saved on tickets, retries are protected, and settlement releases the table. Direct wallet selections record a received payment; they do not collect money online.
+- Mobile staff navigation is collapsible. Only the real current hotel is displayed; old dummy property options were removed.
+
+### Booking/payment state
+
+- Booking receipt/voucher and mobile payment confirmation use a single guest-facing booking reference, customer and stay details. Duplicate cancellation policy text was removed.
+- Before check-in, cancellation retains 10% of the actual amount paid and marks the remaining 90% due. Staff payout recording preserves original payments and accounting/audit records; it does not automatically send money to a wallet.
+- Manual cash/bank advances, payment retry protection, resumable eSewa checkout, guest identity preservation, pagination and dashboard search are implemented. Clicking a dashboard search match opens the selected booking in Reservations Matrix. Placeholder: `Search reservation, Name, Mobile, Rooms, ID...`.
+- A regression found during portal verification was corrected: booking references ending in digits no longer trigger unrelated normalized-phone matches.
+- Public live wallet checkout still needs merchant credentials and a public HTTPS return URL; the local gateway setup remains sandbox. Do not enable live checkout without those inputs.
+
+### Verification and local state
+
+- Migrations `20261007000001` through `20261007000004` were applied locally: cancellation refunds, payment idempotency/public checkout, staff accounts/roles, and kitchen orders.
+- Frontend typecheck and production build passed. Browser checks with isolated fixture data passed for all six roles, restricted-route redirects, account creation, restaurant/kitchen/settlement, and mobile Kitchen/Housekeeping layouts.
+- Staff/auth/POS checks: 16 runs / 140 assertions initially passed; later staff/POS checks passed 12 runs / 123 assertions. The booking/notifications/portal regression run had 56 runs / 907 assertions with one search failure; its corrected focused rerun passed 4 runs / 129 assertions. Final room-posting/auth checks passed 4 runs / 61 assertions; kitchen invalid-input checks passed 1 run / 5 assertions. These are separate, overlapping runs, not a single full-suite result.
+- `git diff --check` passed. Temporary browser fixtures/processes were removed. Work remains uncommitted in the working tree; no production deployment was performed.
+
+### Resume tomorrow
+
+1. Configure outgoing SMTP and real Owner/Admin inboxes for staff reset notifications; remaining employee provisioning requires the hotel's actual employee emails and individual passwords.
+2. Exercise each department with hotel staff and real operational data. Discuss housekeeping assignment/stayover cleaning or additional restaurant workflows only if needed.
+3. Keep inventory/accounting improvements deferred unless the user resumes that scope. The review found unsafe stock-issue validation, incomplete purchasing, financial-report calculation gaps, banquet validation gaps, and incomplete night-audit closing. Those modules were reviewed, not fixed in this session.
+4. Email-assisted password reset code is implemented; SMTP credentials and real inbox delivery verification remain outstanding. The local Active Job adapter is in-process, so queued mail needs a durable worker/queue for production. Live gateway credentials, public HTTPS URL, and deployed backup/restore verification remain outstanding.
 
 ## Resume Here (2026-09-29 session end)
 

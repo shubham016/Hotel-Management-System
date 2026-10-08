@@ -7,16 +7,8 @@ module Api
 
         def create
           email = params.require(:email).to_s.strip.downcase
-          user = User.active_scope.find_by("lower(email) = ?", email)
-          token = nil
-          token = PasswordResetToken.issue!(user:, request:).last if user
-
-          payload = {
-            success: true,
-            message: "If the email exists, password reset instructions have been prepared."
-          }
-          payload[:resetToken] = token if token.present? && !Rails.env.production?
-          render json: payload
+          Access::PasswordResetRequests.call(email:)
+          render json: { success: true, message: Access::PasswordResetRequests::MESSAGE }
         end
 
         def update

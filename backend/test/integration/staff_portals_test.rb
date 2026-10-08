@@ -108,6 +108,42 @@ class StaffPortalsTest < ActionDispatch::IntegrationTest
     assert_response :conflict
   end
 
+  test "staff account deletion preserves directory revokes login and records audit" do
+    member = @property.staff_members.create!(name: "Delete Staff", department: "Housekeeping", position: 1)
+    @housekeeper.update!(staff_member: member)
+    post "/api/v1/auth/login", params: { email: @housekeeper.email, password: }, as: :json
+    assert_response :success
+    token = response.parsed_body.dig("data", "token")
+    delete "/api/v1/users/#{@housekeeper.id}", headers: headers(@owner)
+    assert_response :success
+    assert_not User.exists?(@housekeeper.id)
+    assert StaffMember.exists?(member.id)
+    assert_equal 0, ApiSession.where(user_id: @housekeeper.id).count
+    assert AuditLog.exists?(entity_type: "User", entity_id: @housekeeper.id, action: "DELETE", user_id: @owner.id)
+    get "/api/v1/auth/me", headers: headers(@housekeeper).merge("Authorization" => "Bearer #{token}")
+    assert_response :unauthorized
+  end
+
+  test "staff deletion protects self owner tenant scope and historical activity" do
+    delete "/api/v1/users/#{@owner.id}", headers: headers(@admin)
+    assert_response :forbidden
+    delete "/api/v1/users/#{@admin.id}", headers: headers(@admin)
+    assert_response :forbidden
+    delete "/api/v1/users/#{@cook.id}", headers: headers(@frontdesk)
+    assert_response :forbidden
+    other_property = @company.properties.create!(name: "Other Delete", code: "OTHER-DELETE")
+    @cook.user_properties.update_all(property_id: other_property.id)
+    delete "/api/v1/users/#{@cook.id}", headers: headers(@owner)
+    assert_response :not_found
+    post "/api/v1/pos/kitchen_orders", params: { tableId: @table.id, idempotencyKey: SecureRandom.uuid, items: [{ menuItemId: @menu_item.id, quantity: 1 }] }, headers: headers(@restaurant_user), as: :json
+    assert_response :created
+    delete "/api/v1/users/#{@restaurant_user.id}", headers: headers(@owner)
+    assert_response :conflict
+    assert_equal "ACCOUNT_HAS_HISTORY", response.parsed_body["code"]
+    assert @restaurant_user.reload.active?
+    assert_equal 1, KitchenOrder.where(user_id: @restaurant_user.id).count
+  end
+
   test "every staff member can change their own password without management access" do
     post "/api/v1/auth/login", params: { email: @cook.email, password: }, as: :json
     token = response.parsed_body.dig("data", "token")

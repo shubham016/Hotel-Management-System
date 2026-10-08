@@ -12,7 +12,9 @@ module Api
           password = params.require(:password).to_s
           raise ApiError.new("Use at least 12 characters", status: :unprocessable_content, code: "WEAK_PASSWORD") if password.length < 12
           User.transaction do
-            user.update!(password:, password_confirmation: params.require(:passwordConfirmation))
+            user.lock!
+            user.update!(password:, password_confirmation: params.require(:passwordConfirmation), password_reset_requested_at: nil, password_reset_email_status: nil)
+            user.password_reset_tokens.active.find_each(&:mark_used!)
             user.api_sessions.active.find_each(&:revoke!)
             audit!("USERS", "UPDATE", "User", user.id, new_values: { password_changed: true })
           end

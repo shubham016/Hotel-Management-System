@@ -795,3 +795,64 @@ The user asked for a connected set of Hotel New Era PMS corrections: prevent ove
 - Changes and migrations were applied locally; no production deployment was performed in this session.
 
 ---
+
+## Record Entry: 2026-10-07 (Booking Completion, System Review, and Staff Portals)
+
+### Booking and payment changes
+
+- Completed and verified the current booking/payment work: resumable eSewa checkout, manual cash/bank advances, payment retry keys, preserved guest identities, server pagination, and mobile/print booking and payment output.
+- Guests see a single booking reference, customer name, room/stay details, payment information and remaining balance; the internal folio remains separate. Removed the duplicated cancellation-policy message.
+- Cancellation before check-in retains 10% of the actual advance received and records a 90% refund liability. Recording a payout requires a method/reference and preserves original payments, balanced journals and audit history. Wallet money is not transferred automatically.
+- Dashboard search supports guest name, formatted/normalized phone, ID, email, booking/folio references, guest/reservation UUID and room details. Clicking a match opens `/admin/pms/reservations?reservation=<id>`, filters to that booking, and opens its review. Selecting another customer while already on the matrix works; Show all reservations restores the list.
+- User-selected placeholder: **Search reservation, Name, Mobile, Rooms, ID...**.
+- Public live online advances are gated by live credentials and a public HTTPS return URL. The local setup is sandbox; production wallet activation still needs hotel inputs.
+
+### Professional system review and scope decision
+
+- Compared current code with official Cloudbeds and Oracle documentation. Found incomplete stock validation/locking, financial-report calculation/filtering, reset-email delivery, sample KOT data, banquet validation, purchasing lifecycle, night-audit closing, and housekeeping assignment/stayover workflows.
+- Inventory and Accounting pages/API code already exist but are partial; their existence does not mean they are operationally complete. The user deferred that work and selected staff portals as the current focus. Do not automatically start fixing the deferred modules tomorrow.
+- Professional role reference: [Cloudbeds role examples and privileges](https://myfrontdesk.cloudbeds.com/hc/en-us/articles/218512377-Add-edit-or-delete-roles). Kitchen reference: [Oracle KDS basics](https://docs.oracle.com/en/industries/food-beverage/simphony/19.8/kdscu/c_kds_basics.htm).
+
+### Staff portal implementation
+
+- Current owner account `admin@hotelnewera.com` remains **OWNER**, labelled Owner. The All-rounder is **ADMIN**, labelled All-rounder / Admin; both have full hotel access while retaining property/company boundaries.
+- Added standard Front Desk, Housekeeping/Cleaning, Restaurant and Kitchen Cook/Helper roles through `Access::StaffRoles`. Front Desk supports reservations, manual advances, folios, check-in, stay extension, room transfer and checkout. Refund payout permission is separate from cancellation permission; Owner/Admin handle payouts and booking deletion.
+- One `/login` opens the role's workspace. Session payloads include permissions, display labels and full-access state. The layout verifies the current session before rendering, guards pages, and filters navigation/apps/search. Owner accounts cannot be demoted/deactivated through staff account management. Real-property display replaces the fake hotel selector choices.
+- Added `/admin/staff-access`: Owner/Admin select an employee from the existing directory, enter a real email and initial password of at least 12 characters, and assign a role. The table lists sign-in email/login ID, role and status. Edit access changes role/password/active state and revokes existing sessions. Passwords are never shown.
+- Added `/admin/profile` for each employee's own password change with current-password verification and session revocation. Login no longer advertises nonworking demo accounts or a dead reset link; it directs forgotten-password requests to Owner/Admin. Email reset delivery still needs implementation/configuration.
+- No actual employee accounts were provisioned because the hotel has not supplied real employee email addresses/passwords. Tomorrow's first action is provisioning through the new page. Keshav Bhattarai (All Round) and Devi Thapa (Front Desk) are already directory entries, not automatically login accounts.
+- Cleaning staff can use Housekeeping; kitchen helpers can use Kitchen when needed. No separate Dishwasher portal was added because current workflows do not require it. All employees who receive access should have individual accounts.
+- Added mobile navigation and filtered staff menus; existing housekeeping room/status APIs remain live with visible load errors.
+
+### Persistent Restaurant/Kitchen workflow
+
+- Replaced sample POS tables and sample KOT tickets with database-backed tables and `KitchenOrder` records. Restaurant submits batches with retry keys, saved server menu prices, quantities and dietary notes; Cook sees tickets and updates PLACED -> PREPARING -> READY; Restaurant marks SERVED.
+- Kitchen cannot submit orders, mark them served, access billing, or see reservation/financial modules. Restaurant can settle all served orders on a table or post them to a valid checked-in open guest folio. Actual guest rooms replace hardcoded sample guest options.
+- Table settlement uses saved ticket prices, configured VAT, transactional locks and replay protection; releases the table after settlement; rejects changed/already-settled tickets, missing guest-room selection, and invalid quantities including fractions. Direct wallet/card/cash selections only record money already received.
+- Ticket creation/status and staff account changes are audited. API/browser checks cover role restrictions, tenant/property isolation and saved workflow state.
+
+### Database changes
+
+- `20261007000001_create_cancellation_refunds.rb`.
+- `20261007000002_add_payment_idempotency_key.rb` (also public checkout flag).
+- `20261007000003_add_staff_portals.rb` (optional unique staff-member link on users; installs standard roles).
+- `20261007000004_create_kitchen_orders.rb`.
+- Applied locally to development; test schema was prepared. No remote deployment or Git commit was made.
+
+### Verification and regression notes
+
+- Earlier booking/payment work passed 51 tests / 728 assertions, plus frontend build/typecheck and mobile/print checks.
+- Staff/auth/POS initial run: 16 tests / 140 assertions passed. Subsequent staff/POS run: 12 tests / 123 assertions passed.
+- Portal/reservation/notification regression: 56 tests / 907 assertions, one failure. It exposed an existing search bug: digits extracted from `OLDER-BOOKING-000` matched unrelated guest phone numbers. Phone normalization now only applies to phone-shaped text. Corrected focused search/refund tests: 4 tests / 129 assertions passed.
+- Final room-posting/profile-auth checks: 4 tests / 61 assertions passed. Kitchen negative/fractional-input/property checks: 1 test / 5 assertions passed. A test-fixture missing required reservation totals was corrected before its passing rerun.
+- These are overlapping focused checks, not a claim that the entire repository suite was run successfully.
+- Production frontend build, TypeScript check and `git diff --check` passed.
+- Headless browser checks used isolated fixture data: all six role landings, restricted-page redirects, Owner creates Admin account, Restaurant sends -> Cook prepares/ready -> Restaurant serves/settles, and 390px Kitchen/Housekeeping layouts without horizontal page overflow. Runtime Rails confirmed all six roles exist and the existing admin-email account is OWNER.
+- Temporary fixture server, browser and test files were cleaned up. Earlier `backend/tmp/payment-confirmation-mobile.png` remains an ignored booking screenshot.
+
+### Next session
+
+- Start with staff account provisioning and department usability checks. Ask for actual employee emails only if provisioning on their behalf; do not invent credentials.
+- Keep live payment activation, outgoing emails, deployment backups and the reviewed unfinished modules on the follow-up list. Do not treat a role portal as proof that all underlying operational workflows are complete.
+
+---

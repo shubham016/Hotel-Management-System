@@ -1,0 +1,23 @@
+.hne-client-record-dialog {
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  box-shadow: 0 20px 60px rgb(0 0 0 / 20%);
+}
+
+.hne-client-record-dialog::backdrop { background: rgb(15 23 42 / 48%); }
+.hne-client-record-dialog .hne-modal-body { max-height: none; }
+.hne-client-record-dialog .hne-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.hne-client-record-dialog-actions { grid-column: 1 / -1; justify-content: flex-end; padding-top: 16px; border-top: 1px solid var(--border); }
+.hne-client-record-dialog-actions .hne-btn { min-height: 36px; font-size: 13px; }
+
+@media (max-width: 480px) {
+  .hne-client-record-dialog .hne-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .hne-client-record-dialog .hne-modal-header, .hne-client-record-dialog .hne-modal-body { padding: 16px; }
+  .hne-client-record-dialog .hne-input, .hne-client-record-dialog .hne-select { font-size: 16px; }
+}

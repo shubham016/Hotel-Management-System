@@ -42,12 +42,34 @@ module Api
             if params[:password].present?
               validate_password!(params[:password].to_s)
               user.password = params[:password]
+              user.password_reset_requested_at = nil
+              user.password_reset_email_status = nil
             end
             user.save!
+            user.password_reset_tokens.active.find_each(&:mark_used!) if params[:password].present?
             user.api_sessions.active.find_each(&:revoke!)
-            audit!("USERS", "UPDATE", "User", user.id, new_values: { role: user.role.name, active: user.active })
+            audit!("USERS", "UPDATE", "User", user.id, new_values: { role: user.role.name, active: user.active, password_reset: params[:password].present? })
           end
           render json: { success: true, data: serialize(user) }
+        end
+
+        def destroy
+          user = Current.company.users.joins(:user_properties).where(user_properties: { property_id: default_property.id }).find(params[:id])
+          User.transaction do
+            user.lock!
+            if user.id == Current.user.id || user.role.name.in?(%w[OWNER SUPER_ADMIN])
+              raise ApiError.new("This account is protected.", status: :forbidden, code: "PROTECTED_ACCOUNT")
+            end
+            if AuditLog.exists?(user_id: user.id) || KitchenOrder.exists?(user_id: user.id)
+              raise ApiError.new("This account has activity history. Use Edit access to deactivate it instead.", status: :conflict, code: "ACCOUNT_HAS_HISTORY")
+            end
+            old_values = { email: user.email, role: user.role.name, staff_member_id: user.staff_member_id }
+            user.destroy!
+            audit!("USERS", "DELETE", "User", user.id, old_values:)
+          end
+          render json: { success: true }
+        rescue ActiveRecord::InvalidForeignKey
+          raise ApiError.new("This account has activity history. Use Edit access to deactivate it instead.", status: :conflict, code: "ACCOUNT_HAS_HISTORY")
         end
 
         private
@@ -73,7 +95,8 @@ module Api
         def serialize(user)
           { id: user.id, name: user.full_name, email: user.email, role: user.role.name,
             roleLabel: Access::StaffRoles::LABELS[user.role.name] || user.role.name.titleize,
-            active: user.active, staffMemberId: user.staff_member_id, lastLoginAt: user.last_login_at }
+            active: user.active, staffMemberId: user.staff_member_id, lastLoginAt: user.last_login_at,
+            passwordResetRequestedAt: user.password_reset_requested_at, passwordResetEmailStatus: user.password_reset_email_status }
         end
       end
     end
