@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_08_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_14_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -506,6 +506,78 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_08_000001) do
     t.check_constraint "amount > 0::numeric", name: "payments_positive_amount"
   end
 
+  create_table "payroll_advances", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.decimal "amount", precision: 14, scale: 2, null: false
+    t.datetime "created_at", null: false
+    t.uuid "journal_entry_id", null: false
+    t.date "paid_on", null: false
+    t.string "payment_method", null: false
+    t.string "payment_reference"
+    t.uuid "payroll_entry_id", null: false
+    t.string "request_key", null: false
+    t.datetime "updated_at", null: false
+    t.index ["journal_entry_id"], name: "index_payroll_advances_on_journal_entry_id", unique: true
+    t.index ["payroll_entry_id", "request_key"], name: "index_payroll_advances_on_payroll_entry_id_and_request_key", unique: true
+    t.index ["payroll_entry_id"], name: "index_payroll_advances_on_payroll_entry_id"
+    t.check_constraint "amount > 0::numeric", name: "payroll_advance_positive"
+  end
+
+  create_table "payroll_configurations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "advances_account_id", null: false
+    t.datetime "created_at", null: false
+    t.uuid "deductions_account_id", null: false
+    t.uuid "expense_account_id", null: false
+    t.uuid "payable_account_id", null: false
+    t.uuid "property_id", null: false
+    t.uuid "tds_account_id"
+    t.datetime "updated_at", null: false
+    t.index ["advances_account_id"], name: "index_payroll_configurations_on_advances_account_id"
+    t.index ["deductions_account_id"], name: "index_payroll_configurations_on_deductions_account_id"
+    t.index ["expense_account_id"], name: "index_payroll_configurations_on_expense_account_id"
+    t.index ["payable_account_id"], name: "index_payroll_configurations_on_payable_account_id"
+    t.index ["property_id"], name: "index_payroll_configurations_on_property_id", unique: true
+    t.index ["tds_account_id"], name: "index_payroll_configurations_on_tds_account_id"
+  end
+
+  create_table "payroll_entries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.decimal "advance_amount", precision: 14, scale: 2, default: "0.0", null: false
+    t.uuid "approval_journal_id"
+    t.datetime "archived_at"
+    t.decimal "base_salary", precision: 14, scale: 2, default: "0.0", null: false
+    t.datetime "created_at", null: false
+    t.decimal "deductions", precision: 14, scale: 2, default: "0.0", null: false
+    t.string "department", null: false
+    t.decimal "earnings", precision: 14, scale: 2, default: "0.0", null: false
+    t.string "employee_name", null: false
+    t.decimal "monthly_allowance", precision: 14, scale: 2, default: "0.0", null: false
+    t.decimal "net_pay", precision: 14, scale: 2, default: "0.0", null: false
+    t.text "notes"
+    t.date "paid_on"
+    t.uuid "payment_journal_id"
+    t.string "payment_method"
+    t.string "payment_reference"
+    t.date "period", null: false
+    t.string "period_calendar", default: "AD", null: false
+    t.uuid "property_id", null: false
+    t.uuid "staff_member_id", null: false
+    t.string "status", default: "DRAFT", null: false
+    t.decimal "tds_amount", precision: 14, scale: 2, default: "0.0", null: false
+    t.decimal "tds_rate", precision: 5, scale: 2
+    t.text "tds_reason"
+    t.datetime "updated_at", null: false
+    t.index ["approval_journal_id"], name: "index_payroll_entries_on_approval_journal_id", unique: true
+    t.index ["payment_journal_id"], name: "index_payroll_entries_on_payment_journal_id", unique: true
+    t.index ["property_id"], name: "index_payroll_entries_on_property_id"
+    t.index ["staff_member_id", "period_calendar", "period"], name: "index_payroll_employee_calendar_period", unique: true
+    t.index ["staff_member_id"], name: "index_payroll_entries_on_staff_member_id"
+    t.check_constraint "archived_at IS NULL OR status::text = 'PAID'::text", name: "payroll_archive_paid_only"
+    t.check_constraint "base_salary >= 0::numeric AND monthly_allowance >= 0::numeric AND earnings >= 0::numeric AND deductions >= 0::numeric AND advance_amount >= 0::numeric AND tds_amount >= 0::numeric AND net_pay >= 0::numeric AND net_pay = (base_salary + monthly_allowance + earnings - deductions - advance_amount - tds_amount)", name: "payroll_valid_amounts"
+    t.check_constraint "period_calendar::text = ANY (ARRAY['AD'::character varying, 'BS'::character varying]::text[])", name: "payroll_calendar_valid"
+    t.check_constraint "status::text = ANY (ARRAY['DRAFT'::character varying, 'APPROVED'::character varying, 'PAID'::character varying]::text[])", name: "payroll_valid_status"
+    t.check_constraint "tds_amount =\nCASE\n    WHEN tds_rate IS NULL THEN 0::numeric\n    ELSE round((base_salary + monthly_allowance + earnings) * tds_rate / 100::numeric, 2)\nEND", name: "payroll_tds_amount_valid"
+    t.check_constraint "tds_rate IS NULL OR tds_rate >= 0::numeric AND tds_rate <= 100::numeric", name: "payroll_tds_rate_valid"
+  end
+
   create_table "properties", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.boolean "active", default: true, null: false
     t.string "address"
@@ -679,6 +751,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_08_000001) do
   create_table "rooms", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.boolean "accessible", default: false, null: false
     t.boolean "active", default: true, null: false
+    t.string "bed_category"
+    t.integer "bed_count"
+    t.integer "bed_length_inches"
+    t.integer "bed_width_inches"
     t.datetime "created_at", null: false
     t.integer "floor", default: 1, null: false
     t.text "maintenance_notes"
@@ -694,6 +770,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_08_000001) do
     t.index ["property_id", "status"], name: "index_rooms_on_property_id_and_status"
     t.index ["property_id"], name: "index_rooms_on_property_id"
     t.index ["room_type_id"], name: "index_rooms_on_room_type_id"
+    t.check_constraint "bed_category IS NULL AND bed_count IS NULL AND bed_length_inches IS NULL AND bed_width_inches IS NULL OR bed_category IS NOT NULL AND length(TRIM(BOTH FROM bed_category)) > 0 AND bed_count IS NOT NULL AND bed_count > 0 AND bed_length_inches IS NOT NULL AND bed_length_inches > 0 AND bed_width_inches IS NOT NULL AND bed_width_inches > 0", name: "rooms_complete_bed_details"
   end
 
   create_table "service_offerings", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -714,6 +791,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_08_000001) do
     t.boolean "active", default: true, null: false
     t.datetime "created_at", null: false
     t.string "department", null: false
+    t.decimal "monthly_salary", precision: 14, scale: 2
     t.string "name", null: false
     t.integer "position", default: 0, null: false
     t.uuid "property_id", null: false
@@ -721,6 +799,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_08_000001) do
     t.datetime "updated_at", null: false
     t.index ["property_id", "source_key"], name: "index_staff_members_on_property_id_and_source_key", unique: true
     t.index ["property_id"], name: "index_staff_members_on_property_id"
+    t.check_constraint "monthly_salary IS NULL OR monthly_salary >= 0::numeric", name: "staff_salary_nonnegative"
   end
 
   create_table "stock_balances", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -845,6 +924,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_08_000001) do
   add_foreign_key "payment_requests", "folios"
   add_foreign_key "payment_requests", "payments"
   add_foreign_key "payments", "folios"
+  add_foreign_key "payroll_advances", "journal_entries"
+  add_foreign_key "payroll_advances", "payroll_entries"
+  add_foreign_key "payroll_configurations", "accounts", column: "advances_account_id"
+  add_foreign_key "payroll_configurations", "accounts", column: "deductions_account_id"
+  add_foreign_key "payroll_configurations", "accounts", column: "expense_account_id"
+  add_foreign_key "payroll_configurations", "accounts", column: "payable_account_id"
+  add_foreign_key "payroll_configurations", "accounts", column: "tds_account_id"
+  add_foreign_key "payroll_configurations", "properties"
+  add_foreign_key "payroll_entries", "journal_entries", column: "approval_journal_id"
+  add_foreign_key "payroll_entries", "journal_entries", column: "payment_journal_id"
+  add_foreign_key "payroll_entries", "properties"
+  add_foreign_key "payroll_entries", "staff_members"
   add_foreign_key "properties", "companies"
   add_foreign_key "purchase_order_items", "inventory_items"
   add_foreign_key "purchase_order_items", "purchase_orders"

@@ -1,0 +1,329 @@
+{
+  "property_code": "HNE-BTW",
+  "sources": [
+    "Beds.jpeg",
+    "Rooms.jpeg"
+  ],
+  "confirmed_notes": [
+    "6.5 ft means 6 feet 6 inches.",
+    "208 uses the bed size from 204; 209 uses the bed size from 203.",
+    "All beds in each room have the same listed size."
+  ],
+  "rooms": [
+    {
+      "room_number": "105",
+      "bed_category": "Single",
+      "bed_count": 5,
+      "bed_length_inches": 72,
+      "bed_width_inches": 36
+    },
+    {
+      "room_number": "106",
+      "bed_category": "Small double",
+      "bed_count": 2,
+      "bed_length_inches": 72,
+      "bed_width_inches": 48
+    },
+    {
+      "room_number": "107",
+      "bed_category": "Small double",
+      "bed_count": 2,
+      "bed_length_inches": 72,
+      "bed_width_inches": 48
+    },
+    {
+      "room_number": "108",
+      "bed_category": "Small double",
+      "bed_count": 3,
+      "bed_length_inches": 72,
+      "bed_width_inches": 48
+    },
+    {
+      "room_number": "202",
+      "bed_category": "King — custom size",
+      "bed_count": 1,
+      "bed_length_inches": 78,
+      "bed_width_inches": 78
+    },
+    {
+      "room_number": "203",
+      "bed_category": "Small double",
+      "bed_count": 2,
+      "bed_length_inches": 72,
+      "bed_width_inches": 48
+    },
+    {
+      "room_number": "204",
+      "bed_category": "Small double",
+      "bed_count": 3,
+      "bed_length_inches": 72,
+      "bed_width_inches": 48
+    },
+    {
+      "room_number": "205",
+      "bed_category": "Small double",
+      "bed_count": 3,
+      "bed_length_inches": 72,
+      "bed_width_inches": 48
+    },
+    {
+      "room_number": "206",
+      "bed_category": "Small double",
+      "bed_count": 3,
+      "bed_length_inches": 72,
+      "bed_width_inches": 48
+    },
+    {
+      "room_number": "207",
+      "bed_category": "Small double",
+      "bed_count": 2,
+      "bed_length_inches": 72,
+      "bed_width_inches": 48
+    },
+    {
+      "room_number": "208",
+      "bed_category": "Small double",
+      "bed_count": 2,
+      "bed_length_inches": 72,
+      "bed_width_inches": 48
+    },
+    {
+      "room_number": "209",
+      "bed_category": "Small double",
+      "bed_count": 2,
+      "bed_length_inches": 72,
+      "bed_width_inches": 48
+    },
+    {
+      "room_number": "210",
+      "bed_category": "Small double",
+      "bed_count": 2,
+      "bed_length_inches": 72,
+      "bed_width_inches": 48
+    },
+    {
+      "room_number": "301",
+      "bed_category": "King — custom size",
+      "bed_count": 1,
+      "bed_length_inches": 78,
+      "bed_width_inches": 78
+    },
+    {
+      "room_number": "302",
+      "bed_category": "Queen",
+      "bed_count": 2,
+      "bed_length_inches": 78,
+      "bed_width_inches": 60
+    },
+    {
+      "room_number": "303",
+      "bed_category": "Small double",
+      "bed_count": 2,
+      "bed_length_inches": 72,
+      "bed_width_inches": 48
+    },
+    {
+      "room_number": "304",
+      "bed_category": "Small double",
+      "bed_count": 2,
+      "bed_length_inches": 72,
+      "bed_width_inches": 48
+    },
+    {
+      "room_number": "305",
+      "bed_category": "Small double",
+      "bed_count": 1,
+      "bed_length_inches": 72,
+      "bed_width_inches": 48
+    },
+    {
+      "room_number": "306",
+      "bed_category": "Small double",
+      "bed_count": 2,
+      "bed_length_inches": 72,
+      "bed_width_inches": 48
+    },
+    {
+      "room_number": "307",
+      "bed_category": "Small double",
+      "bed_count": 2,
+      "bed_length_inches": 72,
+      "bed_width_inches": 48
+    },
+    {
+      "room_number": "308",
+      "bed_category": "Small double",
+      "bed_count": 2,
+      "bed_length_inches": 72,
+      "bed_width_inches": 48
+    },
+    {
+      "room_number": "309",
+      "bed_category": "Small double",
+      "bed_count": 2,
+      "bed_length_inches": 72,
+      "bed_width_inches": 48
+    },
+    {
+      "room_number": "310",
+      "bed_category": "Small double",
+      "bed_count": 2,
+      "bed_length_inches": 72,
+      "bed_width_inches": 48
+    },
+    {
+      "room_number": "311",
+      "bed_category": "Queen",
+      "bed_count": 1,
+      "bed_length_inches": 78,
+      "bed_width_inches": 60
+    },
+    {
+      "room_number": "401",
+      "bed_category": "King — custom size",
+      "bed_count": 2,
+      "bed_length_inches": 78,
+      "bed_width_inches": 78
+    },
+    {
+      "room_number": "402",
+      "bed_category": "King — custom size",
+      "bed_count": 1,
+      "bed_length_inches": 78,
+      "bed_width_inches": 78
+    },
+    {
+      "room_number": "403",
+      "bed_category": "Single — wide",
+      "bed_count": 2,
+      "bed_length_inches": 78,
+      "bed_width_inches": 42
+    },
+    {
+      "room_number": "404",
+      "bed_category": "Single — wide",
+      "bed_count": 2,
+      "bed_length_inches": 78,
+      "bed_width_inches": 42
+    },
+    {
+      "room_number": "405",
+      "bed_category": "Single — wide",
+      "bed_count": 2,
+      "bed_length_inches": 78,
+      "bed_width_inches": 42
+    },
+    {
+      "room_number": "406",
+      "bed_category": "King — custom size",
+      "bed_count": 1,
+      "bed_length_inches": 78,
+      "bed_width_inches": 78
+    },
+    {
+      "room_number": "407",
+      "bed_category": "Queen",
+      "bed_count": 1,
+      "bed_length_inches": 78,
+      "bed_width_inches": 60
+    },
+    {
+      "room_number": "408",
+      "bed_category": "Queen",
+      "bed_count": 1,
+      "bed_length_inches": 78,
+      "bed_width_inches": 60
+    },
+    {
+      "room_number": "409",
+      "bed_category": "Single — wide",
+      "bed_count": 2,
+      "bed_length_inches": 78,
+      "bed_width_inches": 42
+    },
+    {
+      "room_number": "410",
+      "bed_category": "Queen",
+      "bed_count": 1,
+      "bed_length_inches": 78,
+      "bed_width_inches": 60
+    },
+    {
+      "room_number": "501",
+      "bed_category": "King — custom size",
+      "bed_count": 1,
+      "bed_length_inches": 78,
+      "bed_width_inches": 78
+    },
+    {
+      "room_number": "502",
+      "bed_category": "King — custom size",
+      "bed_count": 1,
+      "bed_length_inches": 78,
+      "bed_width_inches": 78
+    },
+    {
+      "room_number": "503",
+      "bed_category": "Single — wide",
+      "bed_count": 2,
+      "bed_length_inches": 78,
+      "bed_width_inches": 42
+    },
+    {
+      "room_number": "504",
+      "bed_category": "Single — wide",
+      "bed_count": 2,
+      "bed_length_inches": 78,
+      "bed_width_inches": 42
+    },
+    {
+      "room_number": "505",
+      "bed_category": "Single — wide",
+      "bed_count": 2,
+      "bed_length_inches": 78,
+      "bed_width_inches": 42
+    },
+    {
+      "room_number": "506",
+      "bed_category": "King — custom size",
+      "bed_count": 1,
+      "bed_length_inches": 78,
+      "bed_width_inches": 78
+    },
+    {
+      "room_number": "507",
+      "bed_category": "Queen",
+      "bed_count": 1,
+      "bed_length_inches": 78,
+      "bed_width_inches": 60
+    },
+    {
+      "room_number": "508",
+      "bed_category": "Queen",
+      "bed_count": 1,
+      "bed_length_inches": 78,
+      "bed_width_inches": 60
+    },
+    {
+      "room_number": "509",
+      "bed_category": "Single — wide",
+      "bed_count": 3,
+      "bed_length_inches": 78,
+      "bed_width_inches": 42
+    },
+    {
+      "room_number": "510",
+      "bed_category": "Queen",
+      "bed_count": 1,
+      "bed_length_inches": 78,
+      "bed_width_inches": 60
+    },
+    {
+      "room_number": "511",
+      "bed_category": "King — custom size",
+      "bed_count": 1,
+      "bed_length_inches": 78,
+      "bed_width_inches": 78
+    }
+  ]
+}

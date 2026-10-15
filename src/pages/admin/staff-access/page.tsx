@@ -72,19 +72,14 @@ export default function StaffAccessPage() {
 
   return <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
     <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-      <div><h1 style={{ fontSize: 24, fontWeight: 700 }}>Staff Portal Access</h1><p style={{ marginTop: 6, color: 'var(--text-secondary)' }}>Individual sign-ins with access appropriate to each employee’s work.</p></div>
+      <div><h1 style={{ fontSize: 24, fontWeight: 700 }}>Staff Portal Access</h1></div>
       <button type="button" className="hne-btn hne-btn-primary hne-btn-sm" style={{ minHeight: 36, padding: '8px 12px', fontSize: 13, gap: 6, borderRadius: 6, flexShrink: 0, whiteSpace: 'nowrap' }} disabled={saving || loading || !available.length} onClick={() => { setDraft({ id: '', staffMemberId: '', email: '', role: 'FRONT_DESK_STAFF', password: '', active: true }); setEditing(true); setError(''); }}><Plus size={16} aria-hidden="true" />Create staff account</button>
     </header>
-    <div className="hne-card" style={{ padding: 18, lineHeight: 1.7, fontSize: 13 }}>
-      <p><strong>Owner:</strong> existing owner account. <strong>All-rounder / Admin:</strong> full hotel management access.</p>
-      <p><strong>Front Desk:</strong> reservations, guest folios, payments and checkout. <strong>Housekeeping / Cleaning:</strong> room cleaning and inspection.</p>
-      <p><strong>Restaurant:</strong> tables, orders and billing. <strong>Kitchen Cook / Helper:</strong> kitchen tickets and preparation status.</p>
-      <p style={{ color: 'var(--text-secondary)' }}>Kitchen helpers and cleaners may share their department’s workspace using individual accounts. Dishwashers do not require a portal for the current workflows. Add employees to the Staff Directory in System Settings first.</p>
-    </div>
+
     {error && !editing && <p role="alert" style={{ color: 'var(--danger-red)' }}>{error}</p>}
     {message && <p role="status" style={{ color: 'var(--green)' }}>{message}</p>}
     {accounts.some(account => account.passwordResetRequestedAt && ['NOT_CONFIGURED', 'FAILED'].includes(account.passwordResetEmailStatus || '')) && <p role="status" style={{ fontSize: 13, color: 'var(--danger-red)' }}>Email delivery is unavailable for one or more password reset requests. The requests are saved below for Owner/Admin to process.</p>}
-    {editing && <FormDialog title={draft.id ? 'Edit portal access' : 'Create staff account'} description={draft.id ? `${draft.email} — update role, password, or account status.` : 'Assign an individual sign-in and portal role to an employee.'} saving={saving} onClose={() => { setEditing(false); setError(''); }}><form onSubmit={save}>
+    {editing && <FormDialog title={draft.id ? 'Edit portal access' : 'Create staff account'} description={draft.id ? draft.email : undefined} saving={saving} onClose={() => { setEditing(false); setError(''); }}><form onSubmit={save}>
       {error && <p role="alert" style={{ color: 'var(--danger-red)', marginBottom: 16 }}>{error}</p>}
       {draft.id && accounts.find(account => account.id === draft.id)?.passwordResetRequestedAt && <p role="status" style={{ fontSize: 13, lineHeight: 1.6, marginBottom: 16 }}>This employee requested a password reset. Verify their identity, enter a replacement password, and share it privately.</p>}
       <fieldset disabled={saving} className="hne-form-grid" style={{ border: 0, padding: 0, margin: 0 }}>

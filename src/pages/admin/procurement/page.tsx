@@ -77,9 +77,7 @@ export default function ProcurementPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800 }}>Procurement, Purchase Orders & GRN</h1>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            Supplier purchase requisitions, 3-way match Goods Receipt Notes (GRN), and Accounts Payable
-          </p>
+
         </div>
 
         <div style={{ display: 'flex', gap: 10 }}>
@@ -109,10 +107,10 @@ export default function ProcurementPage() {
       </div>
 
       {/* Orders Table */}
-      <Card title={`Purchase Orders & Deliveries (${orders.length})`} subtitle="Manage supplier purchase requests and receipt inspection notes">
+      <Card title={`Purchase Orders & Deliveries (${orders.length})`} >
         {isLoading ? (
           <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
-            Loading purchase orders from PostgreSQL...
+            Loading purchase orders…
           </div>
         ) : (
           <div className="hne-table-container">

@@ -20,6 +20,8 @@ class Room < ApplicationRecord
   validates :floor, numericality: { only_integer: true, greater_than: 0 }
   validates :status, inclusion: { in: STATUSES }
   validate :room_type_belongs_to_property
+  validates :bed_category, presence: true, if: :bed_details_set?
+  validates :bed_count, :bed_length_inches, :bed_width_inches, numericality: { only_integer: true, greater_than: 0 }, if: :bed_details_set?
   after_save :queue_housekeeping!, if: :saved_change_to_status?
 
   def queue_housekeeping!
@@ -30,6 +32,22 @@ class Room < ApplicationRecord
     elsif status == "VACANT_CLEAN"
       housekeeping_tasks.where(status: "PENDING").update_all(status: "COMPLETED", completed_at: Time.current, updated_at: Time.current)
     end
+  end
+
+  def bed_details_set?
+    [bed_category, bed_count, bed_length_inches, bed_width_inches].any? { |value| !value.nil? }
+  end
+
+  def bed_label
+    return room_type.default_bed_label unless bed_details_set?
+
+    length = format("%g", bed_length_inches.to_f / 12)
+    width = format("%g", bed_width_inches.to_f / 12)
+    "#{bed_count} #{bed_category} #{bed_count == 1 ? 'bed' : 'beds'} (#{length} × #{width} ft)"
+  end
+
+  def bed_details
+    { bedCategory: bed_category, bedCount: bed_count, bedLengthInches: bed_length_inches, bedWidthInches: bed_width_inches, bedLabel: bed_label }
   end
 
   private

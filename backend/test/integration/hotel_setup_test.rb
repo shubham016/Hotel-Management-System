@@ -21,6 +21,45 @@ class HotelSetupTest < ActionDispatch::IntegrationTest
     }
   end
 
+  test "physical room beds persist and appear in setup catalog and availability without changing category rates" do
+    room_type = @property.room_types.create!(name: "Bed Detail Suite", code: "BED-SUITE", slug: "bed-detail-suite", base_price: 5000, bed_category: "Not specified", bed_count: 3, setup_managed: true)
+    payload = { room_number: "208", floor: 2, room_type_id: room_type.id, bed_category: "Small double", bed_count: 2, bed_length_inches: 72, bed_width_inches: 48 }
+    post "/api/v1/rooms", params: { room: payload }, headers: @headers, as: :json
+    assert_response :created
+    room = Room.find(response.parsed_body.dig("data", "id"))
+    assert_equal "2 Small double beds (6 \u00d7 4 ft)", response.parsed_body.dig("data", "bedLabel")
+    assert_equal 2, room.reload.bed_count
+    assert_equal 48, room.bed_width_inches
+    assert_equal 3, room_type.reload.bed_count
+    assert_equal 5000, room_type.base_price
+    get "/api/v1/hotel_setup", headers: @headers
+    assert_response :success
+    assert_equal room.bed_label, response.parsed_body.dig("data", "rooms").first["bedLabel"]
+    assert_equal "2", response.parsed_body.dig("data", "roomTypes").first["bed_count_label"]
+    get "/api/v1/room_catalog", params: { propertyCode: @property.code }
+    assert_response :success
+    assert_equal room.bed_label, response.parsed_body["data"].first["bed_label"]
+    get "/api/v1/availability", params: { propertyCode: @property.code, checkInDate: "2030-01-01", checkOutDate: "2030-01-02" }
+    assert_response :success
+    option = response.parsed_body["data"].find { |item| item.dig("roomType", "id") == room_type.id }
+    assert_equal room.bed_label, option["rooms"].first["bedLabel"]
+    assert_equal room.bed_label, option["roomType"]["bed_label"]
+    assert_no_difference "AuditLog.count" do
+      patch "/api/v1/rooms/#{room.id}", params: { room: { bed_count: 0 } }, headers: @headers, as: :json
+    end
+    assert_response :unprocessable_content
+    assert_equal 2, room.reload.bed_count
+    other = @property.company.properties.create!(name: "Other bed property", code: "OTHER-BED")
+    foreign_type = other.room_types.create!(name: "Foreign", code: "FOREIGN", slug: "foreign", base_price: 1)
+    foreign = other.rooms.create!(room_type: foreign_type, room_number: "208", floor: 2, setup_managed: true)
+    patch "/api/v1/rooms/#{foreign.id}", params: { room: { bed_count: 2 } }, headers: @headers, as: :json
+    assert_response :not_found
+    assert_nil foreign.reload.bed_count
+    patch "/api/v1/rooms/#{room.id}", params: { room: { bed_category: nil, bed_count: nil, bed_length_inches: nil, bed_width_inches: nil } }, headers: @headers, as: :json
+    assert_response :success
+    assert_equal "3 beds", response.parsed_body.dig("data", "bedLabel")
+  end
+
   test "room category create returns the value persisted in the database" do
     post "/api/v1/room_types", params: {
       room_type: {

@@ -108,9 +108,7 @@ export default function GuestCRMPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800 }}>Guest CRM & Loyalty Intelligence</h1>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            Central guest database, stay histories, lifetime revenue tracking, and VIP tier management
-          </p>
+
         </div>
 
         <div style={{ display: 'flex', gap: 10 }}>
@@ -151,7 +149,7 @@ export default function GuestCRMPage() {
       {/* Main Grid: Directory + Inspector */}
       <div style={{ display: 'grid', gridTemplateColumns: selectedGuest ? '1fr 1.1fr' : '1fr', gap: 24 }}>
         {/* Guests Directory */}
-        <Card title={`Guest Directory (${filteredGuests.length})`} subtitle="Select any profile to view stay history and preferences">
+        <Card title={`Guest Directory (${filteredGuests.length})`} >
           <div style={{ marginBottom: 16, position: 'relative' }}>
             <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input
@@ -166,7 +164,7 @@ export default function GuestCRMPage() {
 
           {isLoading ? (
             <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
-              Loading guest directory from PostgreSQL...
+              Loading guest directory…
             </div>
           ) : (
             <div className="hne-table-container">

@@ -25,7 +25,28 @@ class RoomType < ApplicationRecord
       adults_count + children_count <= max_occupancy * rooms_count
   end
 
+  def default_bed_label
+    category = bed_category.to_s.casecmp?("Not specified") ? "" : "#{bed_category} "
+    "#{bed_count} #{category}#{bed_count == 1 ? 'bed' : 'beds'}"
+  end
+
+  def bed_label
+    labels = physical_bed_rooms.map(&:bed_label).uniq
+    return default_bed_label if labels.empty?
+
+    labels.one? ? labels.first : "Beds vary by room — select a room to see its bed details"
+  end
+
+  def bed_count_label
+    counts = physical_bed_rooms.map { |room| room.bed_count || bed_count }.uniq.sort
+    counts.empty? ? bed_count.to_s : counts.one? ? counts.first.to_s : "#{counts.first}–#{counts.last}"
+  end
+
   private
+
+  def physical_bed_rooms
+    rooms.select { |room| room.active? && room.setup_managed? }
+  end
 
   def calculate_max_occupancy
     return if max_adults.nil? || max_children.nil?

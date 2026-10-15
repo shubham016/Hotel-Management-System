@@ -95,9 +95,7 @@ export default function RoomsManagementPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800 }}>{summary.totalRooms} Room Live Status Matrix</h1>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            Real-time PostgreSQL room occupancy, live housekeeping status updates, and floor-wise matrix
-          </p>
+
         </div>
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -196,7 +194,7 @@ export default function RoomsManagementPage() {
       {/* Room Grid */}
       {isLoading ? (
         <div style={{ padding: 60, textAlign: 'center', color: 'var(--text-secondary)' }}>
-          Loading live room matrix from PostgreSQL...
+          Loading live room matrix…
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 18 }}>
@@ -329,7 +327,7 @@ export default function RoomsManagementPage() {
                       cursor: lifecycleManaged ? 'not-allowed' : 'pointer'
                     }}
                   >
-                    OOO
+                    Out of Order
                   </button>
                 </div>
               </div>

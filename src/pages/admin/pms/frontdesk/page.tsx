@@ -330,10 +330,10 @@ export default function FrontDeskPage() {
       {/* Folio list and direct-link inspector */}
       <div style={{ minWidth: 0 }}>
         {/* Folios Table */}
-        {!isFocusedFolioView && <Card title={`Active In-House Guest Folios (${filteredFolios.length})`} subtitle="Click any folio row to inspect charges and payments">
+        {!isFocusedFolioView && <Card title={`Active In-House Guest Folios (${filteredFolios.length})`} >
           {isLoading ? (
             <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
-              Loading in-house guest folios from PostgreSQL...
+              Loading in-house guest folios…
             </div>
           ) : (
             <div className="hne-table-container">

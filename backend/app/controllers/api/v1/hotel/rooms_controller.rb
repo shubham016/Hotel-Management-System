@@ -50,9 +50,9 @@ module Api
         def update
           room = default_property.rooms.setup_managed.find(params[:id])
           ensure_setup_room_type! if room_params[:room_type_id].present?
-          old_values = room.attributes.slice("room_number", "floor", "room_type_id", "status", "active", "smoking", "accessible")
+          old_values = room.attributes.slice("room_number", "floor", "room_type_id", "status", "active", "smoking", "accessible", "bed_category", "bed_count", "bed_length_inches", "bed_width_inches")
           room.update!(room_params)
-          audit!("ROOMS", "UPDATE", "Room", room.id, old_values:, new_values: room.attributes.slice("room_number", "floor", "room_type_id", "status", "active", "smoking", "accessible"))
+          audit!("ROOMS", "UPDATE", "Room", room.id, old_values:, new_values: room.attributes.slice("room_number", "floor", "room_type_id", "status", "active", "smoking", "accessible", "bed_category", "bed_count", "bed_length_inches", "bed_width_inches"))
           render json: { success: true, data: serialize(room) }
         end
 
@@ -114,11 +114,11 @@ module Api
             smoking: room.smoking,
             accessible: room.accessible,
             roomType: { id: room.room_type_id, code: room.room_type.code, name: room.room_type.name }
-          }
+          }.merge(room.bed_details)
         end
 
         def room_params
-          params.require(:room).permit(:room_number, :floor, :room_type_id, :status, :active, :smoking, :accessible)
+          params.require(:room).permit(:room_number, :floor, :room_type_id, :status, :active, :smoking, :accessible, :bed_category, :bed_count, :bed_length_inches, :bed_width_inches)
         end
 
         def bulk_room_params

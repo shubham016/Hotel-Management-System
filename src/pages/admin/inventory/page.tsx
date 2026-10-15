@@ -81,9 +81,7 @@ export default function InventoryStoresPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800 }}>Store Inventory & Stock Management</h1>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            Real-time multi-store inventory tracking, reorder levels, valuation, and department stock issue
-          </p>
+
         </div>
 
         <div style={{ display: 'flex', gap: 10 }}>
@@ -122,7 +120,7 @@ export default function InventoryStoresPage() {
       </div>
 
       {/* Inventory Table */}
-      <Card title={`Store Inventory Catalog (${filteredItems.length})`} subtitle="Real-time stock quantities across Main Store, Central Kitchen & Terrace Bar">
+      <Card title={`Store Inventory Catalog (${filteredItems.length})`} >
         <div style={{ marginBottom: 16, position: 'relative' }}>
           <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input
@@ -137,7 +135,7 @@ export default function InventoryStoresPage() {
 
         {isLoading ? (
           <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
-            Loading inventory items from PostgreSQL...
+            Loading inventory items…
           </div>
         ) : (
           <div className="hne-table-container">

@@ -91,7 +91,7 @@ function CmsImageField({
         <div role="dialog" aria-modal="true" aria-label={`Upload ${label}`} style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'grid', placeItems: 'center', padding: 16, backgroundColor: 'rgba(15, 23, 42, 0.56)' }}>
           <div className="hne-card" style={{ width: 'min(100%, 920px)', maxHeight: '90vh', overflowY: 'auto', padding: 24 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start', marginBottom: 20 }}>
-              <div><h2 style={{ fontSize: 19, fontWeight: 800 }}>Upload page image</h2><p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 3 }}>This image is used only for the selected public website page. Save the CMS page to publish it.</p></div>
+              <div><h2 style={{ fontSize: 19, fontWeight: 800 }}>Upload page image</h2><p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 3 }}>Save the page to publish this image.</p></div>
               <button type="button" onClick={closePicker} aria-label="Close image picker" style={{ border: 0, background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={20} /></button>
             </div>
             {error && <div role="alert" style={{ padding: 10, marginBottom: 16, background: '#FEF2F2', color: '#991B1B', borderRadius: 'var(--radius-sm)', fontSize: 13 }}>{error}</div>}
@@ -313,9 +313,7 @@ export default function CMSPagesManager() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800 }}>Headless CMS Page & Section Builder</h1>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            Empower marketing staff to control live public website banners, copy, special offers, contact info, and SEO without code changes
-          </p>
+
         </div>
 
         <div style={{ display: 'flex', gap: 10 }}>
@@ -473,9 +471,7 @@ export default function CMSPagesManager() {
           {selectedSlug === 'offers' && (
             <Card title="Live Promotional Packages & Promo Codes Engine">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                  Manage promotional packages displayed on the homepage and Special Offers page.
-                </p>
+
                 <Button
                   variant="primary"
                   size="sm"
@@ -612,15 +608,7 @@ export default function CMSPagesManager() {
               <Button type="submit" variant="primary" disabled={isSaving || isLoadingPages || Boolean(loadError)} style={{ marginTop: 16 }}><Save size={16} /><span>{isSaving ? 'Publishing...' : 'Publish Contact Details'}</span></Button>
               </form>
 
-              <div style={{ marginTop: 16, padding: 14, backgroundColor: '#F8FAFC', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
-                <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary-orange)', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                  <MessageSquare size={16} />
-                  <span>Public Contact Form Integration Status: Active</span>
-                </h4>
-                <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                  Inquiries submitted on <code>/contact</code> are automatically dispatched to <code>/api/contact/inquiry</code>, creating real-time notifications for reception desk staff and maintaining an audit log.
-                </p>
-              </div>
+
             </Card>
           )}
         </div>

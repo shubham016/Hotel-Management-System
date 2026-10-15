@@ -5,7 +5,7 @@ module Api
         self.authorization_module_name = "ROOM_SETUP"
 
         def index
-          room_types = default_property.room_types.setup_managed.order(:name)
+          room_types = default_property.room_types.setup_managed.includes(:rooms).order(:name)
           render json: { success: true, data: room_types.map { |room_type| serialize(room_type) } }
         end
 
@@ -45,7 +45,7 @@ module Api
         private
 
         def serialize(room_type)
-          room_type.as_json(only: %i[id name code slug description image_url base_price bed_category bed_count max_adults max_children max_occupancy amenities active])
+          room_type.as_json(only: %i[id name code slug description image_url base_price bed_category bed_count max_adults max_children max_occupancy amenities active], methods: %i[bed_label bed_count_label])
         end
 
         def audit_values(room_type)

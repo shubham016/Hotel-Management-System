@@ -4,7 +4,7 @@ import './RoomPhotoPreview.css';
 
 type BookingModalProps = {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   onClose: () => void;
   children: React.ReactNode;
 };
@@ -41,7 +41,7 @@ export function BookingModal({ title, subtitle, onClose, children }: BookingModa
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '14px 18px', borderBottom: '1px solid var(--border)' }}>
           <div>
             <h2 id="booking-modal-title" style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--text-primary)' }}>{title}</h2>
-            <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>{subtitle}</p>
+            {subtitle && <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>{subtitle}</p>}
           </div>
           <button
             type="button"

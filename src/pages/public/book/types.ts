@@ -1,4 +1,4 @@
-export type AvailableRoom = { id: string; roomNumber: string; floor: number; status: string; roomType: string; roomTypeCode: string };
+export type AvailableRoom = { bedCategory?: string | null; bedCount?: number | null; bedLabel?: string; id: string; roomNumber: string; floor: number; status: string; roomType: string; roomTypeCode: string };
 
 export type AddOnOffering = {
   id: string;
@@ -10,7 +10,7 @@ export type AddOnOffering = {
 };
 
 export type AvailabilityOption = {
-  roomType: { id: string; name: string; code: string; description?: string; image_url?: string | null; base_price: number; bed_category: string; amenities: string[]; bed_count: number; max_adults: number; max_children: number; max_occupancy: number };
+  roomType: { id: string; name: string; code: string; description?: string; image_url?: string | null; base_price: number; bed_category: string; amenities: string[]; bed_count: number; bed_label?: string; max_adults: number; max_children: number; max_occupancy: number };
   availableRooms: number;
   rooms: AvailableRoom[];
   quote: { nights: number; nightlyRate: number; roomTotal: number; addOnTotal: number; subTotal: number; vatAmount: number; grandTotal: number };

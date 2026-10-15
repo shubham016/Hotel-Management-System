@@ -17,6 +17,7 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 3000,
     strictPort: true,
+    watch: { ignored: ['**/backend/tmp/**'] },
     proxy: railsProxy
   },
   preview: { host: '0.0.0.0', port: 3000, strictPort: true, proxy: railsProxy }

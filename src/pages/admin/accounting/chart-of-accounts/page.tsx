@@ -93,9 +93,7 @@ export default function ChartOfAccountsPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800 }}>Chart of Accounts (General Ledger)</h1>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            Enterprise double-entry ledger hierarchy with automated PMS, POS & Banquet posting rules
-          </p>
+
         </div>
 
         <div style={{ display: 'flex', gap: 10 }}>
@@ -131,7 +129,7 @@ export default function ChartOfAccountsPage() {
       </div>
 
       {/* Accounts List Table */}
-      <Card title={`Ledger Accounts (${filteredAccounts.length})`} subtitle="Double-entry general ledger chart compliant with Nepal Accounting Standards (NAS)">
+      <Card title={`Ledger Accounts (${filteredAccounts.length})`} >
         <div style={{ marginBottom: 16, position: 'relative' }}>
           <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input
@@ -146,7 +144,7 @@ export default function ChartOfAccountsPage() {
 
         {isLoading ? (
           <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
-            Loading chart of accounts from PostgreSQL...
+            Loading chart of accounts…
           </div>
         ) : (
           <div className="hne-table-container">

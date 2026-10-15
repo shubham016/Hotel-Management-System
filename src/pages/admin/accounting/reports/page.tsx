@@ -61,9 +61,7 @@ export default function FinancialReportsPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800 }}>Financial & Operational BI Reporting</h1>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            Official financial statements, Trial Balance reconciliation, Departmental P&L, and Tax reports
-          </p>
+
         </div>
 
         <div style={{ display: 'flex', gap: 10 }}>
@@ -281,7 +279,7 @@ export default function FinancialReportsPage() {
         )}
 
         {activeReport === 'TAX' && (
-          <Card title="Government VAT Compliance" subtitle="Summary of 13% VAT for IRD Nepal">
+          <Card title="Government VAT Compliance" >
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
                 <div className="hne-card" style={{ padding: 18, borderLeft: '4px solid var(--brand-crimson)', backgroundColor: '#FFFFFF' }}>

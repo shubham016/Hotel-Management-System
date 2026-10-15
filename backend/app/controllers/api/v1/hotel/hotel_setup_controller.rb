@@ -7,7 +7,7 @@ module Api
         def index
           property = default_property
           floors = property.floors.order(:number)
-          room_types = property.room_types.setup_managed.order(:name)
+          room_types = property.room_types.setup_managed.includes(:rooms).order(:name)
           rooms = property.rooms.setup_managed.includes(:room_type).by_floor_and_room_number
 
           render json: {
@@ -27,7 +27,7 @@ module Api
         end
 
         def serialize_room_type(room_type)
-          room_type.as_json(only: %i[id name code slug description image_url base_price bed_category bed_count max_adults max_children max_occupancy amenities active])
+          room_type.as_json(only: %i[id name code slug description image_url base_price bed_category bed_count max_adults max_children max_occupancy amenities active], methods: %i[bed_label bed_count_label])
         end
 
         def serialize_room(room)
@@ -40,7 +40,7 @@ module Api
             smoking: room.smoking,
             accessible: room.accessible,
             roomType: { id: room.room_type_id, code: room.room_type.code, name: room.room_type.name }
-          }
+          }.merge(room.bed_details)
         end
       end
     end

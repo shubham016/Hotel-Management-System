@@ -1,6 +1,7 @@
 services:
   db:
     image: postgres:17-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: hotel_new_era
       POSTGRES_PASSWORD: hotel_new_era_dev
@@ -16,6 +17,7 @@ services:
       - hotel_new_era_postgres:/var/lib/postgresql/data
 
   api:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: Dockerfile.dev

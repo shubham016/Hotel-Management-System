@@ -95,9 +95,7 @@ export default function SystemSettingsPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800 }}>System Configuration & Multi-Tenant Settings</h1>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            Property profile, tax rates engine, Nepali calendar preferences, and RBAC security controls
-          </p>
+
         </div>
       </div>
 
@@ -172,9 +170,7 @@ export default function SystemSettingsPage() {
         {activeTab === 'TAX' && (
           <Card title="Government VAT Settings">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-              <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                Configure government Value Added Tax (VAT) for rooms, POS, and banquets.
-              </p>
+
 
               <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 280px)', gap: 16 }}>
                 <div className="hne-form-group" style={{ marginBottom: 0 }}>

@@ -89,7 +89,7 @@ module Api
               confirmationNumber: active.confirmation_number,
               folioNumber: active.folio&.folio_number
             } : nil
-          }
+          }.merge(room.bed_details)
         end
       end
     end

@@ -56,9 +56,7 @@ export default function AuditLogsPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800 }}>System Security & Audit Trail</h1>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            Immutable logging of all PMS check-ins, folios, room status changes, POS bills, and GL postings
-          </p>
+
         </div>
 
         <div style={{ display: 'flex', gap: 10 }}>
@@ -82,7 +80,7 @@ export default function AuditLogsPage() {
       </div>
 
       {/* Logs Table */}
-      <Card title={`System Audit Trail (${filteredLogs.length})`} subtitle="Enterprise security log tracking user actions and entity state mutations">
+      <Card title={`System Audit Trail (${filteredLogs.length})`} >
         <div style={{ marginBottom: 16, position: 'relative' }}>
           <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input
@@ -97,7 +95,7 @@ export default function AuditLogsPage() {
 
         {isLoading ? (
           <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
-            Loading system audit logs from PostgreSQL...
+            Loading system audit logs…
           </div>
         ) : (
           <div className="hne-table-container">

@@ -10,6 +10,7 @@ export type PublicRoomType = {
   base_price: number;
   bed_category: string;
   bed_count: number;
+  bed_label?: string;
   max_adults: number;
   max_children: number;
   max_occupancy: number;
@@ -31,7 +32,7 @@ export async function loadPublicRoomTypes(signal?: AbortSignal): Promise<PublicR
 }
 
 export function roomTypeToCard(roomType: PublicRoomType) {
-  const bedLabel = `${roomType.bed_count} ${roomType.bed_category} ${roomType.bed_count === 1 ? 'bed' : 'beds'}`;
+  const bedLabel = roomType.bed_label || `${roomType.bed_count} ${roomType.bed_category} ${roomType.bed_count === 1 ? 'bed' : 'beds'}`;
   return {
     id: roomType.id,
     name: roomType.name,

@@ -103,7 +103,7 @@ export default function ReservationsPage() {
 
   return <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-      <div><h1 style={{ fontSize: 24, fontWeight: 800 }}>Reservations Matrix & Bookings</h1><p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Live website, front-desk, walk-in, and partner reservations from the PMS database</p></div>
+      <div><h1 style={{ fontSize: 24, fontWeight: 800 }}>Reservations Matrix & Bookings</h1></div>
       <div style={{ display: 'flex', gap: 12 }}><div style={{ position: 'relative' }}><Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: 12, top: 12 }} /><input type="text" placeholder="Search Confirmation / Guest..." className="hne-input" style={{ paddingLeft: 36, width: 280, height: 40 }} value={searchTerm} onChange={(event) => { setSearchTerm(event.target.value); }} /></div><Link href="/book?source=WALK_IN" className="hne-btn hne-btn-primary hne-btn-sm" style={{ display: 'inline-flex', alignItems: 'center' }}><Plus size={16} /><span>Create Reservation</span></Link></div>
     </div>
     <div style={{ display: selectedReservationId ? 'none' : 'flex', gap: 8, flexWrap: 'wrap' }}>{['ALL', 'INQUIRY', 'CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT', 'CANCELLED'].map((status) => <button key={status} onClick={() => { setFilterStatus(status); setCurrentPage(1); }} className={`hne-btn ${filterStatus === status ? 'hne-btn-primary' : 'hne-btn-secondary'} hne-btn-sm`}>{status === 'INQUIRY' ? 'PENDING' : status.replaceAll('_', ' ')}</button>)}</div>

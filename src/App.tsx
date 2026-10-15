@@ -31,6 +31,7 @@ const Crm = lazy(() => import('@/pages/admin/crm/page'));
 const ChartOfAccounts = lazy(() => import('@/pages/admin/accounting/chart-of-accounts/page'));
 const Journals = lazy(() => import('@/pages/admin/accounting/journals/page'));
 const Reports = lazy(() => import('@/pages/admin/accounting/reports/page'));
+const Payroll = lazy(() => import('@/pages/admin/accounting/payroll/page'));
 const CmsPages = lazy(() => import('@/pages/admin/cms/pages/page'));
 const HotelSetup = lazy(() => import('@/pages/admin/cms/hotel-setup/page'));
 const Settings = lazy(() => import('@/pages/admin/settings/page'));
@@ -59,7 +60,7 @@ export default function App() {
       <Route index element={<Navigate to="dashboard" replace />} /><Route path="dashboard" element={<Dashboard />} /><Route path="apps" element={<Apps />} />
       <Route path="pms/reservations" element={<Reservations />} /><Route path="pms/rooms" element={<RoomStatus />} /><Route path="pms/frontdesk" element={<FrontDesk />} /><Route path="pms/night-audit" element={<NightAudit />} />
       <Route path="pos/tables" element={<Tables />} /><Route path="pos/kot" element={<Kot />} /><Route path="banquet" element={<BanquetAdmin />} /><Route path="housekeeping" element={<Housekeeping />} /><Route path="inventory" element={<Inventory />} /><Route path="procurement" element={<Procurement />} /><Route path="crm" element={<Crm />} />
-      <Route path="accounting/chart-of-accounts" element={<ChartOfAccounts />} /><Route path="accounting/journals" element={<Journals />} /><Route path="accounting/reports" element={<Reports />} />
+      <Route path="accounting/chart-of-accounts" element={<ChartOfAccounts />} /><Route path="accounting/journals" element={<Journals />} /><Route path="accounting/reports" element={<Reports />} /><Route path="accounting/payroll" element={<Payroll />} />
       <Route path="cms/pages" element={<CmsPages />} /><Route path="cms/hotel-setup" element={<HotelSetup />} /><Route path="settings" element={<Settings />} /><Route path="audit-logs" element={<AuditLogs />} />
     </Route>
     <Route path="*" element={<div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', textAlign: 'center' }}><div><h1>404</h1><p>This page could not be found.</p></div></div>} />

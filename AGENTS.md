@@ -11,6 +11,21 @@ Prioritize fast, correct fixes with focused verification.
 - Continue with available context. Ask for missing information only when necessary to resolve the issue correctly.
 - Keep progress updates and final explanations concise. Lead with the outcome and explain how the user can use the fix.
 
+# Interface wording
+
+- Keep Admin, Owner, and staff panels concise. Do not add generic descriptions, introductory paragraphs, formula explanations, marketing claims, or filler subtitles under page titles, cards, or dialogs.
+- Avoid AI-sounding wording and implementation details such as database names, API routes, synchronization claims, and "enterprise" or "real-time" promotional language in operational screens.
+- Use clear titles, field labels, values, and actions. Add short help text only when needed to enter a value correctly, understand a restriction, or make a consequential decision.
+- Do not add prose summaries that string together salary, tax, advance, or payment amounts. Show monetary values in the relevant fields, tables, or documents instead.
+- Keep necessary validation errors, status messages, security notices, and payment confirmations brief and specific. Do not remove operational safeguards or change calculations when cleaning up copy.
+
+# Payroll requirements
+
+- Salary setup uses gross salary split into 60% basic salary and 40% fixed monthly allowance, with default TDS of 1% of gross salary.
+- Additional earnings and other deductions are outside the client's payroll scope. Do not add these inputs or enable new adjustments through the API. Preserve any historical payroll and journal evidence.
+- Payroll does not require a TDS review/exemption reason field. Notes are optional and must not block saving or approval.
+- Staff advances are supported on draft payrolls, including during the payroll month. Record cash/bank disbursements once, recover advances from the final salary, and prevent advances exceeding the remaining net salary.
+
 # Research and completion standard
 
 - Apply this standard without unnecessary delay: keep research brief and specific to the task, reuse relevant sources already reviewed when still applicable, and stop once there is enough evidence to make a sound implementation choice. Do not turn routine changes into broad audits.

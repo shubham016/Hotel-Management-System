@@ -6,14 +6,14 @@ module Api
         skip_before_action :authorize_request!
 
         def index
-          room_types = public_property.room_types.setup_managed.where(active: true).order(:name)
+          room_types = public_property.room_types.setup_managed.where(active: true).includes(:rooms).order(:name)
           render json: { success: true, data: room_types.map { |room_type| serialize(room_type) } }
         end
 
         private
 
         def serialize(room_type)
-          room_type.as_json(only: %i[id name code slug description image_url base_price bed_category bed_count max_adults max_children max_occupancy amenities active])
+          room_type.as_json(only: %i[id name code slug description image_url base_price bed_category bed_count max_adults max_children max_occupancy amenities active], methods: %i[bed_label bed_count_label])
         end
       end
     end

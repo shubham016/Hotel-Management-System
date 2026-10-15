@@ -60,7 +60,7 @@ export default function NightAuditPage() {
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800 }}>Night Audit & Daily Business Closing</h1>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            Overnight stay extensions and extra-night folio charges. Existing booking charges are preserved.
+            Overdue stays may incur extra-night charges.
           </p>
         </div>
         <div style={{ textAlign: 'right' }}>
@@ -77,7 +77,7 @@ export default function NightAuditPage() {
       {currentStep === 1 && (
         <Card title="Step 1: Pre-Audit Operational Integrity Verifications">
           <p style={{ fontSize: 13.5, color: 'var(--text-secondary)', marginBottom: 20 }}>
-            Before rolling over the business day, verify that all front desk movements, room service orders, and cashier registers have been settled.
+            Review departures, open folios, and cashier totals before continuing.
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
@@ -140,7 +140,7 @@ export default function NightAuditPage() {
 
             <h3 style={{ fontSize: 20, marginBottom: 8 }}>Ready to Execute Night Audit</h3>
             <p style={{ fontSize: 14, color: 'var(--text-secondary)', maxWidth: 500, margin: '0 auto 24px', lineHeight: 1.6 }}>
-                  After 02:06, guests still checked in past yesterday's departure receive extra nights at their booked rates. Conflicting room assignments are flagged for staff. Repeating this check does not duplicate charges; checkout creates the accounting journal.
+                  Add extra-night charges for overdue stays. Review room conflicts before continuing.
             </p>
 
             <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>

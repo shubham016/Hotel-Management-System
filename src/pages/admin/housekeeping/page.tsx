@@ -116,10 +116,10 @@ export default function HousekeepingPage() {
       </div>
 
       {/* Housekeeping List */}
-      <Card title={`${rooms.length} Room Housekeeping Status Queue`} subtitle="Updates automatically across housekeeping and room boards">
+      <Card title={`${rooms.length} Room Housekeeping Status Queue`} >
         {isLoading ? (
           <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
-            Loading housekeeping queue from PostgreSQL...
+            Loading housekeeping queue…
           </div>
         ) : (
           <div className="hne-table-container">

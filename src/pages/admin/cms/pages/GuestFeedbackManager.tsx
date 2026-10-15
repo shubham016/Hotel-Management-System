@@ -87,7 +87,7 @@ export function GuestFeedbackManager() {
   };
 
   return <Card title="Guest Feedback" action={<Button size="sm" disabled={loading || saving} onClick={() => edit({ ...blankFeedback, sortOrder: entries.length ? Math.max(...entries.map((entry) => entry.sortOrder)) + 1 : 0 })}><Plus size={16} />Add Feedback</Button>}>
-    <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>Manage the guest reviews displayed in the homepage carousel.</p>
+
     {error && <p role="alert" style={{ color: 'var(--danger-red)', marginBottom: 12 }}>{error}</p>}
     {notice && <p role="status" style={{ color: 'var(--brand-green)', marginBottom: 12 }}>{notice}</p>}
     {form && <form onSubmit={save} style={{ display: 'flex', flexDirection: 'column', gap: 18, marginBottom: 24, padding: 20, border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>

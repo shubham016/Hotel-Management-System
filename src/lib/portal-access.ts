@@ -17,6 +17,7 @@ const pageModules: Record<string, string> = {
 };
 
 export function canOpenPage(profile: SessionProfile | null, path: string) {
+  if (path === '/admin/accounting/payroll') return ['OWNER', 'ADMIN', 'SUPER_ADMIN'].includes(profile?.role || '');
   if (path === '/admin/apps' || path === '/admin/profile') return Boolean(profile);
   return Boolean(pageModules[path] && hasAccess(profile, pageModules[path]));
 }

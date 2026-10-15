@@ -14,7 +14,29 @@ import { BookingPaymentOptions } from './components/BookingPaymentOptions';
 import { BookingVoucher } from './components/BookingVoucher';
 import './booking.css';
 import { DEFAULT_ROOM_IMAGE, PROPERTY_CODE, ROOM_IMAGES } from './constants';
-import type { AddOnOffering, AvailabilityOption, BookingConfirmation, BookingSource } from './types';
+import type { AddOnOffering, AvailableRoom, AvailabilityOption, BookingConfirmation, BookingSource } from './types';
+
+function bedSizeName(category: string) {
+  return category
+    .replace(/\s*(?:\u2014|-)\s*custom size/gi, '')
+    .replace(/^Single\s*(?:\u2014|-)\s*wide$/i, 'Wide single')
+    .trim();
+}
+
+function roomBedSizeName(room: AvailableRoom) {
+  const category = room.bedCategory || (room.bedLabel || '')
+    .replace(/\s*\([^)]*\)\s*$/, '')
+    .replace(/^\d+\s+/, '')
+    .replace(/\s+beds?$/i, '');
+  return category.toLowerCase() === 'not specified' ? '' : bedSizeName(category);
+}
+
+function categoryBedSizeNames(option: AvailabilityOption) {
+  const names = [...new Set(option.rooms.map(roomBedSizeName).filter(Boolean))];
+  if (names.length) return names.join(' / ');
+  const fallback = option.roomType.bed_category;
+  return fallback && fallback.toLowerCase() !== 'not specified' ? bedSizeName(fallback) : '';
+}
 
 const formatAmount = (amount: number) => amount.toLocaleString('en-IN', {
   minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
@@ -109,9 +131,9 @@ export default function BookPage() {
   const roomsCatalog = Object.fromEntries(availability.map((option) => [option.roomType.code, {
     name: option.roomType.name,
     price: option.quote.nightlyRate,
-    desc: option.roomType.description || `${option.roomType.bed_category} bed category · ${option.availableRooms} room(s) available`,
+    desc: [option.roomType.description || `${option.availableRooms} room(s) available`, categoryBedSizeNames(option) ? `Bed types: ${categoryBedSizeNames(option)}` : ''].filter(Boolean).join(' · '),
     img: option.roomType.image_url || ROOM_IMAGES[option.roomType.code] || DEFAULT_ROOM_IMAGE,
-    bedLabel: `${option.roomType.bed_count} ${option.roomType.bed_category && option.roomType.bed_category.toLowerCase() !== 'not specified' ? `${option.roomType.bed_category} ` : ''}bed${option.roomType.bed_count === 1 ? '' : 's'}`,
+    bedLabel: categoryBedSizeNames(option),
     maxOccupancy: option.roomType.max_occupancy,
     amenities: option.roomType.amenities
   }]));
@@ -221,7 +243,7 @@ export default function BookPage() {
         </div>
         <h1 style={{ fontSize: 'clamp(26px, 3.5vw, 36px)' }}>Reserve Your Sanctuary</h1>
         <p style={{ fontSize: 14.5, color: 'var(--text-secondary)' }}>
-          Best Rate Guarantee • Instant Confirmation • Zero Booking Fees
+          Best Rate Guarantee â€¢ Instant Confirmation â€¢ Zero Booking Fees
         </p>
       </div>
 
@@ -231,12 +253,12 @@ export default function BookPage() {
           <span style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: step >= 1 ? 'var(--primary-orange)' : '#E5E7EB', color: step >= 1 ? '#FFFFFF' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>1</span>
           <span>Room Selection</span>
         </div>
-        <span style={{ color: '#CBD5E1' }}>————</span>
+        <span style={{ color: '#CBD5E1' }}>â€”â€”â€”â€”</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: step >= 2 ? 'var(--primary-orange)' : 'var(--text-muted)', fontWeight: 700, fontSize: 14 }}>
           <span style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: step >= 2 ? 'var(--primary-orange)' : '#E5E7EB', color: step >= 2 ? '#FFFFFF' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>2</span>
           <span>Guest Details & Payment</span>
         </div>
-        <span style={{ color: '#CBD5E1' }}>————</span>
+        <span style={{ color: '#CBD5E1' }}>â€”â€”â€”â€”</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: step === 3 ? 'var(--green)' : 'var(--text-muted)', fontWeight: 700, fontSize: 14 }}>
           <span style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: step === 3 ? 'var(--green)' : '#E5E7EB', color: step === 3 ? '#FFFFFF' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>3</span>
           <span>Confirmation</span>
@@ -331,7 +353,7 @@ export default function BookPage() {
 
             <Card title="3. Select Exact Room Number">
                 {roomsLoading ? (
-                  <div style={{ padding: '14px 0', color: 'var(--text-muted)', fontSize: 13 }}>Loading available rooms…</div>
+                  <div style={{ padding: '14px 0', color: 'var(--text-muted)', fontSize: 13 }}>Loading available roomsâ€¦</div>
                 ) : roomsError ? (
                   <div style={{ padding: '12px 14px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--danger-light)', color: 'var(--danger-red)', fontSize: 13 }}>{roomsError}</div>
                 ) : selectablePhysicalRooms.length === 0 ? (
@@ -356,6 +378,7 @@ export default function BookPage() {
                             </span>
                           </div>
                           <div className="hne-room-choice-status">Available</div>
+                          {roomBedSizeName(room) && <div style={{ marginTop: 6, fontSize: 12, lineHeight: 1.5 }}>{roomBedSizeName(room)}</div>}
                         </button>
                       );
                     })}
@@ -366,7 +389,7 @@ export default function BookPage() {
 
             <Card title="4. Optional Add-On Experiences">
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {addOnsLoading && <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Loading optional experiences…</div>}
+                {addOnsLoading && <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Loading optional experiencesâ€¦</div>}
                 {addOnsError && <div style={{ fontSize: 13, color: 'var(--danger-red)' }}>{addOnsError}</div>}
                 {!addOnsLoading && !addOnsError && addOnOfferings.length === 0 && (
                   <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>No optional experiences are currently available.</div>
@@ -412,7 +435,7 @@ export default function BookPage() {
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{selectedRoom.name}</div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    {nights} Night(s) • {adults} Adult(s){Number(children) > 0 ? ` • ${children} Child(ren)` : ''}
+                    {nights} Night(s) â€¢ {adults} Adult(s){Number(children) > 0 ? ` â€¢ ${children} Child(ren)` : ''}
                   </div>
                 </div>
               </div>

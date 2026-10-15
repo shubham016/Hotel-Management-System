@@ -89,9 +89,7 @@ export default function BanquetManagementPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800 }}>Banquet, Conference & Event Operations</h1>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            Schedule Nilkantha Ballroom, Tulki Devi & Devakala halls, layout seating, catering BEO, and advance deposits
-          </p>
+
         </div>
 
         <div style={{ display: 'flex', gap: 10 }}>
@@ -133,10 +131,10 @@ export default function BanquetManagementPage() {
       </div>
 
       {/* Bookings Table */}
-      <Card title={`Scheduled Banquet & Conference Events (${bookings.length})`} subtitle="Real-time bookings synchronized with General Ledger advances">
+      <Card title={`Scheduled Banquet & Conference Events (${bookings.length})`} >
         {isLoading ? (
           <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
-            Loading banquet bookings from PostgreSQL...
+            Loading banquet bookings…
           </div>
         ) : (
           <div className="hne-table-container">

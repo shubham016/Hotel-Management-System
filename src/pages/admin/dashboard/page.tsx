@@ -206,11 +206,7 @@ export default function AdminDashboardPage() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--text-primary)' }}>Front Desk Overview</h1>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
-            Good afternoon. Here's what's happening today.
 
-            {/* &middot; Business Date {data.businessDate} */}
-          </p>
         </div>
         <button
           type="button"
@@ -274,7 +270,7 @@ export default function AdminDashboardPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap', borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
           <div>
             <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>Room Board</h2>
-            <p style={{ marginTop: 2, fontSize: 12, color: 'var(--text-secondary)' }}>Booking, check-in, and checkout update Reserved, Occupied, and Dirty automatically. Use a room tile only for housekeeping or maintenance updates.</p>
+            <p style={{ marginTop: 2, fontSize: 12, color: 'var(--text-secondary)' }}>Room tiles: cleaning or maintenance only.</p>
           </div>
           <Link href="/admin/pms/rooms" style={{ color: 'var(--primary-orange)', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>
             Manage rooms →
@@ -466,7 +462,7 @@ export default function AdminDashboardPage() {
       )}
 
       {isBookingModalOpen && (
-        <BookingModal title="New Room Booking" subtitle="Create a reservation without leaving the dashboard." onClose={() => setIsBookingModalOpen(false)}>
+        <BookingModal title="New Room Booking" onClose={() => setIsBookingModalOpen(false)}>
           <iframe
             ref={bookingFrame}
             title="New room booking"

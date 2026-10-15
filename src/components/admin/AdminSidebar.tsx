@@ -75,8 +75,10 @@ export const AdminSidebar: React.FC<SidebarProps> = ({ collapsed }) => {
       {/* Navigation Links — the only section that scrolls; minHeight:0 lets it actually shrink
           inside the flex column instead of pushing the header/footer out of place. */}
       <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: 20 }}>
-        {navSections.map((section, idx) => (
-          <div key={idx}>
+        {navSections.map(section => {
+          const menuId = `sidebar-${section.group.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+          return (
+          <div key={section.group}>
             {!collapsed && (
               <div
                 style={{
@@ -91,7 +93,7 @@ export const AdminSidebar: React.FC<SidebarProps> = ({ collapsed }) => {
                 {section.group}
               </div>
             )}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <div id={menuId} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               {section.items.map((item, itemIdx) => {
                 const isActive = pathname === item.href || (item.href !== '/admin/dashboard' && pathname?.startsWith(item.href));
                 const Icon = item.icon;
@@ -99,6 +101,7 @@ export const AdminSidebar: React.FC<SidebarProps> = ({ collapsed }) => {
                   <Link
                     key={itemIdx}
                     href={item.href}
+                    aria-current={isActive ? 'page' : undefined}
                     title={collapsed ? item.name : undefined}
                     style={{
                       display: 'flex',
@@ -122,7 +125,8 @@ export const AdminSidebar: React.FC<SidebarProps> = ({ collapsed }) => {
               })}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Footer Info */}
@@ -137,7 +141,6 @@ export const AdminSidebar: React.FC<SidebarProps> = ({ collapsed }) => {
           }}
         >
           <div>Hotel New Era • v1.0.0</div>
-          <div style={{ color: 'var(--green)', fontWeight: 600, marginTop: 2 }}>● PostgreSQL Online</div>
         </div>
       )}
     </aside>

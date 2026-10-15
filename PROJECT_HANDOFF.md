@@ -1,10 +1,103 @@
 # Hotel New Era — Project Handoff
 
-**Updated:** 2026-10-08
+**Updated:** 2026-10-09
 **Backend direction:** Ruby on Rails JSON API
 **Current frontend:** React 18 + React Router + Vite 7 SPA; Rails owns every backend API
 
-## Resume Here (2026-10-07 session end)
+## Resume Here (2026-10-09)
+
+- Product decision (2026-10-09): no separate HR portal is required. The owner will oversee staff payroll through the Accounts area of the existing Owner portal. This supersedes older plans mentioning an HR portal or future HR-role provisioning. Payroll is now implemented locally; other deferred inventory/accounting work remains outside this change.
+- Owner-only Staff Payroll is available at `/admin/accounting/payroll`. Payroll now uses BS month/year selection and exact BS-month boundaries, with the AD equivalent range displayed. Set monthly salaries from the existing Staff Directory, create a BS-month draft, review earnings/deductions, optionally record issued advances, approve, then record the remaining salary payment and download a PDF payslip. Payment dates use a BS date picker. Super Admin also has access; All-rounder/Admin and departmental staff cannot access payroll.
+- Payroll migrations through `20261009000004_add_payroll_tds` were applied locally and the test database prepared. HNE-BTW payroll mappings are configured: 6002 Staff Salaries (Expense), 2200 Salaries Payable (Liability), 2201 Payroll Deductions Payable (Liability), 1200 Staff Advances (Asset), and 2202 Salary TDS Payable (Liability). Existing 1001 Cash / Bank is available for payments. New payroll defaults to 1% TDS on base salary plus earnings, before other deductions/advances. Payslips and ledger posting show TDS separately. Other deductions remain manual; full annual tax slabs, SSF exemptions, attendance, leave, and statutory remittance need review. Payments record transfers already made; they do not initiate transfers.
+- Keshav's Admin and Devi's Front Desk accounts are active; the user confirmed both logins. Earlier invalid-credential failures were not conclusively diagnosed. No actual employee password was reset during debugging. Safe failure-reason logging is now available without recording credentials.
+- Staff Portal Access now has icon-only Edit/Delete actions. Owner/Admin can delete unused staff accounts in their property; Owner, Super Admin, and the current user's account are protected. Accounts with activity history require deactivation. Deletion preserves the employee directory entry and removes sign-in sessions.
+- Shared accessible modals now handle Add/Edit in Staff Directory, Laundry Tariffs, Extra Services, and Staff Portal Access. Extra Services uses icon-only Edit/Deactivate actions. Settings tabs have a fixed compact size; Save Configuration, Publish CMS Updates, and the shared large-button style were reduced.
+- Login now has a 440px maximum-width card with 32px desktop side padding, logo-only header, responsive spacing, and a password eye toggle. Do not restore the removed welcome/portal text or staff-account explanatory paragraph.
+- Dashboard no longer shows Expected Arrivals, ledger postings, Housekeeping Matrix, Restaurant & Bar POS, or Night Audit cards. KPI tiles, Room Board, New Booking, underlying modules, and database records remain available.
+- Forgot password opens a request modal. Requests persist, notify the appropriate Owner/Admin, and appear in Staff Portal Access. Administrators reset through Edit access; staff can then choose their own password in My Profile. Email notification code is implemented, but SMTP credentials/provider and actual receiving inboxes are still needed. Do not claim real inbox delivery is verified.
+- Migration `20261008000001_add_staff_password_reset_requests` was applied locally and the test schema prepared. Final related backend checks passed 20 tests / 260 assertions; TypeScript and focused desktop/mobile browser checks passed. Changes remain local and uncommitted; no production deployment was performed.
+- Research before implementation remains required, with brief, task-specific research and focused verification under `AGENTS.md`. HR is not implemented; inventory/accounting work remains deferred.
+
+Next: enter actual salaries through the owner payroll screen; payroll ledger mappings are configured. Configure and verify real SMTP delivery; use a durable mail queue/worker for production. Continue remaining staff provisioning only with the hotel's actual employee details. Keep session notes in PROJECT_HANDOFF.md only, as requested by the user. Detailed notes follow below.
+
+## Staff payroll (2026-10-09)
+
+- User requested research and automatic 1% salary TDS. Reviewed the [IRD FY 2083/84 natural-person tax schedule](https://ird.gov.np/content/13609/tax-rate-for-natural-persons-for-the/) and downloaded/read its linked official PDF. The current first annual taxable-income band is Rs. 10 lakh at 1% for individuals/couples; higher bands and qualifying pension/retirement/SSF exceptions mean 1% is not a universal flat salary-tax rule. Reused the documented payroll accounting workflow: separate deduction amounts, net salary, and payable ledger accounts.
+- Implemented a default 1% gross-salary withholding rule for new payroll: `(base salary + additional earnings) × rate / 100`, rounded to two decimals, half up. Net salary subtracts TDS, other deductions, and advances separately. Example: 30,000 salary + 2,000 earnings − 320 TDS − 1,000 other deductions − 5,000 advance = 25,680 remaining salary. Advances do not reduce the tax base and cannot exceed the post-TDS remaining salary.
+- Owners can enter 0% for a reviewed exemption or another accountant-reviewed effective monthly rate, with a required explanation. Annual gross estimates above Rs. 10 lakh and fiscal years outside the researched 2083/84 require an explanation before approval. The app does not calculate full annual tax slabs or verify SSF eligibility. UI and approval guards make those review cases explicit.
+- Rate, tax amount, and explanation are saved per entry. Backend derives totals and ignores client-supplied tax/net amounts; integer-paisa frontend previews match decimal half-up rounding. Approved amounts remain locked through the API. Earlier records retain their original net amounts with no retroactive tax: `tds_rate=NULL`, `tds_amount=0`; any older unreviewed draft must be reviewed in Edit before approval.
+- Created and configured HNE-BTW account 2202 Salary TDS Payable, with an audit event. Verified the mapping through the running owner API and confirmed existing posted journals were unchanged. No real employee salary or operational payment was modified; there were no existing visible unreviewed drafts when setup was checked. Approval credits TDS to this separate liability; remittance/e-TDS filing is not automated.
+- TDS verification: 15 payroll integration tests / 299 assertions passed, plus the updated invalid-rate/account validation check / 22 assertions (overlapping coverage). Covered default tax, earnings/deductions/advance ordering, half-paisa rounding, exemptions/reviewed rates, invalid rates, net-pay limits, account validation, duplicate approval, immutability, annual-band/fiscal-year review, and preservation of older amounts. Actual frontend preview checks, final TypeScript, production build, and whitespace checks passed.
+- Real browser/API checks with isolated data verified automatic TDS, live edit preview, persisted net salary after reload, advances, approval/payment, a PDF containing the TDS line, BS month/date behavior, and desktop/mobile rendering. A local preview interruption occurred during the final API check; Vite was restarted and the resumed check passed. Screenshots were visually reviewed; isolated records were removed. Changes remain local and uncommitted, with no production deployment.
+- User requested removal of the earlier AD payroll record. The only HNE-BTW record was Baje's October 2026 AD payroll, already PAID with approval/payment journals. Archived that specific record (`a85a3800-8c1f-4263-b344-54edca64fe78`) and logged an ARCHIVE audit event. Payroll lists and the earlier-AD history selector exclude archived entries; direct mutation endpoints also exclude them. Posted journals, journal lines, financial balances, and the retained payment record remain unchanged. This follows the [documented posted-entry/audit-trail pattern](https://www.odoo.com/documentation/17.0/applications/finance/accounting/reporting.html).
+- Applied local migration `20261009000003_add_payroll_archiving`, with a database constraint permitting archive only for paid payroll. Focused archive integration check passed 1 test / 21 assertions, TypeScript and whitespace checks passed, and the running owner API confirmed the record and its AD history option are absent. Actual journals/lines were compared before and after archival and remained identical. No production deployment occurred.
+- Calendar correction requested by the user: payroll periods must use BS, with accurate dates. Added migration `20261009000002_add_payroll_calendar` locally and prepared the test schema. New BS periods store their exact AD starting date plus `period_calendar=BS`. Existing AD periods retain their dates and are available through Earlier payroll records (AD); they are not silently relabeled. New payroll creation requires an explicit BS calendar, preventing older AD clients from accidentally creating a BS period.
+- Backend conversion uses a generated month-length table from the installed `@inicrea/bikram-sambat-core` 0.1.3, matching the frontend library, with source/license attribution and a regeneration script. Supported range is BS 1975–2100; invalid/out-of-range dates are rejected. Checked 13 published 2083 BS/AD date pairs against the [Government of Nepal holiday list](https://eg.nepalembassy.gov.np/pages/holidays/). Ashwin 2083 runs from 2026-09-17 through 2026-10-17 AD. Today's date on the payroll screen explicitly uses Asia/Kathmandu.
+- BS month and payment-date pickers, payment displays, payslips, and payroll journal Nepali dates now use real conversions. Payslips include the selected month label and the exact AD range. API validation rejects inconsistent BS/AD payment dates. This supersedes the earlier AD-only implementation notes below.
+- Calendar verification passed: 13 payroll/calendar tests / 4,774 assertions, frontend/backend parity at the first/last day of all 1,512 supported BS months, TypeScript/production build, and whitespace checks. Actual browser verification covered BS periods/ranges, salary setup, adjustments, advances, approval/payment, persisted reload, BS payslip PDF, month switching, earlier AD history, and desktop/mobile rendering. Screenshots were visually reviewed. Only isolated browser-test data was used and removed; operational payroll amounts and ledger mappings were not changed. Changes remain local; no deployment occurred.
+- Follow-up account setup: created the four dedicated payroll accounts listed above and saved HNE-BTW's mappings in one transaction, with an audit entry. Verified the persisted selections and account categories through the running owner Payroll API and confirmed all four accounts appear in the Chart of Accounts API. No salary entries or payments were created by account setup. This configuration is in the local application database; no production deployment was performed.
+- Reused Oracle Hospitality's documented employee/payroll-summary workflow: [Using Labor Management](https://docs.oracle.com/en/industries/food-beverage/labor-management/lamug/c_gettingstarted.htm). Payroll lives inside Accounts, with no separate HR portal.
+- Salary setup is linked to property-scoped Staff Directory records. Monthly entries retain employee-name/department and salary snapshots. One entry per employee and AD month is enforced in the database. Drafts support additional earnings, deductions, and explanatory notes.
+- Owner chooses separate active company ledger accounts for salary expense, salary payable, deductions payable, and staff advances. Cash/bank accounts are selected when recording payments. Account mapping changes are blocked while approved unpaid payroll or unrecovered advances exist.
+- Advances are recorded as actual payments against a draft, with payment date/method/reference and an idempotency key. Approval debits gross salary expense and credits net salary payable, deductions payable, and advance recovery. Salary payment clears net payable against the selected cash/bank account. Zero-net payroll can be settled without a zero-value journal.
+- Property and entry locks, transactions, journal references, unique constraints, and repeated-request checks protect against duplicates and partial financial postings. Approved amounts cannot be edited through the API. Audit entries capture salary setup, draft edits, approval, advances, and settlement. Posted payroll journals appear in the existing ledger and financial reports.
+- Salary/payment forms use the existing accessible modal. Payslips include employee, payroll month, earnings, deductions, recovered advances, net salary, settlement details, and voucher references. Dates/months are explicitly AD; no BS-month payroll calculation was added.
+- Verification: seven payroll integration tests / 161 assertions passed, plus the updated financial-boundary check / 27 assertions passed (overlapping coverage). The existing eleven staff-portal tests / 141 assertions passed. Covered owner-only authorization, property/company isolation, account/date/reference validation, monthly uniqueness, salary snapshots, advance recovery, balanced journals, repeat requests, zero-net settlement, rollback after a forced journal-line failure, and financial-report integration.
+- Production build, final TypeScript check, and whitespace checks passed. Actual desktop/mobile browser checks used an isolated company/employee and the real API to save salary/mappings, create/edit a draft, record an advance, approve/pay, verify persistence after reload, and download a valid PDF payslip. Screenshots were visually reviewed. Test records were removed; real staff salaries and operational payments were not changed. Changes remain local and uncommitted; no production deployment occurred.
+
+## Session details (2026-10-08)
+
+### Staff accounts and login debugging
+
+- Keshav Bhattarai (keshav@hotelnewera.com, ADMIN) and Devi Thapa (devi@hotelnewera.com, FRONT_DESK_STAFF) now have active, property-linked accounts. The user confirmed both can sign in. Their passwords are not recorded in project documentation.
+- Earlier Invalid email or password failures were not conclusively diagnosed. Separate fixture-account tests passed, but did not prove that the originally entered real credentials matched. No actual employee password was reset during debugging.
+- Added safe server-side failed-login reasons: ACCOUNT_NOT_FOUND, ACCOUNT_INACTIVE, and PASSWORD_MISMATCH, with request/user IDs. Emails and passwords stay out of these diagnostic messages; the public response remains generic.
+- Owner and All-rounder/Admin can delete unused staff login accounts in their property. The server protects Owner/Super Admin/self accounts and rejects deletion when activity history exists; use deactivation in that case. Deletion keeps the Staff Directory record, removes account sessions, and creates an audit entry.
+- Staff Portal Access now uses pencil/trash icons with tooltips and accessible labels. Extra Services uses pencil/power icons for Edit/Deactivate. No HR module or HR portal was added.
+
+### Settings, forms, and dashboard
+
+- Added a shared native FormDialog for Add/Edit in Staff Directory, Laundry Tariffs, Extra Services, and Staff Portal Access. It supports a titled responsive modal, initial field focus, Escape/Cancel/Close, background scroll locking, restored trigger focus, and blocking closure during a save. Errors stay inside the form. Hotel Setup already used modals.
+- Settings tabs have 32px buttons, reduced padding, lighter text, stable sizing across selected states, and horizontal scrolling on small screens. Save Configuration and Publish CMS Updates use the standard button size; the shared large-button style was reduced to a 40px minimum height, 14px text, and tighter padding.
+- Removed the five requested dashboard sections: Today's Expected Arrivals, Automated Double-Entry General Ledger Postings, Housekeeping Matrix, Restaurant & Bar POS, and Night Audit. KPI tiles, Room Board, New Booking, backend modules, and records remain available.
+- Saved the user's research-before-implementation rule in AGENTS.md, with the explicit speed constraint: brief task-specific research, reuse applicable sources, focused verification, and no broad audits or repeated checks without a concrete reason. Inventory/accounting work remains deferred.
+
+### Login design
+
+- Login now has a logo-only header, 440px maximum-width card, 40px vertical/32px desktop horizontal padding, mobile-specific spacing, clearer fields, and a compact Sign In button. Removed the welcome/portal heading and the staff-account explanatory paragraph at the user's request.
+- Password eye controls on Login and Staff Portal Access show/hide the current entry without changing its value or submitting the form. Accessible labels and autocomplete settings remain intact.
+- A temporary browser profile inside the project caused Vite to crash while watching locked browser files. The profile was moved to the OS temporary directory, the project profile was removed, and the local frontend restarted. Browser helpers used hidden/headless processes and were removed after checks. Ignored screenshots remain under backend/tmp.
+
+### Administrator-assisted forgotten password
+
+- Forgot your password? is now a clickable button that opens a request modal and submits the employee email to POST /api/v1/auth/password.
+- Public requests use the same acknowledgement for known, unknown, inactive, and protected accounts. They never return a raw reset token or change the password. Protected Owner/Super Admin requests are not handled through staff account resets.
+- Active eligible accounts persist password_reset_requested_at and password_reset_email_status. Repeated requests have a five-minute cooldown in addition to existing authentication endpoint throttling.
+- Only active Owner/Admin/Super Admin accounts in the same company and sharing an active assigned property receive notifications/email; the requesting account is excluded. Notifications and mail links open Staff Portal Access with the matching account editor. The table marks pending requests and flags unavailable email delivery.
+- Owner/Admin set a replacement password using Edit access and share it privately. Password reset clears the pending request, invalidates existing reset tokens, revokes active sign-in sessions, and records an audit event. Role-only edits preserve the request. Staff then sign in and choose a private password through My Profile; that change also clears pending requests and revokes sessions/reset tokens.
+- Added StaffAccessMailer, StaffPasswordResetEmailJob, and SMTP configuration through backend environment variables. Passwords are not included in notification emails. Delivery status distinguishes QUEUED, SENT, NOT_CONFIGURED, and FAILED; delayed jobs check that the request is still current before sending.
+- Migration 20261008000001_add_staff_password_reset_requests was applied to local development; the test database was prepared. It adds two request-tracking columns to users.
+- REAL EMAIL DELIVERY IS STILL PENDING: no SMTP provider/credentials and verified receiving inboxes were supplied. In-app notifications and stored requests work independently. Configure MAILER_FROM and SMTP_* privately using .env.example, then recreate/restart the API and verify an actual inbox. The local Active Job adapter is in-process; production needs a durable queue/worker. Do not claim real email delivery has passed.
+
+### Verification
+
+- Staff account deletion checks: 11 tests / 141 assertions passed.
+- Authentication diagnostic checks: 5 tests / 64 assertions passed.
+- Settings modal-related existing database checks: 2 tests / 22 assertions passed.
+- Final staff reset/auth/portal integration run: 20 tests / 260 assertions, zero failures/errors. Covered request persistence, mail generation using the test transport, correct recipients, cooldown, generic responses, property/company boundaries, session/token revocation, and staff password change after an administrator reset.
+- Frontend TypeScript and git diff checks passed. Focused component checks covered icon/password controls, modal Add/Edit/Cancel behavior, save payloads and refresh/error handling.
+- Completed headless desktop/mobile checks for Login and the request dialog: no horizontal overflow, password reveal/hide, initial input focus, real API acknowledgement using a nonexistent QA email, close, and restored focus. Browser checks did not reset real accounts or send actual emails.
+- These are overlapping focused checks, not a full repository regression result. Changes are local and uncommitted; no production deployment occurred.
+
+### Next session
+
+- Configure real outgoing email and verified administrator inboxes, then test actual delivery. Keep SMTP secrets out of chat and project notes.
+- Provision remaining staff only with the hotel's real employee details, and review department usability as needed.
+- Keep deferred HR/inventory/accounting, live payment activation, and deployment/backup work outside the current scope unless the user resumes them.
+
+---
+
+## Previous session (2026-10-07)
 
 This entry supersedes older descriptions of demo logins, unrestricted staff navigation, sample kitchen tickets, and incomplete booking wiring. See the detailed **2026-10-07** entry in [`docs/CONVERSATION.md`](docs/CONVERSATION.md).
 
@@ -277,3 +370,11 @@ npm run build
 - Add a route to the matching `backend/config/routes/<domain>.rb` file.
 - Add or update integration tests under `backend/test/integration/`.
 - Update `docs/architecture/MODULE_MAP.md` when a module changes migration state.
+
+## Latest saved payroll and Rooms changes
+
+- Monthly salary is split into 60% basic and 40% fixed monthly allowance, with default 1% TDS. Additional earnings, other deductions, and the TDS exemption reason input are removed; notes are optional. Historical financial evidence is retained.
+- Staff advances are enabled for draft payrolls. The Record advance button is in the payroll toolbar with an employee selector, keeping row actions compact. Advances post balanced cash/bank journals, reduce net salary, and recover at approval. Duplicate requests and advances beyond remaining salary are blocked.
+- Monthly payroll and salary setup tables have centered headers/cells and vertical borders. Accounting navigation stays flat; operational panel wording follows AGENTS.md.
+- Rooms uses the existing API and database. Last read-only verification found 45 active rooms on five floors, all recorded Vacant Clean. The OOO action now reads Out of Order.
+- Validation: frontend type check and browser checks passed. Payroll suite covered 26 tests; its sole failed assertion was corrected for equal frozen timestamps, and the affected test passed on rerun. Financial tests used isolated test data; browser checks did not save operational payments.

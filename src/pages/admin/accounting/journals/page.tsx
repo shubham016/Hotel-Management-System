@@ -115,9 +115,7 @@ export default function JournalsPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800 }}>General Ledger Journal Vouchers</h1>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            Real-time double-entry audit trail from PMS checkouts, POS settlements, Night Audits, and manual entries
-          </p>
+
         </div>
 
         <div style={{ display: 'flex', gap: 10 }}>
@@ -133,7 +131,7 @@ export default function JournalsPage() {
 
       {/* Main Grid: Journal List + Inspector */}
       <div style={{ display: 'grid', gridTemplateColumns: selectedJournal ? '1.1fr 1fr' : '1fr', gap: 24 }}>
-        <Card title={`Posted Journal Vouchers (${filteredJournals.length})`} subtitle="Double-entry vouchers with complete line item audit trails">
+        <Card title={`Posted Journal Vouchers (${filteredJournals.length})`} >
           <div style={{ marginBottom: 16, position: 'relative' }}>
             <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input
@@ -148,7 +146,7 @@ export default function JournalsPage() {
 
           {isLoading ? (
             <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
-              Loading general ledger journals from PostgreSQL...
+              Loading general ledger journals…
             </div>
           ) : (
             <div className="hne-table-container">

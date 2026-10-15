@@ -1,0 +1,70 @@
+.staff-payroll-page > .hne-form-group {
+  margin-bottom: 0;
+}
+
+.payroll-table {
+  --payroll-grid: color-mix(in srgb, var(--border) 65%, var(--text-muted));
+  min-width: 920px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.payroll-table th,
+.payroll-table td {
+  text-align: center;
+  vertical-align: middle;
+  border-right: 1px solid var(--payroll-grid);
+  border-bottom: 1px solid var(--payroll-grid);
+}
+
+.payroll-table th:last-child,
+.payroll-table td:last-child {
+  border-right: 0;
+}
+
+.payroll-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.payroll-table th {
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.payroll-table tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--bg-subtle) 55%, var(--bg-card));
+}
+
+.payroll-table tbody tr:hover {
+  background: var(--bg-subtle);
+}
+
+.payroll-table td small {
+  margin-top: 4px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.payroll-table th:nth-child(n + 2):nth-child(-n + 5),
+.payroll-table td:nth-child(n + 2):nth-child(-n + 5) {
+  font-variant-numeric: tabular-nums;
+}
+
+.payroll-salary-table th:nth-child(n + 3):nth-child(-n + 5),
+.payroll-salary-table td:nth-child(n + 3):nth-child(-n + 5) {
+  font-variant-numeric: tabular-nums;
+}
+
+.payroll-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.payroll-toolbar > .hne-form-group {
+  width: 100%;
+  margin-bottom: 0;
+}

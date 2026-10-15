@@ -44,7 +44,7 @@ export const ADMIN_APPS: AdminApp[] = [
   { id: 'operations', name: 'Operations', description: 'Housekeeping, guest service and banquets.', href: '/admin/housekeeping', icon: Sparkles },
   { id: 'kitchen', name: 'Kitchen', description: 'Prepare and track kitchen order tickets.', href: '/admin/pos/kot', icon: UtensilsCrossed },
   { id: 'inventory', name: 'Inventory', description: 'Stores, stock and procurement workflows.', href: '/admin/inventory', icon: Boxes },
-  { id: 'finance', name: 'Finance', description: 'Accounting, ledgers and business reports.', href: '/admin/accounting/journals', icon: ReceiptText },
+  { id: 'finance', name: 'Accounting', description: 'Journal vouchers, staff payroll, accounts and financial reports.', href: '/admin/accounting/journals', icon: ReceiptText },
   { id: 'website', name: 'Website', description: 'CMS pages, media and public-site content.', href: '/admin/cms/pages', icon: Globe }
 ];
 
@@ -53,8 +53,8 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
     group: 'Core Operations',
     items: [
       { name: 'Overview Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
-      { name: 'Front Desk & Folios', href: '/admin/pms/frontdesk', icon: Users },
-      { name: 'Reservations Matrix', href: '/admin/pms/reservations', icon: CalendarCheck },
+      { name: 'Front Desk', href: '/admin/pms/frontdesk', icon: Users },
+      { name: 'Reservations', href: '/admin/pms/reservations', icon: CalendarCheck },
       { name: 'Room Inventory', href: '/admin/pms/rooms', icon: BedDouble },
       { name: 'Night Audit', href: '/admin/pms/night-audit', icon: Moon }
     ]
@@ -70,13 +70,19 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
     ]
   },
   {
-    group: 'Supply & Finance',
+    group: 'Supply & Procurement',
     items: [
       { name: 'Inventory & Stores', href: '/admin/inventory', icon: Boxes },
-      { name: 'Procurement & POs', href: '/admin/procurement', icon: ShoppingCart },
-      { name: 'Accounting & Ledger', href: '/admin/accounting/journals', icon: ReceiptText },
+      { name: 'Procurement & POs', href: '/admin/procurement', icon: ShoppingCart }
+    ]
+  },
+  {
+    group: 'Accounting',
+    items: [
+      { name: 'Journal Vouchers', href: '/admin/accounting/journals', icon: ReceiptText },
+      { name: 'Staff Payroll', href: '/admin/accounting/payroll', icon: Users },
       { name: 'Chart of Accounts', href: '/admin/accounting/chart-of-accounts', icon: ReceiptText },
-      { name: 'Financial & BI Reports', href: '/admin/accounting/reports', icon: PieChart }
+      { name: 'Financial Reports', href: '/admin/accounting/reports', icon: PieChart }
     ]
   },
   {
