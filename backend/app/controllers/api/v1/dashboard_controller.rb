@@ -6,7 +6,7 @@ module Api
       def show
         property = default_property
         company = property.company
-        today = Date.current
+        today = property.operating_date
 
         return render json: compact_dashboard(property, company, today) if params[:compact] == "true"
 

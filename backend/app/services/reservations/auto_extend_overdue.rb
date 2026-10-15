@@ -10,7 +10,7 @@ module Reservations
       result = { extended: 0, conflicts: 0, posted: 0.to_d }
       scope.find_each do |reservation|
         begin
-          Reservation.transaction do
+          BusinessDays::Context.with(reservation.property) do
             # Use the same inventory lock as booking and manual extension.
             reservation.reservation_rooms.order(:room_type_id).pluck(:room_type_id).uniq.each do |type_id|
               key = ActiveRecord::Base.connection.quote("reservation:#{reservation.property_id}:#{type_id}")

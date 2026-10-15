@@ -4,7 +4,8 @@ module Payments
       raise ApiError.new("No online payment gateway is configured yet", status: :unprocessable_content, code: "GATEWAY_UNAVAILABLE") unless Gateway.available.value?(true)
 
       amount = BigDecimal(amount.to_s)
-      Folio.transaction do
+      BusinessDays::Context.with(folio.property) do
+        BusinessDays::Context.ensure_cashier_open!(folio.property)
         folio.lock!
         reservation = folio.reservation
         allowed = kind == "ADVANCE" ? reservation.status.in?(%w[INQUIRY CONFIRMED]) : reservation.status == "CHECKED_IN"
@@ -23,7 +24,8 @@ module Payments
     end
 
     def self.start!(request, gateway)
-      Folio.transaction do
+      BusinessDays::Context.with(request.folio.property) do
+        BusinessDays::Context.ensure_cashier_open!(request.folio.property)
         folio = request.folio
         folio.lock!
         request.lock!
@@ -45,6 +47,13 @@ module Payments
 
     def self.verify!(request)
       return request if request.status == "COMPLETED"
+      BusinessDays::Context.with(request.folio.property) do
+        BusinessDays::Context.ensure_cashier_open!(request.folio.property)
+        verify_in_context!(request)
+      end
+    end
+
+    def self.verify_in_context!(request)
       Folio.transaction do
         folio = request.folio
         folio.lock!

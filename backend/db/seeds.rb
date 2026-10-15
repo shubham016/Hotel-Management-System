@@ -2,6 +2,7 @@ company = Company.find_or_initialize_by(slug: "hotel-new-era")
 company.update!(name: "Hotel New Era Pvt. Ltd.", currency_code: "NPR", timezone: "Asia/Kathmandu", active: true) if company.new_record?
 
 property = company.properties.find_or_initialize_by(code: "HNE-BTW")
+property.business_date ||= Date.current
 property.update!(
   name: "Hotel New Era - Butwal",
   address: "Kalikapath, New Buspark, Butwal-8",

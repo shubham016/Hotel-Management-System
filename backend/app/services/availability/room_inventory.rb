@@ -9,13 +9,15 @@ module Availability
       [ rooms.where.not(id: assigned_ids).count - reserved.where(room_id: nil).count, 0 ].max
     end
 
-    def self.available_rooms(property:, room_type: nil, check_in_date:, check_out_date:, exclude_reservation: nil)
+    def self.available_rooms(property:, room_type: nil, check_in_date:, check_out_date:, exclude_reservation: nil, ready_only: false)
       available_count = available_count(property:, room_type:, check_in_date:, check_out_date:, exclude_reservation:)
       assigned_room_ids = conflicting_reservation_rooms(property:, room_type:, check_in_date:, check_out_date:, exclude_reservation:)
         .where.not(room_id: nil)
         .select(:room_id)
 
-      eligible_rooms(property:, room_type:, check_in_date:)
+      rooms = eligible_rooms(property:, room_type:, check_in_date:)
+      rooms = rooms.where(status: %w[VACANT_CLEAN RESERVED]) if ready_only
+      rooms
         .where.not(id: assigned_room_ids)
         .by_floor_and_room_number
         .limit(available_count)

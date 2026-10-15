@@ -1,5 +1,8 @@
 class Property < ApplicationRecord
   belongs_to :company
+  has_many :cashier_closings, dependent: :restrict_with_error
+  has_many :business_day_closings, dependent: :restrict_with_error
+  has_many :journal_entries, dependent: :restrict_with_error
   has_many :user_properties, dependent: :destroy
   has_many :users, through: :user_properties
   has_many :room_types, dependent: :restrict_with_error
@@ -30,6 +33,10 @@ class Property < ApplicationRecord
   validates :name, :code, presence: true
   validates :code, uniqueness: { scope: :company_id }
   validates :check_out_time, format: { with: /\A(?:[01]\d|2[0-3]):[0-5]\d\z/ }
+
+  def operating_date
+    business_date || Date.current
+  end
 
   def overdue_departure_cutoff_date(now: Time.current)
     hour, minute = check_out_time.split(":").map(&:to_i)

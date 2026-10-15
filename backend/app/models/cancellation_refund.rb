@@ -1,6 +1,12 @@
 class CancellationRefund < ApplicationRecord
   PAYOUT_METHODS = %w[CASH BANK_TRANSFER ESEWA KHALTI CARD FONEPAY].freeze
   belongs_to :folio
+  before_validation do
+    if status == "PAID" && status_changed?
+      BusinessDays::Context.ensure_cashier_open!(folio.property)
+      self.business_date ||= folio.property.operating_date
+    end
+  end
   validates :folio_id, uniqueness: true
   validates :status, inclusion: { in: %w[PENDING PAID] }
   validates :paid_amount, numericality: { greater_than: 0 }

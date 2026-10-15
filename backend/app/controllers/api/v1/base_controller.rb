@@ -4,10 +4,19 @@ module Api
       before_action :set_request_context
       before_action :authenticate!
       before_action :authorize_request!
+      around_action :with_business_day_context
 
       class_attribute :authorization_module_name, default: nil
 
       private
+
+      def with_business_day_context(&action)
+        if request.get? || request.head? || !Current.user
+          return yield
+        end
+        property = Current.property || (respond_to?(:default_property, true) ? default_property : nil)
+        property ? BusinessDays::Context.with(property, &action) : yield
+      end
 
       def set_request_context
         Current.request_id = request.request_id

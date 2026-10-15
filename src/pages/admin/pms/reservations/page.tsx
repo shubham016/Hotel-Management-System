@@ -6,11 +6,12 @@ import { Badge } from '@/components/ui/Badge';
 import Link from '@/lib/router';
 import { formatDualDate } from '@/lib/nepali-calendar';
 import { deleteReservation, loadReservations, loadReservation, updateReservationStatus } from './api';
-import type { Reservation } from './types';
+import type { Reservation, RoomAssignment } from './types';
 import { ReservationReviewModal } from './components/ReservationReviewModal';
 import { CancellationModal } from './components/CancellationModal';
 import { usePortalProfile } from '@/lib/portal-context';
 import { hasAccess } from '@/lib/portal-access';
+import { publishRoomUpdate, useRoomUpdates } from '@/lib/room-updates';
 
 const PAGE_SIZE = 10;
 
@@ -31,6 +32,7 @@ export default function ReservationsPage() {
   const [totalRows, setTotalRows] = useState(0);
   const [debouncedQuery, setDebouncedQuery] = useState(linkedQuery);
   const [refreshKey, setRefreshKey] = useState(0);
+  useRoomUpdates(() => setRefreshKey((key) => key + 1));
 
   useEffect(() => { setSearchTerm(linkedQuery); setCurrentPage(1); setFilterStatus('ALL'); }, [linkedQuery, selectedReservationId]);
 
@@ -64,12 +66,12 @@ export default function ReservationsPage() {
   const pageStart = (safePage - 1) * PAGE_SIZE;
   const visibleReservations = filtered;
 
-  const replaceReservation = (updated: Reservation) => { setReservations((current) => current.map((reservation) => reservation.id === updated.id ? updated : reservation)); setRefreshKey((key) => key + 1); };
+  const replaceReservation = (updated: Reservation) => { setReservations((current) => current.map((reservation) => reservation.id === updated.id ? updated : reservation)); setRefreshKey((key) => key + 1); publishRoomUpdate(); };
 
-  const checkInReservation = async (reservation: Reservation) => {
+  const checkInReservation = async (reservation: Reservation, roomAssignments: RoomAssignment[]) => {
     setUpdatingId(reservation.id); setError('');
     try {
-      replaceReservation(await updateReservationStatus(reservation.id, 'check-in', { roomId: reservation.rooms[0]?.roomId }));
+      replaceReservation(await updateReservationStatus(reservation.id, 'check-in', { roomAssignments }));
       setReviewingReservation(null);
     }
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to check in reservation.'); }
@@ -78,6 +80,14 @@ export default function ReservationsPage() {
 
   const cancelReservation = async (reservation: Reservation) => {
     setCancellingReservation(reservation);
+  };
+
+  const markNoShow = async (reservation: Reservation) => {
+    if (!window.confirm(`Mark ${reservation.confirmationNumber} as a no-show and release its rooms?`)) return;
+    setUpdatingId(reservation.id); setError('');
+    try { replaceReservation(await updateReservationStatus(reservation.id, 'no-show', { reason: 'Guest did not arrive' })); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to mark no-show.'); }
+    finally { setUpdatingId(null); }
   };
 
   const removeReservation = async (reservation: Reservation) => {
@@ -92,6 +102,7 @@ export default function ReservationsPage() {
       const deletedId = await deleteReservation(reservation.id);
       setReservations((current) => current.filter((item) => item.id !== deletedId));
       setRefreshKey((key) => key + 1);
+      publishRoomUpdate();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to delete booking.');
     } finally {
@@ -104,9 +115,9 @@ export default function ReservationsPage() {
   return <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
       <div><h1 style={{ fontSize: 24, fontWeight: 800 }}>Reservations Matrix & Bookings</h1></div>
-      <div style={{ display: 'flex', gap: 12 }}><div style={{ position: 'relative' }}><Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: 12, top: 12 }} /><input type="text" placeholder="Search Confirmation / Guest..." className="hne-input" style={{ paddingLeft: 36, width: 280, height: 40 }} value={searchTerm} onChange={(event) => { setSearchTerm(event.target.value); }} /></div><Link href="/book?source=WALK_IN" className="hne-btn hne-btn-primary hne-btn-sm" style={{ display: 'inline-flex', alignItems: 'center' }}><Plus size={16} /><span>Create Reservation</span></Link></div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, maxWidth: '100%' }}><div style={{ position: 'relative', width: 280, maxWidth: '100%' }}><Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: 12, top: 12 }} /><input type="text" placeholder="Search Confirmation / Guest..." className="hne-input" style={{ paddingLeft: 36, width: '100%', height: 40 }} value={searchTerm} onChange={(event) => { setSearchTerm(event.target.value); }} /></div><Link href="/book?source=WALK_IN" className="hne-btn hne-btn-primary hne-btn-sm" style={{ display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap' }}><Plus size={16} /><span>Create Reservation</span></Link></div>
     </div>
-    <div style={{ display: selectedReservationId ? 'none' : 'flex', gap: 8, flexWrap: 'wrap' }}>{['ALL', 'INQUIRY', 'CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT', 'CANCELLED'].map((status) => <button key={status} onClick={() => { setFilterStatus(status); setCurrentPage(1); }} className={`hne-btn ${filterStatus === status ? 'hne-btn-primary' : 'hne-btn-secondary'} hne-btn-sm`}>{status === 'INQUIRY' ? 'PENDING' : status.replaceAll('_', ' ')}</button>)}</div>
+    <div style={{ display: selectedReservationId ? 'none' : 'flex', gap: 8, flexWrap: 'wrap' }}>{['ALL', 'INQUIRY', 'CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT', 'CANCELLED', 'NO_SHOW'].map((status) => <button key={status} onClick={() => { setFilterStatus(status); setCurrentPage(1); }} className={`hne-btn ${filterStatus === status ? 'hne-btn-primary' : 'hne-btn-secondary'} hne-btn-sm`}>{status === 'INQUIRY' ? 'PENDING' : status.replaceAll('_', ' ')}</button>)}</div>
     {error && <div role="alert" style={{ padding: 12, borderRadius: 8, background: 'var(--danger-light)', color: 'var(--danger-red)' }}>{error}</div>}
     {selectedReservationId && <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', fontSize: 13 }}><span>Showing the selected customer booking.</span><button type="button" className="hne-btn hne-btn-secondary hne-btn-sm" onClick={() => setSearchParams({})}>Show all reservations</button></div>}
     <Card><div className="hne-table-container"><table className="hne-table">
@@ -119,7 +130,7 @@ export default function ReservationsPage() {
           return <tr key={reservation.id}>
             <td><div style={{ fontWeight: 800, color: 'var(--primary-orange)' }}>{reservation.confirmationNumber}</div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{room?.nights || 0} Nights · {reservation.adultsCount} Adults</div></td>
             <td><div style={{ fontWeight: 700 }}>{reservation.guest.name}</div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{reservation.guest.phone}{reservation.guest.idNumber ? ` · ${reservation.guest.idType || 'ID'}: ${reservation.guest.idNumber}` : ''}</div></td>
-            <td><div style={{ fontWeight: 600, fontSize: 13 }}>{room?.roomType || 'Unassigned'}</div><Badge variant="orange" style={{ fontSize: 10 }}>Room {room?.roomNumber || 'Unassigned'}</Badge></td>
+            <td><div style={{ fontWeight: 600, fontSize: 13 }}>{room?.roomType || 'Unassigned'}{reservation.rooms.length > 1 ? ` · ${reservation.rooms.length} rooms` : ''}</div><Badge variant="orange" style={{ fontSize: 10 }}>Room {reservation.rooms.map(item => item.roomNumber || 'Unassigned').join(', ')}</Badge></td>
             <td style={{ fontSize: 12 }}><div style={{ fontWeight: 600 }}>{formatDualDate(reservation.checkInDate).adFormatted}</div><div style={{ color: '#B45309', fontSize: 11, fontWeight: 600 }}>BS: {formatDualDate(reservation.checkInDate).bsFormatted}</div><div style={{ color: 'var(--text-muted)', fontSize: 11 }}>to {formatDualDate(reservation.checkOutDate).adFormatted} (BS: {formatDualDate(reservation.checkOutDate).bsFormatted})</div></td>
             <td><span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>{reservation.source.replaceAll('_', ' ')}</span></td>
             <td><div style={{ fontWeight: 700 }}>Rs. {reservation.grandTotal.toLocaleString()}</div><div style={{ fontSize: 11, color: 'var(--green)' }}>Adv: Rs. {reservation.advancePaid.toLocaleString()}</div></td>
@@ -128,9 +139,10 @@ export default function ReservationsPage() {
               {hasAccess(profile, 'RESERVATIONS', 'refund') && reservation.status === 'CANCELLED' && reservation.cancellationRefund?.status === 'PENDING' && <button type="button" onClick={() => setCancellingReservation(reservation)} className="hne-btn hne-btn-primary hne-btn-sm">Record Refund</button>}
               {['INQUIRY', 'CONFIRMED'].includes(reservation.status) && <button type="button" onClick={() => setReviewingReservation(reservation)} disabled={updatingId === reservation.id} className="hne-btn hne-btn-primary hne-btn-sm" style={{ fontSize: 11.5 }}>Review & Check In</button>}
               {['INQUIRY', 'CONFIRMED'].includes(reservation.status) && <button type="button" onClick={() => cancelReservation(reservation)} disabled={updatingId === reservation.id} className="hne-btn hne-btn-secondary hne-btn-sm" style={{ fontSize: 11.5 }}>{updatingId === reservation.id ? 'Saving…' : 'Cancel'}</button>}
+              {hasAccess(profile, 'RESERVATIONS', 'cancel') && ['INQUIRY', 'CONFIRMED'].includes(reservation.status) && reservation.totalPaid === 0 && <button type="button" onClick={() => markNoShow(reservation)} disabled={updatingId === reservation.id} className="hne-btn hne-btn-secondary hne-btn-sm">No-show</button>}
               {hasAccess(profile, 'RESERVATIONS', 'delete') && <button type="button" onClick={() => removeReservation(reservation)} disabled={updatingId === reservation.id} className="hne-btn hne-btn-danger hne-btn-sm" style={{ fontSize: 11.5, paddingInline: 8 }} title="Delete booking"><Trash2 size={13} /> Delete</button>}
               {reservation.status === 'CHECKED_IN' && <Link href={`/admin/pms/frontdesk?folio=${encodeURIComponent(reservation.folioNumber || '')}`} className="hne-btn hne-btn-secondary hne-btn-sm" style={{ fontSize: 11.5 }}>Inspect Folio / Extend Stay</Link>}
-              {['CHECKED_OUT', 'CANCELLED'].includes(reservation.status) && <button type="button" onClick={() => setReviewingReservation(reservation)} className="hne-btn hne-btn-secondary hne-btn-sm" style={{ fontSize: 11.5 }}>View Booking</button>}
+              {['CHECKED_OUT', 'CANCELLED', 'NO_SHOW'].includes(reservation.status) && <button type="button" onClick={() => setReviewingReservation(reservation)} className="hne-btn hne-btn-secondary hne-btn-sm" style={{ fontSize: 11.5 }}>View Booking</button>}
             </div></td>
           </tr>;
         })}
@@ -146,7 +158,7 @@ export default function ReservationsPage() {
       </div>}
     </Card>
     {cancellingReservation && <CancellationModal reservation={cancellingReservation} onClose={() => setCancellingReservation(null)} onSaved={(updated) => { replaceReservation(updated); setCancellingReservation(null); }} />}
-    {reviewingReservation && <ReservationReviewModal reservation={reviewingReservation} saving={updatingId === reviewingReservation.id} onAdvanceRecorded={(updated) => { replaceReservation(updated); setReviewingReservation(updated); }} onClose={() => setReviewingReservation(null)} onCheckIn={() => checkInReservation(reviewingReservation)} onPaymentComplete={() => loadReservation(reviewingReservation.id).then((updated) => {
+    {reviewingReservation && <ReservationReviewModal key={reviewingReservation.id} reservation={reviewingReservation} saving={updatingId === reviewingReservation.id} saveError={error} onAdvanceRecorded={(updated) => { replaceReservation(updated); setReviewingReservation(updated); }} onClose={() => setReviewingReservation(null)} onCheckIn={(roomId) => checkInReservation(reviewingReservation, roomId)} onPaymentComplete={() => loadReservation(reviewingReservation.id).then((updated) => {
       replaceReservation(updated);
       setReviewingReservation(updated);
     }).catch((reason) => setError(reason instanceof Error ? reason.message : 'Unable to refresh booking.'))} />}

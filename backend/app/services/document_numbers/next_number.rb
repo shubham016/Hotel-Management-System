@@ -10,8 +10,8 @@ module DocumentNumbers
       "KOT" => "KOT"
     }.freeze
 
-    def self.call(company:, property:, document_type:, date: Date.current)
-      new(company:, property:, document_type:, date:).call
+    def self.call(company:, property:, document_type:, date: nil)
+      new(company:, property:, document_type:, date: date || property.operating_date).call
     end
 
     def initialize(company:, property:, document_type:, date:)

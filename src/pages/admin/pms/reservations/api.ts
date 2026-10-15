@@ -1,4 +1,4 @@
-import type { Reservation } from './types';
+import type { Reservation, RoomAssignment } from './types';
 
 export async function loadReservations({ page = 1, query = '', status = 'ALL', reservationId, signal }: { page?: number; query?: string; status?: string; reservationId?: string; signal?: AbortSignal } = {}) {
   const params = new URLSearchParams({ page: String(page), perPage: '10', query, status });
@@ -23,7 +23,7 @@ export async function recordAdvance(id: string, details: { amount: number; payme
   return result.data;
 }
 
-export async function updateReservationStatus(id: string, action: 'check-in' | 'cancel' | 'refund', details: { reason?: string; roomId?: string; expectedPaidAmount?: number; refundMethod?: string; refundReference?: string } = {}) {
+export async function updateReservationStatus(id: string, action: 'check-in' | 'cancel' | 'refund' | 'no-show', details: { reason?: string; roomId?: string; roomAssignments?: RoomAssignment[]; expectedPaidAmount?: number; refundMethod?: string; refundReference?: string } = {}) {
   const response = await fetch(`/api/pms/reservations/${id}/${action}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },

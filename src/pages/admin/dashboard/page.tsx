@@ -16,7 +16,7 @@ import {
 import { StatTile } from '@/components/ui/StatTile';
 import Link from '@/lib/router';
 import { BookingModal } from '@/components/booking/BookingModal';
-import { useRoomUpdates } from '@/lib/room-updates';
+import { publishRoomUpdate, useRoomUpdates } from '@/lib/room-updates';
 
 type DashboardData = {
   businessDate: string;
@@ -179,6 +179,7 @@ export default function AdminDashboardPage() {
         )));
         setRoomStatusEditor(null);
         setPendingRoomStatus(null);
+        publishRoomUpdate();
       } else {
         setRoomStatusError(json.error || 'Unable to update this room. Please try again.');
       }

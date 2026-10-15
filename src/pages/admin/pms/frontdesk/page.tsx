@@ -22,7 +22,7 @@ import { Button } from '@/components/ui/Button';
 import { formatDualDate } from '@/lib/nepali-calendar';
 import Link, { useRouter, useSearchParams } from '@/lib/router';
 import { PaymentRequestModal } from '@/components/payments/PaymentRequestModal';
-import { useRoomUpdates } from '@/lib/room-updates';
+import { publishRoomUpdate, useRoomUpdates } from '@/lib/room-updates';
 
 export default function FrontDeskPage() {
   const searchParams = useSearchParams();
@@ -34,6 +34,7 @@ export default function FrontDeskPage() {
   const [selectedFolio, setSelectedFolio] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
 
   // Modals state
   const [showAddChargeModal, setShowAddChargeModal] = useState(false);
@@ -68,7 +69,9 @@ export default function FrontDeskPage() {
       if (showLoading) setIsLoading(true);
       const res = await fetch('/api/pms/frontdesk');
       const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || 'Unable to load front desk.');
       if (json.success) {
+        setError('');
         setFolios(json.folios || []);
         setArrivals(json.arrivals || []);
         setSelectedFolio((current: any) => {
@@ -77,7 +80,7 @@ export default function FrontDeskPage() {
         });
       }
     } catch (err) {
-      console.error('Failed to load front desk data:', err);
+      setError(err instanceof Error ? err.message : 'Unable to load front desk.');
     } finally {
       if (showLoading) setIsLoading(false);
     }
@@ -100,7 +103,8 @@ export default function FrontDeskPage() {
       const json = await res.json();
       if (json.success) {
         alert(`Guest ${arrival.guestName} checked in successfully!`);
-        fetchFrontDeskData();
+        await fetchFrontDeskData();
+        publishRoomUpdate();
       } else {
         alert(json.error || 'Check-in failed');
       }
@@ -134,7 +138,8 @@ export default function FrontDeskPage() {
         setShowAddChargeModal(false);
         setChargeDesc('');
         setChargeAmount('');
-        fetchFrontDeskData();
+        await fetchFrontDeskData();
+        publishRoomUpdate();
       } else {
         alert(json.error || 'Failed to add charge');
       }
@@ -168,7 +173,8 @@ export default function FrontDeskPage() {
         setShowPaymentModal(false);
         setPaymentAmount('');
         setPaymentNotes('');
-        fetchFrontDeskData();
+        await fetchFrontDeskData();
+        publishRoomUpdate();
       } else {
         alert(json.error || 'Failed to record payment');
       }
@@ -200,6 +206,8 @@ export default function FrontDeskPage() {
         alert(json.message || 'Checkout completed and GL posted successfully!');
         setSelectedFolio(null);
         router.replace('/admin/pms/frontdesk');
+        await fetchFrontDeskData();
+        publishRoomUpdate();
       } else {
         alert(json.error || 'Failed to checkout');
       }
@@ -227,6 +235,7 @@ export default function FrontDeskPage() {
       setAdditionalNights('1');
       setExtensionReason('');
       await fetchFrontDeskData();
+      publishRoomUpdate();
     } catch (error: any) {
       alert(error.message || 'Unable to extend this stay.');
     } finally {
@@ -303,11 +312,12 @@ export default function FrontDeskPage() {
         </div>
       </div>
 
+      {error && <div role="alert" style={{ color: 'var(--danger-red)' }}>{error}</div>}
       {/* Arriving Guests Awaiting Check-In Alert Card */}
       {!isFocusedFolioView && arrivals.length > 0 && (
         <div style={{ backgroundColor: 'var(--brand-gold-light)', border: '1px solid var(--brand-gold)', borderRadius: 'var(--radius-md)', padding: '16px 20px' }}>
           <div style={{ fontWeight: 800, fontSize: 14.5, color: 'var(--brand-gold-hover)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <UserCheck size={18} /> Today's Pending Arrivals Awaiting Check-In ({arrivals.length})
+            <UserCheck size={18} /> Pending Arrivals ({arrivals.length})
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
             {arrivals.map((arr) => (
@@ -318,9 +328,9 @@ export default function FrontDeskPage() {
                     Room #{arr.roomNumber} ({arr.roomType}) • Ref: {arr.confirmationNumber}
                   </div>
                 </div>
-                <Button variant="primary" size="sm" onClick={() => handleCheckInArrival(arr)} disabled={isSubmitting}>
+                {!arr.roomId || arr.roomCount > 1 ? <Link href={`/admin/pms/reservations?reservation=${encodeURIComponent(arr.id)}`} className="hne-btn hne-btn-primary hne-btn-sm">{arr.roomCount > 1 ? 'Review rooms' : 'Assign room'}</Link> : <Button variant="primary" size="sm" onClick={() => handleCheckInArrival(arr)} disabled={isSubmitting}>
                   Check In
-                </Button>
+                </Button>}
               </div>
             ))}
           </div>
@@ -349,6 +359,7 @@ export default function FrontDeskPage() {
                   </tr>
                 </thead>
                 <tbody>
+                  {!error && filteredFolios.length === 0 && <tr><td colSpan={6}>No active guest folios.</td></tr>}
                   {filteredFolios.map((folio) => (
                     <tr
                       key={folio.id}
@@ -721,7 +732,7 @@ export default function FrontDeskPage() {
         kind="CHECKOUT"
         balanceDue={selectedFolio.balanceDue}
         onClose={() => setShowCheckoutPayment(false)}
-        onCompleted={() => { setShowCheckoutPayment(false); fetchFrontDeskData(); }}
+        onCompleted={() => { setShowCheckoutPayment(false); fetchFrontDeskData(); publishRoomUpdate(); }}
       />}
     </div>
   );

@@ -1,3 +1,4 @@
+export type RoomAssignment = { reservationRoomId: string; roomId: string };
 export type Reservation = {
   totalPaid: number;
   cancellationRefund: { status: 'PENDING' | 'PAID'; paidAmount: number; deductionAmount: number; refundAmount: number; paymentMethod: string | null; reference: string | null; paidAt: string | null } | null;

@@ -1459,6 +1459,11 @@ class ReservationsTest < ActionDispatch::IntegrationTest
         Reservations::AutoExtendOverdue.call(property: @property)
       end
       assert_not Availability::RoomInventory.room_available?(room: @first_room, check_in_date: Date.current, check_out_date: Date.current + 1.day, exclude_reservation: incoming)
+      post "/api/v1/night-audit", headers: auth_headers(auth_token), as: :json
+      assert_response :success
+      assert_equal 1, response.parsed_body.dig("summary", "extensionConflicts")
+      assert_equal false, response.parsed_body.dig("summary", "dailyClosingCompleted")
+      assert_equal total, stay.folio.reload.grand_total
     end
   end
 
@@ -1563,6 +1568,128 @@ class ReservationsTest < ActionDispatch::IntegrationTest
     assert_response :not_found
     assert_equal "VACANT_CLEAN", other_room.reload.status
     assert_equal "VACANT_CLEAN", @first_room.reload.status
+  end
+
+  test "night audit reports actual operational counts and supports daily closing" do
+    travel_to Date.current.in_time_zone.change(hour: 10) do
+      headers = auth_headers(auth_token)
+      post "/api/v1/reservations", params: valid_payload.merge(roomId: @first_room.id, checkInDate: Date.current.iso8601, checkOutDate: (Date.current + 1.day).iso8601), as: :json
+      assert_response :created
+      stay = Reservation.find(response.parsed_body.dig("data", "id"))
+      get "/api/v1/night-audit", headers: headers
+      assert_response :success
+      assert_equal true, response.parsed_body["dailyClosingAvailable"]
+      assert_equal 1, response.parsed_body["pendingArrivals"]
+      assert_equal 0, response.parsed_body["openFoliosCount"]
+      assert_equal 0, response.parsed_body["unsettledOrders"]
+      assert_equal 0, response.parsed_body["occupiedTables"]
+      assert_not response.parsed_body.key?("currentNepaliDate")
+      assert_not response.parsed_body.key?("fiscalYear")
+      patch "/api/v1/reservations/#{stay.id}/check-in", params: { roomId: @first_room.id }, headers:, as: :json
+      assert_response :success
+      post "/api/v1/folio", params: { operation: "RECORD_PAYMENT", folioId: stay.folio.id, amount: stay.grand_total.to_f, paymentMethod: "CASH" }, headers:, as: :json
+      assert_response :success
+      assert_equal "SETTLED", stay.folio.reload.status
+      get "/api/v1/night-audit", headers: headers
+      assert_equal 1, response.parsed_body["openFoliosCount"]
+      assert_equal 0, response.parsed_body["unsettledBalanceTotal"]
+      assert_equal 0, response.parsed_body["pendingArrivals"]
+      assert_equal 1, response.parsed_body["occupiedRooms"]
+      role = @company.roles.create!(name: "AUDIT_VIEWER", permissions: { "NIGHT_AUDIT" => [ "read" ] })
+      viewer = @company.users.create!(role:, email: "audit-viewer@example.com", password: "Strong-Test-Password-2026!", first_name: "Audit", last_name: "Viewer")
+      UserProperty.create!(user: viewer, property: @property)
+      assert_no_difference "AuditLog.count" do
+        post "/api/v1/night-audit", headers: auth_headers(Authentication::Token.encode(viewer)), as: :json
+      end
+      assert_response :forbidden
+      assert_no_difference [ "Payment.count", "JournalEntry.count", "FolioItem.count" ] do
+        post "/api/v1/night-audit", headers:, as: :json
+      end
+      assert_response :success
+      assert_equal false, response.parsed_body.dig("summary", "dailyClosingCompleted")
+    end
+  end
+
+  test "both checkout endpoints enforce payment verification and post a real balanced voucher" do
+    headers = auth_headers(auth_token)
+    post "/api/v1/reservations", params: valid_payload.merge(roomId: @first_room.id), as: :json
+    assert_response :created
+    stay = Reservation.find(response.parsed_body.dig("data", "id"))
+    stay.update!(status: "CHECKED_IN", check_in_date: Date.current, check_out_date: Date.current + 1.day)
+    @first_room.update!(status: "OCCUPIED")
+    folio = stay.folio
+    assert_no_difference [ "Payment.count", "JournalEntry.count" ] do
+      post "/api/v1/checkout", params: { folioId: folio.id, paymentMethod: "ESEWA" }, headers:, as: :json
+    end
+    assert_response :unprocessable_content
+    assert_equal "GATEWAY_VERIFICATION_REQUIRED", response.parsed_body["code"]
+    payment_request = nil
+    with_gateway_method(:available, { ESEWA: true }) do
+      payment_request = Payments::Requests.create!(folio:, kind: "CHECKOUT", amount: folio.balance_due)
+    end
+    payment_request.update!(status: "INITIATED")
+    assert_no_difference [ "Payment.count", "JournalEntry.count" ] do
+      post "/api/v1/checkout", params: { folioId: folio.id, paymentMethod: "CASH" }, headers:, as: :json
+    end
+    assert_response :conflict
+    assert_equal "PAYMENT_IN_PROGRESS", response.parsed_body["code"]
+    payment_request.update!(status: "FAILED")
+    assert_difference [ "Payment.count", "JournalEntry.count" ], 1 do
+      post "/api/v1/checkout", params: { folioId: folio.id, paymentMethod: "CASH" }, headers:, as: :json
+    end
+    assert_response :success
+    voucher = JournalEntry.find_by!(source_reference: "PMS_CHECKOUT:#{folio.id}")
+    assert_equal voucher.voucher_number, response.parsed_body.dig("data", "journalVoucher")
+    assert_equal voucher.journal_lines.sum(:debit), voucher.journal_lines.sum(:credit)
+    assert_equal "CHECKED_OUT", stay.reload.status
+    assert_equal "CLOSED", folio.reload.status
+    assert_equal "VACANT_DIRTY", @first_room.reload.status
+    assert_no_difference [ "Payment.count", "JournalEntry.count" ] do
+      post "/api/v1/checkout", params: { folioId: folio.id, paymentMethod: "CASH" }, headers:, as: :json
+    end
+    assert_response :conflict
+  end
+
+  test "unassigned arrivals can find a clean room without counting their own inventory hold twice" do
+    travel_to Date.current.in_time_zone.change(hour: 10) do
+      headers = auth_headers(auth_token)
+      @second_room.update!(status: "OUT_OF_ORDER")
+      post "/api/v1/reservations", params: valid_payload.merge(checkInDate: Date.current.iso8601, checkOutDate: (Date.current + 1.day).iso8601), as: :json
+      assert_response :created
+      stay = Reservation.find(response.parsed_body.dig("data", "id"))
+      get "/api/v1/pms/rooms", params: { availableOnly: true, checkInDate: stay.check_in_date.iso8601, checkOutDate: stay.check_out_date.iso8601, excludeReservationId: stay.id }, headers: headers
+      assert_response :success
+      assert_equal [ @first_room.id ], response.parsed_body["data"].pluck("id")
+      assert_equal @room_type.id, response.parsed_body.dig("data", 0, "roomTypeId")
+      @first_room.update!(status: "VACANT_DIRTY")
+      @second_room.update!(status: "VACANT_CLEAN")
+      post "/api/v1/reservations", params: valid_payload.merge(checkInDate: Date.current.iso8601, checkOutDate: (Date.current + 1.day).iso8601), as: :json
+      assert_response :created
+      get "/api/v1/pms/rooms", params: { availableOnly: true, readyOnly: true, checkInDate: stay.check_in_date.iso8601, checkOutDate: stay.check_out_date.iso8601, excludeReservationId: stay.id }, headers: headers
+      assert_response :success
+      assert_equal [ @second_room.id ], response.parsed_body["data"].pluck("id")
+      post "/api/v1/frontdesk", params: { reservationId: stay.id, roomId: @second_room.id }, headers:, as: :json
+      assert_response :success
+      assert_equal @second_room.id, stay.reservation_rooms.sole.room_id
+      assert_equal "CHECKED_IN", stay.reload.status
+      assert_equal "OCCUPIED", @second_room.reload.status
+      assert_equal "VACANT_DIRTY", @first_room.reload.status
+    end
+  end
+
+  test "group checkin cannot mark a booking checked in while leaving its other rooms unoccupied" do
+    travel_to Date.current.in_time_zone.change(hour: 10) do
+      headers = auth_headers(auth_token)
+      post "/api/v1/reservations", params: valid_payload.merge(roomsCount: 2, checkInDate: Date.current.iso8601, checkOutDate: (Date.current + 1.day).iso8601), as: :json
+      assert_response :created
+      stay = Reservation.find(response.parsed_body.dig("data", "id"))
+      post "/api/v1/frontdesk", params: { reservationId: stay.id, roomId: @first_room.id }, headers:, as: :json
+      assert_response :unprocessable_content
+      assert_equal "ROOM_ASSIGNMENTS_REQUIRED", response.parsed_body["code"]
+      assert_equal "INQUIRY", stay.reload.status
+      assert_equal "VACANT_CLEAN", @first_room.reload.status
+      assert_equal "VACANT_CLEAN", @second_room.reload.status
+    end
   end
 
   private

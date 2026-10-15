@@ -9,13 +9,13 @@ module Api
           folios = property.folios.includes(:guest, :folio_items, :payments, reservation: { reservation_rooms: %i[room room_type] })
                            .joins(:reservation).where(status: %w[OPEN SETTLED], reservations: { status: "CHECKED_IN" }).order(created_at: :desc)
           arrivals = property.reservations.includes(:guest, :folio, reservation_rooms: %i[room room_type])
-                             .where(status: %w[INQUIRY CONFIRMED], check_in_date: Date.current).order(:check_in_date)
+                             .where(status: %w[INQUIRY CONFIRMED]).where("check_in_date <= ?", property.operating_date).order(:check_in_date)
           render json: { success: true, folios: folios.map { |f| serialize_folio(f) }, arrivals: arrivals.map { |r| serialize_arrival(r) } }
         end
 
         def create
           reservation = default_property.reservations.includes(:guest, :folio, reservation_rooms: :room).find(params.require(:reservationId))
-          Reservations::Lifecycle.check_in(reservation:, params:)
+          Reservations::Lifecycle.check_in(reservation:, params: params.permit(:roomId, roomAssignments: %i[reservationRoomId roomId]))
 
           render json: { success: true, message: "Guest checked in successfully", folioId: reservation.reload.folio&.id }
         end
@@ -35,7 +35,7 @@ module Api
             email: folio.guest.email,
             vipLevel: folio.guest.vip_level,
             roomId: rr&.room&.id,
-            roomNumber: rr&.room&.room_number || "Unassigned",
+            roomNumber: folio.reservation.reservation_rooms.map { |item| item.room&.room_number || "Unassigned" }.join(", "),
             roomType: rr&.room_type&.name,
             checkInDate: folio.reservation.check_in_date,
             checkOutDate: folio.reservation.check_out_date,
@@ -62,6 +62,7 @@ module Api
             email: reservation.guest.email,
             roomNumber: rr&.room&.room_number || "Unassigned",
             roomId: rr&.room&.id,
+            roomCount: reservation.reservation_rooms.size,
             roomType: rr&.room_type&.name,
             checkInDate: reservation.check_in_date,
             checkOutDate: reservation.check_out_date,

@@ -66,9 +66,10 @@ module Api
           check_in = Date.iso8601(params.require(:checkInDate))
           check_out = Date.iso8601(params.require(:checkOutDate))
           raise ApiError.new("Check-out must be after check-in", code: "INVALID_STAY") unless check_out > check_in
+          reservation = property.reservations.find(params[:excludeReservationId]) if params[:excludeReservationId].present?
 
           available_ids = property.room_types.where(id: rooms.select(:room_type_id)).flat_map do |room_type|
-            Availability::RoomInventory.available_rooms(property:, room_type:, check_in_date: check_in, check_out_date: check_out).pluck(:id)
+            Availability::RoomInventory.available_rooms(property:, room_type:, check_in_date: check_in, check_out_date: check_out, exclude_reservation: reservation, ready_only: params[:readyOnly] == "true").pluck(:id)
           end
           rooms.where(id: available_ids)
         rescue Date::Error
@@ -85,6 +86,7 @@ module Api
             status: room.operational_status,
             hasActiveReservation: reservations.any?,
             roomType: room.room_type.name,
+            roomTypeId: room.room_type_id,
             roomTypeCode: room.room_type.code,
             basePrice: room.room_type.base_price.to_f,
             amenities: room.room_type.amenities,

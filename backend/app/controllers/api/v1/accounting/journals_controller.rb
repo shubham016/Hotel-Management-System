@@ -20,7 +20,8 @@ module Api
           voucher = company.journal_entries.create!(
             voucher_number: DocumentNumbers::NextNumber.call(company:, property: default_property, document_type: "JOURNAL"),
             voucher_type: params[:voucherType].presence || "JOURNAL",
-            posting_date: Date.current,
+            property: default_property,
+            posting_date: default_property.operating_date,
             nepali_date: Date.current.iso8601,
             narration: params[:narration].presence || "General Ledger Manual Journal Entry",
             total_debit:,

@@ -80,6 +80,12 @@ module Api
           render json: { success: true, data: serialize(reservation) }
         end
 
+        def no_show
+          reservation = require_property!.reservations.find(params[:id])
+          Reservations::Lifecycle.no_show(reservation:, params: lifecycle_params)
+          render json: { success: true, data: serialize(reservation) }
+        end
+
         def transfer_room
           reservation = require_property!.reservations.includes(:guest, :folio, reservation_rooms: %i[room room_type]).find(params[:id])
           authorize!("PMS_FRONTDESK", "transfer_room")
@@ -124,6 +130,7 @@ module Api
         private
 
         def inferred_authorization_action
+          return "cancel" if action_name == "no_show"
           return "read" if action_name == "advance"
           super
         end
@@ -180,7 +187,8 @@ module Api
             :roomId,
             :reason,
             :expectedPaidAmount,
-            :additionalNights
+            :additionalNights,
+            roomAssignments: %i[reservationRoomId roomId]
           )
         end
 

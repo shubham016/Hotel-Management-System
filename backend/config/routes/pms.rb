@@ -10,6 +10,7 @@ namespace :api do
           patch :advance
           patch :assign_room, path: "assign-room"
           patch :check_in, path: "check-in"
+          patch :no_show, path: "no-show"
           patch :extend_stay, path: "extend-stay"
           patch :transfer_room, path: "transfer-room"
         end

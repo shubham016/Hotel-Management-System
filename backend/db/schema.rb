@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_14_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_15_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -131,7 +131,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_000001) do
     t.index ["property_id"], name: "index_banquet_halls_on_property_id"
   end
 
+  create_table "business_day_closings", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.date "business_date", null: false
+    t.uuid "cashier_closing_id", null: false
+    t.uuid "closed_by_id", null: false
+    t.datetime "created_at", null: false
+    t.date "next_business_date", null: false
+    t.uuid "property_id", null: false
+    t.jsonb "snapshot", default: {}, null: false
+    t.datetime "updated_at", null: false
+    t.index ["cashier_closing_id"], name: "index_business_day_closings_on_cashier_closing_id"
+    t.index ["closed_by_id"], name: "index_business_day_closings_on_closed_by_id"
+    t.index ["property_id", "business_date"], name: "index_business_day_closings_on_property_id_and_business_date", unique: true
+    t.index ["property_id"], name: "index_business_day_closings_on_property_id"
+  end
+
   create_table "cancellation_refunds", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.date "business_date"
     t.datetime "created_at", null: false
     t.decimal "deduction_amount", precision: 14, scale: 2, null: false
     t.uuid "folio_id", null: false
@@ -145,6 +161,26 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_000001) do
     t.index ["folio_id"], name: "index_cancellation_refunds_on_folio_id", unique: true
     t.check_constraint "paid_amount > 0::numeric AND deduction_amount >= 0::numeric AND refund_amount >= 0::numeric AND paid_amount = (deduction_amount + refund_amount)", name: "cancellation_refund_amounts"
     t.check_constraint "status::text = ANY (ARRAY['PENDING'::character varying, 'PAID'::character varying]::text[])", name: "cancellation_refund_status"
+  end
+
+  create_table "cashier_closings", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.date "business_date", null: false
+    t.uuid "closed_by_id", null: false
+    t.decimal "counted_cash", precision: 14, scale: 2, null: false
+    t.datetime "created_at", null: false
+    t.decimal "expected_cash", precision: 14, scale: 2, null: false
+    t.text "notes"
+    t.decimal "opening_cash", precision: 14, scale: 2, null: false
+    t.uuid "property_id", null: false
+    t.text "reopen_reason"
+    t.datetime "reopened_at"
+    t.jsonb "snapshot", default: {}, null: false
+    t.string "status", default: "CLOSED", null: false
+    t.datetime "updated_at", null: false
+    t.decimal "variance", precision: 14, scale: 2, null: false
+    t.index ["closed_by_id"], name: "index_cashier_closings_on_closed_by_id"
+    t.index ["property_id", "business_date"], name: "one_closed_cashier_per_property_day", unique: true, where: "((status)::text = 'CLOSED'::text)"
+    t.index ["property_id"], name: "index_cashier_closings_on_property_id"
   end
 
   create_table "cms_media_assets", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -367,7 +403,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_000001) do
     t.datetime "created_at", null: false
     t.text "narration"
     t.string "nepali_date"
+    t.string "payment_method"
     t.date "posting_date", null: false
+    t.uuid "property_id"
     t.string "source_module"
     t.string "source_reference"
     t.string "status", default: "POSTED", null: false
@@ -378,6 +416,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_000001) do
     t.string "voucher_type", default: "JOURNAL", null: false
     t.index ["company_id", "source_reference"], name: "index_journal_entries_on_company_id_and_idempotency_key", unique: true, where: "(source_reference IS NOT NULL)"
     t.index ["company_id"], name: "index_journal_entries_on_company_id"
+    t.index ["property_id"], name: "index_journal_entries_on_property_id"
     t.index ["voucher_number"], name: "index_journal_entries_on_voucher_number", unique: true
   end
 
@@ -491,6 +530,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_000001) do
 
   create_table "payments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.decimal "amount", precision: 14, scale: 2, null: false
+    t.date "business_date"
     t.datetime "created_at", null: false
     t.uuid "folio_id", null: false
     t.string "idempotency_key"
@@ -500,6 +540,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_000001) do
     t.string "receipt_number", null: false
     t.string "transaction_reference"
     t.datetime "updated_at", null: false
+    t.index ["business_date"], name: "index_payments_on_business_date"
     t.index ["folio_id"], name: "index_payments_on_folio_id"
     t.index ["idempotency_key"], name: "index_payments_on_idempotency_key", unique: true, where: "(idempotency_key IS NOT NULL)"
     t.index ["receipt_number"], name: "index_payments_on_receipt_number", unique: true
@@ -581,6 +622,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_000001) do
   create_table "properties", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.boolean "active", default: true, null: false
     t.string "address"
+    t.date "business_date"
     t.string "check_in_time", default: "14:00", null: false
     t.string "check_out_time", default: "12:00", null: false
     t.string "city"
@@ -892,7 +934,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_000001) do
   add_foreign_key "banquet_bookings", "guests"
   add_foreign_key "banquet_bookings", "properties"
   add_foreign_key "banquet_halls", "properties"
+  add_foreign_key "business_day_closings", "cashier_closings"
+  add_foreign_key "business_day_closings", "properties"
+  add_foreign_key "business_day_closings", "users", column: "closed_by_id"
   add_foreign_key "cancellation_refunds", "folios"
+  add_foreign_key "cashier_closings", "properties"
+  add_foreign_key "cashier_closings", "users", column: "closed_by_id"
   add_foreign_key "cms_media_assets", "companies"
   add_foreign_key "cms_media_assets", "properties"
   add_foreign_key "cms_offers", "properties"
@@ -912,6 +959,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_000001) do
   add_foreign_key "housekeeping_tasks", "rooms"
   add_foreign_key "inventory_items", "companies"
   add_foreign_key "journal_entries", "companies"
+  add_foreign_key "journal_entries", "properties"
   add_foreign_key "journal_lines", "accounts"
   add_foreign_key "journal_lines", "journal_entries"
   add_foreign_key "kitchen_orders", "properties"

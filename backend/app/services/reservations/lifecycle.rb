@@ -22,6 +22,10 @@ module Reservations
       new(reservation:, params:).check_in
     end
 
+    def self.no_show(reservation:, params:)
+      new(reservation:, params:).no_show
+    end
+
     def self.extend_stay(reservation:, params:)
       new(reservation:, params:).extend_stay
     end
@@ -154,19 +158,36 @@ module Reservations
       old_values = snapshot
 
       Reservation.transaction do
-        room = @params[:roomId].present? ? load_room! : @reservation.reservation_rooms.first&.room
-        raise ApiError.new("A room assignment is required for check-in", status: :bad_request, code: "ROOM_REQUIRED") unless room
-
-        lock_inventory!(room.room_type)
-        room.lock!
-        reservation_room = load_reservation_room!(room.room_type)
-        ensure_room_available!(room, @reservation.check_in_date, @reservation.check_out_date)
-        ensure_room_ready!(room)
-        reservation_room.update!(room:)
-        room.update!(status: "OCCUPIED")
+        booked = @reservation.reservation_rooms.includes(:room).order(:id).to_a
+        if @params[:roomAssignments].present? && !@params[:roomAssignments].is_a?(Array)
+          raise ApiError.new("Choose a room for each booked room", status: :unprocessable_content, code: "ROOM_ASSIGNMENTS_REQUIRED")
+        end
+        assignments = Array(@params[:roomAssignments])
+        assignments = booked.map { |rr| { reservationRoomId: rr.id, roomId: rr.room_id } } if assignments.empty?
+        assignments.first[:roomId] = @params[:roomId] if booked.one? && @params[:roomId].present?
+        raise ApiError.new("Choose a room for each booked room", status: :unprocessable_content, code: "ROOM_ASSIGNMENTS_REQUIRED") unless assignments.all? { |a| a.is_a?(Hash) }
+        assignments = assignments.map(&:with_indifferent_access)
+        unless assignments.size == booked.size && assignments.map { |a| a[:reservationRoomId] }.sort == booked.map(&:id).sort && assignments.all? { |a| a[:roomId].present? } && assignments.map { |a| a[:roomId] }.uniq.size == booked.size
+          raise ApiError.new("Assign a different room to every booked room", status: :unprocessable_content, code: "ROOM_ASSIGNMENTS_REQUIRED")
+        end
+        selected = @property.rooms.active.setup_managed.includes(:room_type).where(id: assignments.map { |a| a[:roomId] }).index_by(&:id)
+        raise ActiveRecord::RecordNotFound unless selected.size == booked.size
+        booked.map(&:room_type_id).uniq.sort.each { |id| lock_inventory!(@property.room_types.find(id)) }
+        selected.values.sort_by(&:id).each(&:lock!)
+        @reservation.lock!
+        ensure_status_in!([ "INQUIRY", "CONFIRMED" ], "Reservation is not ready for check-in")
+        pairs = assignments.map { |a| [ booked.find { |rr| rr.id == a[:reservationRoomId] }, selected.fetch(a[:roomId]) ] }
+        pairs.each do |rr, room|
+          raise ApiError.new("Room does not match the booked room type", status: :unprocessable_content, code: "ROOM_TYPE_MISMATCH") unless rr.room_type_id == room.room_type_id
+          ensure_room_available!(room, @reservation.check_in_date, @reservation.check_out_date)
+          ensure_room_ready!(room)
+        end
+        previous_rooms = booked.map(&:room).compact
+        pairs.each { |rr, room| rr.update!(room:); room.update!(status: "OCCUPIED") }
+        (previous_rooms - selected.values).each { |room| release_room!(room, "VACANT_CLEAN") }
         @reservation.update!(status: "CHECKED_IN", checked_in_at: Time.current)
         @reservation.guest.increment!(:stay_count)
-        audit!("CHECKIN", old_values, room_id: room.id, room_number: room.room_number)
+        audit!("CHECKIN", old_values, room_id: pairs.first.last.id, room_number: pairs.first.last.room_number, room_assignments: assignments)
       end
 
       @reservation.reload
@@ -210,6 +231,24 @@ module Reservations
       @reservation.reload
     rescue ArgumentError, TypeError
       raise ApiError.new("Additional nights must be a whole number", status: :unprocessable_content, code: "INVALID_EXTENSION")
+    end
+
+    def no_show
+      ensure_status_in!(%w[INQUIRY CONFIRMED], "Only pending arrivals can be marked no-show")
+      raise ApiError.new("Arrival date has not been reached", status: :conflict, code: "ARRIVAL_NOT_DUE") if @reservation.check_in_date > @property.operating_date
+      Reservation.transaction do
+        @reservation.folio.lock!
+        @reservation.lock!
+        ensure_status_in!(%w[INQUIRY CONFIRMED], "Only pending arrivals can be marked no-show")
+        ensure_no_gateway_payment!
+        raise ApiError.new("Cancel and review the advance refund before resolving this arrival", status: :conflict, code: "ADVANCE_REVIEW_REQUIRED") if @reservation.folio.payments.exists?
+        invalidate_payment_requests!(@reservation.folio, reason: "Guest did not arrive")
+        release_rooms!("VACANT_CLEAN")
+        @reservation.update!(status: "NO_SHOW")
+        @reservation.folio.update!(status: "VOID", balance_due: 0)
+        audit!("NO_SHOW", {}, reason: @params[:reason].presence || "Guest did not arrive")
+      end
+      @reservation.reload
     end
 
     def transfer_room

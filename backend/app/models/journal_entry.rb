@@ -1,5 +1,6 @@
 class JournalEntry < ApplicationRecord
   belongs_to :company
+  belongs_to :property, optional: true
 
   before_update :forbid_posted_mutation
   before_destroy :forbid_posted_destroy
@@ -7,6 +8,8 @@ class JournalEntry < ApplicationRecord
   has_many :journal_lines, dependent: :restrict_with_exception
 
   validates :voucher_number, presence: true, uniqueness: true
+  validates :payment_method, inclusion: { in: Payment::METHODS }, allow_nil: true
+  validates :payment_method, inclusion: { in: Payment::METHODS }, allow_nil: true
 
   private
 

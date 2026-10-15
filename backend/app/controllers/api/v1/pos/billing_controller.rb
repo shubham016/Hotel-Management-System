@@ -12,7 +12,7 @@ module Api
           raise ApiError.new("At least one order item is required", status: :bad_request, code: "EMPTY_ORDER") if lines.empty?
 
           sub = lines.sum { |line| line[:total] }
-          taxes = calculate_taxes(property.company, sub)
+          taxes = calculate_taxes(property.company, sub, property.operating_date)
           tax = taxes.sum { |t| t[:amount] }
           grand = sub + tax
 
@@ -27,6 +27,7 @@ module Api
           end
 
           voucher = ActiveRecord::Base.transaction do
+            BusinessDays::Context.ensure_cashier_open!(property)
             lock_tickets!(property)
             v = create_journal!(property, property.company, grand, sub, tax, "POS Direct Settlement - Table #{params[:tableNumber]}", idempotency_key)
             settle_tickets!
@@ -85,9 +86,9 @@ module Api
           end
         end
 
-        def calculate_taxes(company, base)
+        def calculate_taxes(company, base, date)
           running = base
-          company.tax_configurations.where(active: true, code: "VAT").for_date(Date.current).order(:calculation_order).map do |t|
+          company.tax_configurations.where(active: true, code: "VAT").for_date(date).order(:calculation_order).map do |t|
             amount = t.inclusive ? 0.to_d : (running * t.rate / 100).round(2)
             running += amount
             { tax: t, amount: }
@@ -139,7 +140,9 @@ module Api
           voucher = company.journal_entries.create!(
             voucher_number: DocumentNumbers::NextNumber.call(company:, property:, document_type: "JOURNAL"),
             voucher_type: "SALES",
-            posting_date: Date.current,
+            property:,
+            payment_method: params[:paymentMethod].presence || "FONEPAY",
+            posting_date: property.operating_date,
             narration:,
             total_debit: grand,
             total_credit: grand,

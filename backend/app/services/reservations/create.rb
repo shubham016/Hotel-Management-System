@@ -3,7 +3,8 @@ module Reservations
     Result = Data.define(:reservation, :folio, :quote, :payment_request)
 
     def self.call(params:, request_context: {})
-      new(params:, request_context:).call
+      property = Property.find_by!(code: params[:propertyCode].to_s.upcase, active: true)
+      BusinessDays::Context.with(property) { new(params:, request_context:).call }
     end
 
     def initialize(params:, request_context:)
@@ -64,7 +65,7 @@ module Reservations
       missing = required.select { |key| @params[key].blank? }
       raise ApiError.new("Missing required fields", status: :bad_request, code: "MISSING_FIELDS", details: missing) if missing.any?
       raise ApiError.new("Check-out must be after check-in", code: "INVALID_STAY") unless @check_out_date > @check_in_date
-      raise ApiError.new("Check-in cannot be in the past", code: "INVALID_STAY") if @check_in_date < Date.current
+      raise ApiError.new("Check-in cannot be before the business date", code: "INVALID_STAY") if @check_in_date < @property.operating_date
       raise ApiError.new("At least one room is required", code: "INVALID_OCCUPANCY") unless @rooms_count.positive?
       raise ApiError.new("At least one adult is required", code: "INVALID_OCCUPANCY") unless @adults_count.positive?
       raise ApiError.new("Children count cannot be negative", code: "INVALID_OCCUPANCY") if @children_count.negative?

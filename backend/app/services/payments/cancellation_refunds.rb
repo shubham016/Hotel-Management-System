@@ -42,7 +42,7 @@ module Payments
       company = property.company
       amount = lines.sum { |line| BigDecimal(line[3].to_s) }
       narration = "#{kind.titleize} - #{refund.folio.folio_number}"
-      voucher = company.journal_entries.create!(voucher_number: DocumentNumbers::NextNumber.call(company:, property:, document_type: "JOURNAL"), voucher_type: "JOURNAL", posting_date: Date.current, nepali_date: Date.current.iso8601,
+      voucher = company.journal_entries.create!(property:, voucher_number: DocumentNumbers::NextNumber.call(company:, property:, document_type: "JOURNAL"), voucher_type: "JOURNAL", posting_date: property.operating_date, nepali_date: Date.current.iso8601,
         narration:, total_debit: amount, total_credit: amount, status: "POSTED", source_module: "PMS_CANCELLATION", source_reference: "PMS_#{kind}:#{refund.id}")
       lines.each do |code, name, category, debit, credit|
         next if debit.zero? && credit.zero?

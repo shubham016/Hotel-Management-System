@@ -1,6 +1,6 @@
 # Business Module Map
 
-**Updated:** 2026-10-07. These statuses describe implemented code, not complete production readiness.
+**Updated:** 2026-10-15. These statuses describe implemented code, not complete production readiness.
 
 Status meanings:
 
@@ -16,7 +16,7 @@ Status meanings:
 | Availability and room pricing | Rails-owned | Public booking | `services/availability`, `services/pricing` |
 | Reservations | Rails-owned | Public booking, admin reservations | `api/v1/pms`, `services/reservations/create`, `services/reservations/lifecycle` |
 | Folios | Rails-owned, API-backed UI | Admin PMS folio | `api/v1/folio`, Rails folio/payment models |
-| Front desk/check-in/out | Rails-owned, API-backed UI | Admin PMS front desk | `api/v1/frontdesk`, `api/v1/checkout`, reservation check-in/extend/transfer actions |
+| Front desk/check-in/out | Rails-owned, API-backed UI; atomic multi-room check-in and shared guarded checkout | Admin PMS front desk and reservation room assignment | `api/v1/frontdesk`, `api/v1/checkout`, reservation check-in/extend/transfer actions |
 | Guest CRM | Rails-owned, API-backed UI | Admin CRM | `api/v1/crm/guests` |
 | Housekeeping | Rails-owned, API-backed UI | Admin housekeeping | `api/v1/housekeeping/tasks` |
 | POS and KOT | Persisted table/ticket workflow and API-backed UI | Restaurant tables/billing and Kitchen workspace | `api/v1/pos/*`, `models/kitchen_order`; saved prices, status transitions, settlement |
@@ -26,7 +26,7 @@ Status meanings:
 | Accounting | Rails/API UI present; report filtering/balance calculations need fixes | Admin accounting | `api/v1/accounting/*` |
 | CMS and media | Rails-owned pages/offers/media/guest feedback | Admin CMS, public pages | `api/v1/cms/*`, Active Storage, testimonials |
 | Audit log | Rails-owned, API-backed UI | Admin audit logs | `api/v1/audit_logs` |
-| Reports and dashboards | Live dashboard; financial reports partial; full night-audit closing pending | Admin dashboard/reports/night audit | Dashboard and reporting controllers, overdue-stay service |
+| Reports and dashboards | Live dashboard; financial reports partial; property business-date rollover, shared guest/POS cashier reconciliation, immutable closing reports | Admin dashboard/reports/night audit | Dashboard/reporting controllers, `services/business_days`, overdue-stay service, cashier/day closing models |
 | Notifications and integrations | In-app notifications live; email and channel integration pending | Cross-module | Notification APIs and reservation/housekeeping notification services |
 
 ## Dependency Order

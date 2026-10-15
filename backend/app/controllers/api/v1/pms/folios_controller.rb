@@ -22,7 +22,7 @@ module Api
           raise ApiError.new("Charge description is required", status: :unprocessable_content, code: "INVALID_CHARGE") if description.blank?
           sub_total = quantity * unit_price
           calculate_taxes = ActiveModel::Type::Boolean.new.cast(params.fetch(:calculateTaxes, true))
-          vat_tax = calculate_taxes ? folio.property.company.tax_configurations.for_rooms.for_date(Date.current).find_by(code: "VAT") : nil
+          vat_tax = calculate_taxes ? folio.property.company.tax_configurations.for_rooms.for_date(folio.property.operating_date).find_by(code: "VAT") : nil
           vat = vat_tax&.inclusive ? 0.to_d : (sub_total * (vat_tax&.rate || 0) / 100).round(2)
           total = sub_total + vat
 
@@ -140,7 +140,8 @@ module Api
           voucher = company.journal_entries.create!(
             voucher_number: DocumentNumbers::NextNumber.call(company:, property: default_property, document_type: "JOURNAL"),
             voucher_type: "SALES",
-            posting_date: Date.current,
+            property: default_property,
+            posting_date: default_property.operating_date,
             nepali_date: Date.current.iso8601,
             narration:,
             total_debit: folio.grand_total,
