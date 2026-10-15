@@ -163,12 +163,13 @@ module Api
       end
 
       def room_board(rooms)
-        rooms.by_floor_and_room_number.map do |room|
+        rooms.includes(reservation_rooms: :reservation).by_floor_and_room_number.map do |room|
           {
             id: room.id,
             roomNumber: room.room_number,
             floor: room.floor,
-            status: room.active? ? room.status : "OUT_OF_SERVICE",
+            status: room.active? ? room.operational_status : "OUT_OF_SERVICE",
+            hasActiveReservation: room.active_reservations.any?,
             active: room.active?
           }
         end

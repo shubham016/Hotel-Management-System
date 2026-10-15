@@ -13,6 +13,7 @@ backend/.env
 # Rails runtime and secrets
 backend/config/master.key
 backend/log/*.log
+backend/log/*.log.*
 backend/tmp/
 backend/storage/
 backend/coverage/

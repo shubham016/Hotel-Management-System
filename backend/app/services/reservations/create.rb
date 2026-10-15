@@ -43,7 +43,7 @@ module Reservations
       @check_in_date = Date.iso8601(@params[:checkInDate].to_s)
       @check_out_date = Date.iso8601(@params[:checkOutDate].to_s)
       @room_type = @property.room_types.find_by!(code: @params[:roomTypeCode].to_s.upcase, active: true)
-      @selected_room = @property.rooms.active.setup_managed.where.not(status: %w[OUT_OF_ORDER OUT_OF_SERVICE]).includes(:room_type).find(@params[:roomId]) if @params[:roomId].present?
+      @selected_room = @property.rooms.active.setup_managed.where.not(status: "OUT_OF_ORDER").includes(:room_type).find(@params[:roomId]) if @params[:roomId].present?
       @rate_plan = if @params[:ratePlanCode].present?
         @property.rate_plans.find_by!(code: @params[:ratePlanCode].to_s.upcase, room_type: @room_type, active: true)
       else

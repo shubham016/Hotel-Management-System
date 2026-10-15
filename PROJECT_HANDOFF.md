@@ -1,10 +1,29 @@
 # Hotel New Era — Project Handoff
 
-**Updated:** 2026-10-09
+**Updated:** 2026-10-15
 **Backend direction:** Ruby on Rails JSON API
 **Current frontend:** React 18 + React Router + Vite 7 SPA; Rails owns every backend API
 
-## Resume Here (2026-10-09)
+## Resume Here (2026-10-15)
+
+This section is the current state and supersedes conflicting payroll details in the historical notes below. Keep session handoff notes in this Markdown file; the user's request to save progress means updating this file, not creating a Git commit unless explicitly requested.
+
+- Payroll is at `/admin/accounting/payroll`, accessible to Owner, All-rounder/Admin, and Super Admin within assigned properties. New payroll uses BS months and exact BS/AD boundaries. Approval and final salary payment require the payroll month to have ended.
+- Salary setup stores gross monthly salary, split into 60% basic and 40% fixed monthly allowance. Example: NPR 20,000 gross = NPR 12,000 basic + NPR 8,000 allowance; default 1% TDS is NPR 200. Advances reduce remaining salary without reducing the TDS base.
+- Additional earnings, other deductions, the Approved unpaid summary card, and TDS review/exemption reason input are removed from the active workflow. Notes are optional. Preserve historical amounts, reasons, journals, and payment evidence. Do not reintroduce explanatory salary paragraphs or inline amount summaries.
+- The client requested restoration of staff advances. Record advance is now in the payroll toolbar beside Salary setup, with an employee selector. It is deliberately absent from the Monthly payroll row Actions to preserve alignment. Draft rows retain Edit and Approve. Advances can be issued during an open month, only against a draft, and cannot exceed remaining net salary.
+- Advance recording captures amount, BS payment date, Cash/Bank Transfer, cash/bank account, and bank reference when applicable. Duplicate requests do not repost. Approval recovers advances; final payment covers the balance. Totals, advance history, and payslips retain the advance evidence. No new migration was needed to restore advances.
+- Payment accounts exclude Accounts Receivable and Staff Advances. Existing 1001 Cash / Bank is appropriate for disbursement; receivables remain in Chart of Accounts. Ledger mappings generally need configuration once, not after every salary setup.
+- Monthly payroll and Staff salary setup headers/cells are centered with vertical grid borders. Sidebar uses flat groups with the previous fonts/styles and no dropdowns. Accounting includes Journal Vouchers, Staff Payroll, Chart of Accounts, and Financial Reports; Core Operations and Hospitality & Outlets were reviewed.
+- Generic descriptions and filler subtitles were removed across operational panels. Follow the concise interface wording rules in AGENTS.md. Retain necessary validation, confirmations, and payment safeguards.
+- Rooms page `/admin/pms/rooms` was checked against its authenticated API and database: 45 active setup-managed rooms across five floors, all recorded Vacant Clean, no active guests at verification. These are stored statuses, not independent confirmation of physical room conditions. OOO means Out of Order; its button now shows the full label. Room types and base prices matched stored data.
+- Local stability: database/API containers restart automatically; Vite ignores `backend/tmp` to avoid locked browser-profile files. Salary allowance migration `20261014000001_add_payroll_monthly_allowance` was applied to local development/test. Room-bed work and its migration are also included in the saved project changes.
+- Verification completed: frontend type check; browser checks of payroll table alignment, advance toolbar/employee form, amount limits, cash/bank filtering, required bank reference, cancel, and mobile layout. Payroll integration run covered 26 tests; a frozen-timestamp ordering assertion was corrected and its test passed on rerun (1 test, 50 assertions). Other tests passed in the suite. Checks used isolated financial test data and did not record real operational payments.
+- Local source checkpoint: commit `09a26e8` contains the changes made before this handoff correction. Nothing was pushed or deployed. This Markdown update is saved separately in the working tree.
+
+Next: let the client test payroll, including advances. The user previously mentioned resetting test payroll later; do not reset or delete operational records without a concrete request. Real SMTP delivery and live payment credentials remain separate pending configuration.
+
+## Historical resume notes (2026-10-09)
 
 - Product decision (2026-10-09): no separate HR portal is required. The owner will oversee staff payroll through the Accounts area of the existing Owner portal. This supersedes older plans mentioning an HR portal or future HR-role provisioning. Payroll is now implemented locally; other deferred inventory/accounting work remains outside this change.
 - Owner-only Staff Payroll is available at `/admin/accounting/payroll`. Payroll now uses BS month/year selection and exact BS-month boundaries, with the AD equivalent range displayed. Set monthly salaries from the existing Staff Directory, create a BS-month draft, review earnings/deductions, optionally record issued advances, approve, then record the remaining salary payment and download a PDF payslip. Payment dates use a BS date picker. Super Admin also has access; All-rounder/Admin and departmental staff cannot access payroll.

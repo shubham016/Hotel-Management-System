@@ -10,9 +10,9 @@ module Api
           property = default_property
           rooms = property.rooms.active.setup_managed.includes(:room_type, reservation_rooms: { reservation: %i[guest folio] })
           rooms = rooms.where(floor: params[:floor]) if params[:floor].present? && params[:floor] != "ALL"
-          rooms = rooms.where(status: params[:status]) if params[:status].present? && params[:status] != "ALL"
           rooms = available_rooms(rooms, property) if params[:availableOnly] == "true"
           data = rooms.by_floor_and_room_number.map { |room| serialize(room) }
+          data = data.select { |room| room[:status] == params[:status] } if params[:status].present? && params[:status] != "ALL"
 
           render json: {
             success: true,
@@ -36,10 +36,12 @@ module Api
           room = params[:id] == "lookup" ? property.rooms.find_by!(room_number: params.require(:roomNumber)) : property.rooms.find(params[:id])
           raise ApiError.new("This room is not managed through Hotel Setup", status: :not_found, code: "NOT_FOUND") unless room.setup_managed?
           ensure_manual_status!(params.require(:status))
-          ensure_not_lifecycle_managed!(room)
-          old_status = room.status
-          room.update!(status: params.require(:status), maintenance_notes: params[:maintenanceNotes].presence)
-          audit!("PMS_ROOMS", "UPDATE", "Room", room.id, old_values: { status: old_status }, new_values: { status: room.status })
+          room.with_lock do
+            ensure_not_lifecycle_managed!(room)
+            old_status = room.status
+            room.update!(status: params.require(:status), maintenance_notes: params[:maintenanceNotes].presence)
+            audit!("PMS_ROOMS", "UPDATE", "Room", room.id, old_values: { status: old_status }, new_values: { status: room.status })
+          end
           render json: { success: true, data: serialize(room) }
         end
 
@@ -52,7 +54,10 @@ module Api
         end
 
         def ensure_not_lifecycle_managed!(room)
-          return unless room.reservation_rooms.joins(:reservation).where(reservations: { status: %w[INQUIRY CONFIRMED CHECKED_IN] }).exists?
+          stays = room.reservation_rooms.joins(:reservation)
+          occupied = room.status.in?(%w[OCCUPIED DUE_OUT]) || stays.where(reservations: { status: "CHECKED_IN" }).exists?
+          blocking_booking = params[:status].in?(%w[OUT_OF_ORDER OUT_OF_SERVICE]) && stays.where(reservations: { status: %w[INQUIRY CONFIRMED] }).exists?
+          return unless occupied || blocking_booking
 
           raise ApiError.new("This room is managed by an active reservation. Use reservation confirmation, check-in, checkout, or cancellation instead.", status: :conflict, code: "LIFECYCLE_MANAGED_ROOM")
         end
@@ -71,12 +76,14 @@ module Api
         end
 
         def serialize(room)
-          active = room.reservation_rooms.find { |rr| rr.reservation.status.in?(%w[INQUIRY CONFIRMED CHECKED_IN]) }&.reservation
+          reservations = room.active_reservations
+          active = reservations.find { |reservation| reservation.status == "CHECKED_IN" } || reservations.min_by(&:check_in_date)
           {
             id: room.id,
             roomNumber: room.room_number,
             floor: room.floor,
-            status: room.status,
+            status: room.operational_status,
+            hasActiveReservation: reservations.any?,
             roomType: room.room_type.name,
             roomTypeCode: room.room_type.code,
             basePrice: room.room_type.base_price.to_f,

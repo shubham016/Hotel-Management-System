@@ -201,7 +201,8 @@ export default function RoomsManagementPage() {
           {filteredRooms.map((room) => {
             const sc = getStatusColor(room.status);
             const updatingThis = isUpdating === room.id;
-            const lifecycleManaged = ['RESERVED', 'OCCUPIED', 'DUE_OUT'].includes(room.status);
+            const lifecycleManaged = ['OCCUPIED', 'DUE_OUT'].includes(room.status);
+            const maintenanceBlocked = lifecycleManaged || room.hasActiveReservation;
 
             return (
               <div
@@ -315,7 +316,7 @@ export default function RoomsManagementPage() {
                   </button>
                   <button
                     onClick={() => updateRoomStatus(room.id, 'OUT_OF_ORDER')}
-                    disabled={updatingThis || lifecycleManaged}
+                    disabled={updatingThis || maintenanceBlocked}
                     style={{
                       fontSize: 10.5,
                       fontWeight: 700,
@@ -328,6 +329,14 @@ export default function RoomsManagementPage() {
                     }}
                   >
                     Out of Order
+                  </button>
+                  <button
+                    onClick={() => updateRoomStatus(room.id, 'OUT_OF_SERVICE')}
+                    disabled={updatingThis || maintenanceBlocked}
+                    title="Temporary maintenance. Reservations allowed; clear before check-in."
+                    style={{ fontSize: 10.5, fontWeight: 700, padding: '3px 7px', borderRadius: 'var(--radius-sm)', border: '1px solid #475569', backgroundColor: '#FFFFFF', color: '#475569', cursor: maintenanceBlocked ? 'not-allowed' : 'pointer' }}
+                  >
+                    Out of Service
                   </button>
                 </div>
               </div>

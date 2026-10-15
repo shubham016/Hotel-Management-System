@@ -24,6 +24,18 @@ class Room < ApplicationRecord
   validates :bed_count, :bed_length_inches, :bed_width_inches, numericality: { only_integer: true, greater_than: 0 }, if: :bed_details_set?
   after_save :queue_housekeeping!, if: :saved_change_to_status?
 
+  def active_reservations
+    reservation_rooms.map(&:reservation).select { |reservation| reservation.status.in?(%w[INQUIRY CONFIRMED CHECKED_IN]) }
+  end
+
+  # Departure is a view of the active stay, not a separate stored occupancy state.
+  def operational_status(today: Date.current)
+    stay = active_reservations.find { |reservation| reservation.status == "CHECKED_IN" }
+    return status unless stay
+
+    stay.check_out_date <= today ? "DUE_OUT" : "OCCUPIED"
+  end
+
   def queue_housekeeping!
     if status.in?(%w[VACANT_DIRTY INSPECTION_REQUIRED])
       task_type = status == "VACANT_DIRTY" ? "CLEANING" : "INSPECTION"

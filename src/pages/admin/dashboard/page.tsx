@@ -36,6 +36,7 @@ type RoomBoardRoom = {
   roomNumber: string;
   floor: number;
   active: boolean;
+  hasActiveReservation: boolean;
   status: 'OCCUPIED' | 'RESERVED' | 'VACANT_CLEAN' | 'VACANT_DIRTY' | 'INSPECTION_REQUIRED' | 'OUT_OF_ORDER' | 'OUT_OF_SERVICE' | 'DUE_OUT';
 };
 
@@ -156,7 +157,7 @@ export default function AdminDashboardPage() {
   const openRoomStatusEditor = (room: RoomBoardRoom) => {
     if (updatingRoomId !== null) return;
     setRoomStatusEditor(room);
-    setPendingRoomStatus(room.status);
+    setPendingRoomStatus(room.status === 'RESERVED' ? 'VACANT_CLEAN' : room.status);
     setRoomStatusError('');
   };
 
@@ -319,7 +320,7 @@ export default function AdminDashboardPage() {
                   {visibleRooms.filter((room) => room.floor === floor).map((room) => {
                     const style = roomStatusStyles[room.status];
                     const isUpdating = updatingRoomId === room.id;
-                    const isLifecycleManaged = !room.active || ['RESERVED', 'OCCUPIED', 'DUE_OUT'].includes(room.status);
+                    const isLifecycleManaged = !room.active || ['OCCUPIED', 'DUE_OUT'].includes(room.status);
                     return (
                       <button
                         key={room.id}
@@ -431,7 +432,7 @@ export default function AdminDashboardPage() {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 18 }}>
-              {manuallyManagedRoomStatuses.map((status) => {
+              {manuallyManagedRoomStatuses.filter(status => !roomStatusEditor.hasActiveReservation || !['OUT_OF_ORDER', 'OUT_OF_SERVICE'].includes(status)).map((status) => {
                 const statusStyle = roomStatusStyles[status];
                 const isSelected = pendingRoomStatus === status;
                 const isOccupied = status === 'OCCUPIED';

@@ -27,11 +27,11 @@ module Availability
     end
 
     def self.eligible_rooms(property:, room_type:, check_in_date:)
-      rooms = property.rooms.active.setup_managed.where.not(status: %w[OUT_OF_ORDER OUT_OF_SERVICE])
+      rooms = property.rooms.active.setup_managed.where.not(status: "OUT_OF_ORDER")
       rooms = rooms.where(room_type:) if room_type
       # Cleanliness controls check-in, not saleable inventory. Occupancy is
       # protected by reservation conflicts even when a departure is overdue.
-      rooms = rooms.where(status: %w[VACANT_CLEAN VACANT_DIRTY INSPECTION_REQUIRED RESERVED]) if check_in_date <= Date.current
+      rooms = rooms.where(status: %w[VACANT_CLEAN VACANT_DIRTY INSPECTION_REQUIRED RESERVED OUT_OF_SERVICE]) if check_in_date <= Date.current
       rooms
     end
     private_class_method :eligible_rooms

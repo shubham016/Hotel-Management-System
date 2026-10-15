@@ -1462,6 +1462,109 @@ class ReservationsTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "due out follows the departure date across rooms dashboard and housekeeping" do
+    today = Date.current
+    travel_to today.in_time_zone.change(hour: 10) do
+      token = auth_token
+      headers = auth_headers(token)
+      post "/api/v1/reservations", params: valid_payload.merge(roomId: @first_room.id, checkInDate: today.iso8601, checkOutDate: (today + 1.day).iso8601), as: :json
+      assert_response :created
+      stay = Reservation.find(response.parsed_body.dig("data", "id"))
+      patch "/api/v1/reservations/#{stay.id}/check-in", params: { roomId: @first_room.id }, headers:, as: :json
+      assert_response :success
+      assert_equal "OCCUPIED", @first_room.reload.operational_status
+
+      travel_to (today + 1.day).in_time_zone.change(hour: 10)
+      headers = auth_headers(auth_token)
+      get "/api/v1/pms/rooms", headers: headers
+      assert_response :success
+      room = response.parsed_body["data"].find { |item| item["id"] == @first_room.id }
+      assert_equal "DUE_OUT", room["status"]
+      assert room["hasActiveReservation"]
+      assert_equal 1, response.parsed_body.dig("summary", "dueOut")
+      assert_equal "OCCUPIED", @first_room.reload.status
+      get "/api/v1/pms/rooms", params: { status: "DUE_OUT" }, headers: headers
+      assert_equal [ @first_room.id ], response.parsed_body["data"].pluck("id")
+      get "/api/v1/dashboard", params: { compact: true }, headers: headers
+      assert_equal "DUE_OUT", response.parsed_body["rooms"].find { |item| item["id"] == @first_room.id }["status"]
+      get "/api/v1/housekeeping/tasks", headers: headers
+      assert_equal "DUE_OUT", response.parsed_body["rooms"].find { |item| item["id"] == @first_room.id }["status"]
+      patch "/api/v1/pms/rooms/#{@first_room.id}", params: { status: "VACANT_CLEAN" }, headers:, as: :json
+      assert_response :conflict
+      assert_equal "OCCUPIED", @first_room.reload.status
+
+      patch "/api/v1/reservations/#{stay.id}/extend-stay", params: { additionalNights: 1, reason: "Guest staying longer" }, headers:, as: :json
+      assert_response :success
+      get "/api/v1/pms/rooms", headers: headers
+      assert_equal "OCCUPIED", response.parsed_body["data"].find { |item| item["id"] == @first_room.id }["status"]
+      assert_equal 0, response.parsed_body.dig("summary", "dueOut")
+      post "/api/v1/folio", params: { operation: "SETTLE_AND_CHECKOUT", folioId: stay.folio.id, settlementMethod: "CASH" }, headers:, as: :json
+      assert_response :success
+      assert_equal "VACANT_DIRTY", @first_room.reload.operational_status
+      assert @first_room.housekeeping_tasks.where(task_type: "CLEANING", status: "PENDING").exists?
+    end
+  end
+
+  test "maintenance statuses distinguish booking inventory and require clearance before occupancy" do
+    travel_to Date.current.in_time_zone.change(hour: 10) do
+      headers = auth_headers(auth_token)
+      patch "/api/v1/pms/rooms/#{@first_room.id}", params: { status: "OUT_OF_ORDER" }, headers:, as: :json
+      assert_response :success
+      assert_equal "OUT_OF_ORDER", @first_room.reload.status
+      inventory = { property: @property, room_type: @room_type, check_in_date: Date.current, check_out_date: Date.current + 1.day }
+      assert_equal 1, Availability::RoomInventory.available_count(**inventory)
+      post "/api/v1/reservations", params: valid_payload.merge(roomId: @first_room.id, checkInDate: Date.current.iso8601, checkOutDate: (Date.current + 1.day).iso8601), as: :json
+      assert_response :not_found
+
+      patch "/api/v1/pms/rooms/#{@first_room.id}", params: { status: "OUT_OF_SERVICE", maintenanceNotes: "Minor maintenance" }, headers:, as: :json
+      assert_response :success
+      assert_equal "OUT_OF_SERVICE", @first_room.reload.status
+      assert_equal "Minor maintenance", @first_room.maintenance_notes
+      assert_equal 2, Availability::RoomInventory.available_count(**inventory)
+      assert_equal 2, Availability::RoomInventory.available_count(**inventory.merge(check_in_date: Date.current + 2.days, check_out_date: Date.current + 3.days))
+      post "/api/v1/reservations", params: valid_payload.merge(roomId: @first_room.id, checkInDate: Date.current.iso8601, checkOutDate: (Date.current + 1.day).iso8601), as: :json
+      assert_response :created
+      stay = Reservation.find(response.parsed_body.dig("data", "id"))
+      assert_equal "OUT_OF_SERVICE", @first_room.reload.status
+      assert_equal 1, Availability::RoomInventory.available_count(**inventory)
+      patch "/api/v1/reservations/#{stay.id}/check-in", params: { roomId: @first_room.id }, headers:, as: :json
+      assert_response :conflict
+      assert_equal "ROOM_NOT_READY", response.parsed_body["code"]
+      patch "/api/v1/pms/rooms/#{@first_room.id}", params: { status: "OUT_OF_ORDER" }, headers:, as: :json
+      assert_response :conflict
+      patch "/api/v1/pms/rooms/#{@first_room.id}", params: { status: "VACANT_DIRTY" }, headers:, as: :json
+      assert_response :success
+      assert @first_room.reload.housekeeping_tasks.where(task_type: "CLEANING", status: "PENDING").exists?
+      post "/api/v1/housekeeping/tasks", params: { roomId: @first_room.id, action: "MARK_FOR_INSPECTION" }, headers:, as: :json
+      assert_response :success
+      post "/api/v1/housekeeping/tasks", params: { roomId: @first_room.id, action: "MARK_INSPECTED" }, headers:, as: :json
+      assert_response :success
+      patch "/api/v1/reservations/#{stay.id}/check-in", params: { roomId: @first_room.id }, headers:, as: :json
+      assert_response :success
+      assert_equal "OCCUPIED", @first_room.reload.status
+    end
+  end
+
+  test "room status updates enforce permission property boundaries and lifecycle rules" do
+    headers = auth_headers(auth_token)
+    patch "/api/v1/pms/rooms/#{@first_room.id}", params: { status: "DUE_OUT" }, headers:, as: :json
+    assert_response :unprocessable_content
+    patch "/api/v1/pms/rooms/#{@first_room.id}", params: { status: "OUT_OF_SERVICE" }, as: :json
+    assert_response :unauthorized
+    role = @company.roles.create!(name: "ROOM_VIEWER", permissions: { "ROOMS" => [ "read" ] })
+    staff = @company.users.create!(role:, email: "room-viewer@example.com", password: "Strong-Test-Password-2026!", first_name: "Room", last_name: "Viewer")
+    UserProperty.create!(user: staff, property: @property)
+    patch "/api/v1/pms/rooms/#{@first_room.id}", params: { status: "OUT_OF_SERVICE" }, headers: auth_headers(Authentication::Token.encode(staff)), as: :json
+    assert_response :forbidden
+    other_property = @company.properties.create!(name: "Other Hotel", code: "OTHER-ROOMS")
+    other_type = other_property.room_types.create!(name: "Other", code: "OTHER", slug: "other", base_price: 1000, setup_managed: true)
+    other_room = other_property.rooms.create!(room_type: other_type, room_number: "101", setup_managed: true)
+    patch "/api/v1/pms/rooms/#{other_room.id}", params: { status: "OUT_OF_SERVICE" }, headers:, as: :json
+    assert_response :not_found
+    assert_equal "VACANT_CLEAN", other_room.reload.status
+    assert_equal "VACANT_CLEAN", @first_room.reload.status
+  end
+
   private
 
   def auth_token

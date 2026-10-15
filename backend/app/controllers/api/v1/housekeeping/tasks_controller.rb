@@ -3,11 +3,11 @@ module Api
     module Housekeeping
       class TasksController < BackendController
         def index
-          rooms = default_property.rooms.active.setup_managed.includes(:room_type, :housekeeping_tasks).order(:floor, :room_number)
+          rooms = default_property.rooms.active.setup_managed.includes(:room_type, :housekeeping_tasks, reservation_rooms: :reservation).order(:floor, :room_number)
           dirty = rooms.select { |room| room.status.in?(%w[VACANT_DIRTY INSPECTION_REQUIRED]) }
           render json: {
             success: true,
-            rooms: rooms.map { |room| { id: room.id, roomNumber: room.room_number, floor: room.floor, status: room.status, roomType: room.room_type.name, latestTask: room.housekeeping_tasks.max_by(&:created_at)&.as_json } },
+            rooms: rooms.map { |room| { id: room.id, roomNumber: room.room_number, floor: room.floor, status: room.operational_status, roomType: room.room_type.name, latestTask: room.housekeeping_tasks.max_by(&:created_at)&.as_json } },
             dirtyCount: dirty.length
           }
         end

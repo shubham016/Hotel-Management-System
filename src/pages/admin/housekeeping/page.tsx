@@ -65,9 +65,11 @@ export default function HousekeepingPage() {
     switch (status) {
       case 'VACANT_CLEAN': return <Badge variant="success">VACANT CLEAN</Badge>;
       case 'OCCUPIED': return <Badge variant="danger">OCCUPIED</Badge>;
+      case 'DUE_OUT': return <Badge variant="danger">DUE OUT</Badge>;
       case 'VACANT_DIRTY': return <Badge variant="warning">VACANT DIRTY</Badge>;
       case 'INSPECTION_REQUIRED': return <Badge variant="primary">INSPECTION REQ</Badge>;
       case 'OUT_OF_ORDER': return <Badge variant="outline">OUT OF ORDER</Badge>;
+      case 'OUT_OF_SERVICE': return <Badge variant="outline">OUT OF SERVICE</Badge>;
       default: return <Badge variant="outline">{status}</Badge>;
     }
   };
@@ -110,7 +112,7 @@ export default function HousekeepingPage() {
         <div className="hne-card" style={{ padding: 18, borderLeft: '4px solid #DC2626', backgroundColor: '#FFFFFF' }}>
           <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Occupied In-House</div>
           <div style={{ fontSize: 24, fontWeight: 800, color: '#DC2626', marginTop: 4 }}>
-            {rooms.filter(r => r.status === 'OCCUPIED').length} Rooms
+            {rooms.filter(r => ['OCCUPIED', 'DUE_OUT'].includes(r.status)).length} Rooms
           </div>
         </div>
       </div>
