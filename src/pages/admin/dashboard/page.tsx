@@ -1,3 +1,4 @@
+import { currencyLabel } from '@/lib/display-preferences';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   UsersRound,
@@ -66,15 +67,6 @@ const roomStatusStyles = {
 
 const roomStatuses = Object.keys(roomStatusStyles) as RoomBoardRoom['status'][];
 const manuallyManagedRoomStatuses: RoomBoardRoom['status'][] = ['VACANT_CLEAN', 'VACANT_DIRTY', 'INSPECTION_REQUIRED', 'OUT_OF_ORDER', 'OUT_OF_SERVICE'];
-
-// Decorative tile artwork stays consistent while the values themselves come
-// from the live dashboard API.
-const statTileVisuals = {
-  arrivals: [2, 6, 5.6, 5.4, 11, 10.4, 10.5],
-  departures: [10, 10, 8, 5.2, 5.3, 2],
-  inHouse: [4, 6.5, 6.2, 6, 10.5, 10, 10.2],
-  revenue: [4, 5.5, 5.2, 8.5, 11, 10.2, 10.4]
-} as const;
 
 const floorLabel = (floor: number) => {
   if (floor === 1) return 'Ground Floor';
@@ -229,7 +221,7 @@ export default function AdminDashboardPage() {
           icon={<LogIn size={15} />}
           colorTheme="green"
           caption={guests.overdueArrivals > 0 ? `${guests.overdueArrivals} overdue pending` : 'Scheduled today'}
-          sparkline={[...statTileVisuals.arrivals]}
+          sparkline={data.trends.arrivals}
         />
 
         <StatTile
@@ -238,7 +230,7 @@ export default function AdminDashboardPage() {
           icon={<LogOut size={15} />}
           colorTheme="golden"
           caption={guests.overdueDepartures > 0 ? `${guests.overdueDepartures} overdue checkout` : 'Scheduled today'}
-          sparkline={[...statTileVisuals.departures]}
+          sparkline={data.trends.departures}
         />
 
         <StatTile
@@ -246,7 +238,7 @@ export default function AdminDashboardPage() {
           value={guests.inHouseGuests}
           icon={<UsersRound size={15} />}
           colorTheme="green"
-          sparkline={[...statTileVisuals.inHouse]}
+          sparkline={data.trends.inHouse}
         />
 
         <StatTile
@@ -259,11 +251,11 @@ export default function AdminDashboardPage() {
 
         <StatTile
           label="Revenue"
-          value={`Rs. ${revenue.today.total.toLocaleString()}`}
+          value={`${currencyLabel()} ${revenue.today.total.toLocaleString()}`}
           icon={<WalletCards size={15} />}
           colorTheme="green"
-          caption={<><span>RevPAR</span><br /><span>Rs. {revenue.revPar.toLocaleString()}</span></>}
-          sparkline={[...statTileVisuals.revenue]}
+          caption={<><span>RevPAR</span><br /><span>{currencyLabel()} {revenue.revPar.toLocaleString()}</span></>}
+          sparkline={data.trends.revenue}
         />
 
       </div>

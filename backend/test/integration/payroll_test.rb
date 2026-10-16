@@ -17,6 +17,20 @@ class PayrollTest < ActionDispatch::IntegrationTest
 
   teardown { travel_back }
 
+  test "legacy property link repair preserves financial evidence" do
+    entry = create_entry
+    approve(entry)
+    journal = entry.reload.approval_journal
+    journal.update_columns(property_id: nil) # Reproduce legacy data in this isolated test.
+    original = journal.reload.attributes.except("property_id")
+    require Rails.root.join("db/migrate/20261016000001_link_payroll_journal_properties")
+    ActiveRecord::Migration.suppress_messages { LinkPayrollJournalProperties.new.up }
+    assert_equal @property.id, journal.reload.property_id
+    assert_equal original, journal.attributes.except("property_id")
+    ActiveRecord::Migration.suppress_messages { LinkPayrollJournalProperties.new.up }
+    assert_equal original, journal.reload.attributes.except("property_id")
+  end
+
   test "all-rounder admin can review approve and release monthly salary" do
     entry = create_entry
     admin = user("ADMIN", "payroll-admin")
@@ -34,6 +48,15 @@ class PayrollTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_equal "PAID", entry.reload.status
     assert_equal 29700, entry.payment_journal.total_debit
+    assert_equal @property.id, entry.approval_journal.property_id
+    assert_equal @property.id, entry.payment_journal.property_id
+    get "/api/v1/accounting/reports", headers: headers(admin)
+    assert_response :success
+    assert_equal(-30000, response.parsed_body.dig("pnl", "netProfit"))
+    assert_equal(-29700, response.parsed_body.dig("balanceSheet", "totalAssets"))
+    assert response.parsed_body.dig("balanceSheet", "isBalanced")
+    assert response.parsed_body.dig("trialBalanceTotals", "isBalanced")
+    assert_includes response.parsed_body["taxAccountIds"], @accounts[:tds].id
   end
 
   test "advances persist during an open month and recover through balanced payroll journals" do
@@ -667,6 +690,75 @@ class PayrollTest < ActionDispatch::IntegrationTest
     assert_equal "Historical review", entry.reload.tds_reason
     approve(entry)
     assert_equal "APPROVED", entry.reload.status
+  end
+
+  test "cashier includes salary and advances exactly once and retains their closing evidence" do
+    entry = create_entry
+    post "#{base}/#{entry.id}/advance", params: payment.merge(amount: "5000", request_key: SecureRandom.uuid), headers: headers, as: :json
+    assert_response :success
+    advance = entry.payroll_advances.sole
+    approve(entry)
+    post "#{base}/#{entry.id}/pay", params: payment, headers: headers, as: :json
+    assert_response :success
+    assert_equal 24700, entry.reload.net_pay
+    get "/api/v1/night-audit", headers: headers
+    assert_response :success
+    review = response.parsed_body["reconciliation"]
+    assert_equal(-29700, BigDecimal(review["cashNet"]))
+    assert_equal 2, review["paymentCount"]
+    assert_equal [entry.id], review["payrollPaymentIds"]
+    assert_equal [advance.id], review["payrollAdvanceIds"]
+    assert_equal 29700, BigDecimal(review["tenders"].sole["payrollPayments"])
+    assert_equal(-29700, BigDecimal(review["tenders"].sole["net"]))
+    post "/api/v1/night-audit", params: { operation: "CLOSE_CASHIER", businessDate: Date.current.iso8601, openingCash: "30000", countedCash: "300" }, headers: headers, as: :json
+    assert_response :success
+    assert_equal 300, @property.cashier_closings.sole.expected_cash
+    post "/api/v1/night-audit", params: { operation: "CLOSE_DAY", businessDate: Date.current.iso8601 }, headers: headers, as: :json
+    assert_response :success
+    assert_equal [entry.id], @property.business_day_closings.sole.snapshot["payrollPaymentIds"]
+    assert_equal [advance.id], @property.business_day_closings.sole.snapshot["payrollAdvanceIds"]
+  end
+
+  test "salary and advances cannot be backdated into a closed cashier or business day" do
+    entry = create_entry
+    date = Date.current.iso8601
+    post "/api/v1/night-audit", params: { operation: "CLOSE_CASHIER", businessDate: date, openingCash: "0", countedCash: "0" }, headers: headers, as: :json
+    assert_response :success
+    assert_no_difference ["PayrollAdvance.count", "JournalEntry.count", "AuditLog.count"] do
+      post "#{base}/#{entry.id}/advance", params: payment.merge(amount: "1000", request_key: SecureRandom.uuid), headers: headers, as: :json
+      assert_response :conflict
+      assert_equal "PAYROLL_PAYMENT_DATE_CLOSED", response.parsed_body["code"]
+    end
+    approve(entry)
+    assert_no_difference ["JournalEntry.count", "AuditLog.count"] do
+      post "#{base}/#{entry.id}/pay", params: payment, headers: headers, as: :json
+      assert_response :conflict
+      assert_equal "APPROVED", entry.reload.status
+    end
+    post "/api/v1/night-audit", params: { operation: "CLOSE_DAY", businessDate: date }, headers: headers, as: :json
+    assert_response :success
+    assert_no_difference ["JournalEntry.count", "AuditLog.count"] do
+      post "#{base}/#{entry.id}/pay", params: payment, headers: headers, as: :json
+      assert_response :conflict
+      assert_equal "PAYROLL_PAYMENT_DATE_CLOSED", response.parsed_body["code"]
+    end
+  end
+
+  test "bank salary payments are listed without reducing counted cash" do
+    entry = create_entry
+    approve(entry)
+    post "#{base}/#{entry.id}/pay", params: payment.merge(payment_method: "BANK_TRANSFER", payment_reference: "PAYROLL-BANK-TEST"), headers: headers, as: :json
+    assert_response :success
+    other_property = @company.properties.create!(name: "Other payroll branch", code: "PAYROLL-OTHER")
+    get "/api/v1/night-audit", headers: headers
+    assert_response :success
+    review = response.parsed_body["reconciliation"]
+    assert_equal 0, BigDecimal(review["cashNet"])
+    assert_equal "BANK_TRANSFER", review["tenders"].sole["method"]
+    assert_equal 29700, BigDecimal(review["tenders"].sole["payrollPayments"])
+    get "/api/v1/night-audit", headers: headers.merge("X-Property-Code" => other_property.code)
+    assert_response :forbidden
+    assert_equal 0, BusinessDays::Review.call(other_property)[:paymentCount]
   end
 
   private

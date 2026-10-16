@@ -1,256 +1,83 @@
-import React, { useState, useEffect } from 'react';
-import { Boxes, Plus, Search, Filter, AlertTriangle, ArrowRightLeft, ArrowDownRight, Package, RefreshCw } from 'lucide-react';
-import { Card } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { Card } from '@/components/ui/Card';
+import { FormDialog } from '@/components/admin/FormDialog';
+import { usePortalProfile } from '@/lib/portal-context';
+import { hasAccess } from '@/lib/portal-access';
+import { money, supplyRequest, type Item, type Store, type Movement } from '../supply-api';
 
+type MoveForm = { operation: string; itemId: string; storeId: string; destinationStoreId: string; quantity: string; department: string; notes: string; idempotencyKey: string };
 export default function InventoryStoresPage() {
-  const [selectedStore, setSelectedStore] = useState('ALL');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showIssueModal, setShowIssueModal] = useState(false);
-  const [items, setItems] = useState<any[]>([]);
-  const [stores, setStores] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Form
-  const [selectedItemId, setSelectedItemId] = useState('');
-  const [issueQty, setIssueQty] = useState('1');
-  const [issueDept, setIssueDept] = useState('Main Central Kitchen');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const fetchInventory = async () => {
+  const profile = usePortalProfile();
+  const allowed = (action: string) => hasAccess(profile, 'ITEMS', action);
+  const [items, setItems] = useState<Item[]>([]), [stores, setStores] = useState<Store[]>([]), [movements, setMovements] = useState<Movement[]>([]);
+  const [storeId, setStoreId] = useState(''), [search, setSearch] = useState(''), [loading, setLoading] = useState(true), [saving, setSaving] = useState(false);
+  const [error, setError] = useState(''), [formError, setFormError] = useState(''), [message, setMessage] = useState('');
+  const [move, setMove] = useState<MoveForm | null>(null), [master, setMaster] = useState<'catalog' | 'store' | null>(null);
+  const [fields, setFields] = useState({ name: '', sku: '', code: '', unit: '', category: '', standardCost: '0', minStock: '0' });
+  const activeStore = useRef(storeId); activeStore.current = storeId;
+  const [opening,setOpening]=useState({required:false,value:0,posted:0});
+  const [review,setReview]=useState<{mode:string;reason:string;confirmedReview:boolean;idempotencyKey:string}|null>(null);
+  async function saveReview(e:FormEvent){e.preventDefault();if(!review||saving)return;setSaving(true);setFormError('');try{await supplyRequest('inventory/items/reconcile','POST',review);setReview(null);setMessage('Opening stock reviewed.');await load();}catch(e){setFormError(e instanceof Error?e.message:'Unable to review stock.');}finally{setSaving(false);}}
+  async function load(id = storeId) {
     try {
-      setIsLoading(true);
-      const res = await fetch('/api/inventory/items');
-      const json = await res.json();
-      if (json.success) {
-        setItems(json.items || []);
-        setStores(json.stores || []);
-        if (json.items?.length > 0 && !selectedItemId) {
-          setSelectedItemId(json.items[0].id);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to load inventory:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchInventory();
-  }, []);
-
-  const handleIssueStock = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      setIsSubmitting(true);
-      const res = await fetch('/api/inventory/items', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          itemId: selectedItemId,
-          quantity: parseFloat(issueQty),
-          departmentName: issueDept
-        })
-      });
-
-      const json = await res.json();
-      if (json.success) {
-        alert(json.message);
-        setShowIssueModal(false);
-        fetchInventory();
-      } else {
-        alert(json.error || 'Failed to issue stock');
-      }
-    } catch (err: any) {
-      alert(err.message || 'Error issuing stock');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const filteredItems = items.filter((it) => {
-    const matchesSearch = it.name.toLowerCase().includes(searchTerm.toLowerCase()) || it.sku.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
-  });
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, backgroundColor: '#FFFFFF' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-        <div>
-          <h1 style={{ fontSize: 24, fontWeight: 800 }}>Store Inventory & Stock Management</h1>
-
-        </div>
-
-        <div style={{ display: 'flex', gap: 10 }}>
-          <Button variant="secondary" size="sm" onClick={fetchInventory} disabled={isLoading}>
-            <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} /> Refresh
-          </Button>
-          <Button variant="primary" onClick={() => setShowIssueModal(true)}>
-            <ArrowRightLeft size={16} />
-            <span>Issue Stock to Department</span>
-          </Button>
-        </div>
-      </div>
-
-      {/* KPI Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
-        <div className="hne-card" style={{ padding: 18, borderLeft: '4px solid var(--brand-crimson)', backgroundColor: '#FFFFFF' }}>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Total Inventory Valuation</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', marginTop: 4 }}>
-            Rs. {items.reduce((acc, it) => acc + it.totalValuation, 0).toLocaleString()}
-          </div>
-        </div>
-
-        <div className="hne-card" style={{ padding: 18, borderLeft: '4px solid var(--brand-green)', backgroundColor: '#FFFFFF' }}>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Active SKUs in Catalog</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--brand-green)', marginTop: 4 }}>
-            {items.length} Tracked Items
-          </div>
-        </div>
-
-        <div className="hne-card" style={{ padding: 18, borderLeft: '4px solid #DC2626', backgroundColor: '#FFFFFF' }}>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Low Stock Alert Items</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#DC2626', marginTop: 4 }}>
-            {items.filter(it => it.isLow).length} Items Below Min Level
-          </div>
-        </div>
-      </div>
-
-      {/* Inventory Table */}
-      <Card title={`Store Inventory Catalog (${filteredItems.length})`} >
-        <div style={{ marginBottom: 16, position: 'relative' }}>
-          <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input
-            type="text"
-            placeholder="Search by Item Name or SKU..."
-            className="hne-input"
-            style={{ paddingLeft: 36 }}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-
-        {isLoading ? (
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
-            Loading inventory items…
-          </div>
-        ) : (
-          <div className="hne-table-container">
-            <table className="hne-table">
-              <thead>
-                <tr>
-                  <th>SKU</th>
-                  <th>Item Name</th>
-                  <th>Category</th>
-                  <th>Unit</th>
-                  <th>In-Stock</th>
-                  <th>Unit Cost</th>
-                  <th>Total Valuation</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredItems.map((it) => (
-                  <tr key={it.id}>
-                    <td>
-                      <span style={{ fontWeight: 800, fontFamily: 'monospace', color: 'var(--brand-crimson)' }}>
-                        {it.sku}
-                      </span>
-                    </td>
-                    <td>
-                      <div style={{ fontWeight: 700 }}>{it.name}</div>
-                    </td>
-                    <td>
-                      <Badge variant="outline">{it.category}</Badge>
-                    </td>
-                    <td style={{ fontSize: 12 }}>{it.unit}</td>
-                    <td>
-                      <span style={{ fontWeight: 800, fontSize: 15, color: it.isLow ? 'var(--danger-red)' : 'var(--brand-green)' }}>
-                        {it.currentStock}
-                      </span>
-                      <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 4 }}>
-                        (Min: {it.minStock})
-                      </span>
-                    </td>
-                    <td>Rs. {it.unitPrice.toLocaleString()}</td>
-                    <td style={{ fontWeight: 800 }}>Rs. {it.totalValuation.toLocaleString()}</td>
-                    <td>
-                      {it.isLow ? (
-                        <Badge variant="danger">LOW STOCK</Badge>
-                      ) : (
-                        <Badge variant="success">IN STOCK</Badge>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
-
-      {/* Issue Stock Modal */}
-      {showIssueModal && (
-        <div className="hne-modal-backdrop" onClick={() => setShowIssueModal(false)}>
-          <div className="hne-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460 }}>
-            <div className="hne-modal-header">
-              <h3 className="hne-modal-title">Issue Stock to Department</h3>
-              <button className="hne-modal-close" onClick={() => setShowIssueModal(false)}>✕</button>
-            </div>
-            <form onSubmit={handleIssueStock}>
-              <div className="hne-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div className="hne-form-group">
-                  <label className="hne-label">Select Item</label>
-                  <select
-                    className="hne-select"
-                    value={selectedItemId}
-                    onChange={(e) => setSelectedItemId(e.target.value)}
-                  >
-                    {items.map((it) => (
-                      <option key={it.id} value={it.id}>
-                        [{it.sku}] {it.name} (Stock: {it.currentStock} {it.unit})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="hne-form-group">
-                  <label className="hne-label">Quantity to Issue</label>
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    className="hne-input"
-                    value={issueQty}
-                    onChange={(e) => setIssueQty(e.target.value)}
-                  />
-                </div>
-
-                <div className="hne-form-group">
-                  <label className="hne-label">Receiving Department / Store</label>
-                  <select
-                    className="hne-select"
-                    value={issueDept}
-                    onChange={(e) => setIssueDept(e.target.value)}
-                  >
-                    <option value="Main Central Kitchen">Main Central Kitchen</option>
-                    <option value="Dhiki Restaurant Bhojangriha">Dhiki Restaurant Bhojangriha</option>
-                    <option value="New Era Terrace Lounge & Bar">New Era Terrace Lounge & Bar</option>
-                    <option value="Housekeeping & Guest Rooms">Housekeeping & Guest Rooms</option>
-                  </select>
-                </div>
-              </div>
-              <div className="hne-modal-footer">
-                <Button variant="secondary" type="button" onClick={() => setShowIssueModal(false)}>Cancel</Button>
-                <Button variant="primary" type="submit" disabled={isSubmitting}>Confirm Issue</Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+      const data = await supplyRequest(`inventory/items${id ? `?storeId=${encodeURIComponent(id)}` : ''}`);
+      if (activeStore.current !== id) return;
+      setItems(data.items); setStores(data.stores); setMovements(data.movements);setOpening({required:data.openingReviewRequired,value:data.openingStockValue,posted:data.postedStockValue}); setError('');
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to load inventory.'); }
+    finally { setLoading(false); }
+  }
+  useEffect(() => { setLoading(true); void load(storeId); }, [storeId]);
+  const selectedItem = items.find(item => item.id === move?.itemId);
+  const available = selectedItem?.storesBreakdown.find(b => b.storeId === move?.storeId)?.qty || 0;
+  const filtered = items.filter(i => `${i.name} ${i.sku}`.toLowerCase().includes(search.toLowerCase()));
+  function openMove() {
+    setFormError('');setMove({ operation: 'ISSUE', itemId: '', storeId: storeId || stores.find(s => s.code === 'MAIN')?.id || stores[0]?.id || '', destinationStoreId: '', quantity: '', department: '', notes: '', idempotencyKey: crypto.randomUUID() });
+  }
+  function changeMove(values: Partial<MoveForm>) { setMove(current => current ? { ...current, ...values, idempotencyKey: crypto.randomUUID() } : current); }
+  async function saveMove(e: FormEvent) {
+    e.preventDefault();if (!move || saving) return;setSaving(true);setFormError('');
+    try { const result = await supplyRequest('inventory/items', 'POST', move);setMove(null);setMessage(`${result.data.number}: stock ${move.operation === 'TRANSFER' ? 'transferred' : 'issued'}.`);await load(); }
+    catch (reason) { setFormError(reason instanceof Error ? reason.message : 'Unable to move stock.'); } finally { setSaving(false); }
+  }
+  function openMaster(kind: 'catalog' | 'store') { setMaster(kind);setFormError('');setFields({ name: '', sku: '', code: '', unit: '', category: '', standardCost: '0', minStock: '0' }); }
+  async function saveMaster(e: FormEvent) {
+    e.preventDefault();if (!master || saving) return;setSaving(true);setFormError('');
+    try { await supplyRequest(`inventory/items/${master}`, 'POST', fields);setMessage(master === 'store' ? 'Store added.' : 'Item added.');setMaster(null);await load(); }
+    catch (reason) { setFormError(reason instanceof Error ? reason.message : 'Unable to save.'); } finally { setSaving(false); }
+  }
+  return <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}><h1 style={{ fontSize: 24 }}>Inventory & Stores</h1><div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+      <Button variant="secondary" disabled={loading || saving} onClick={() => void load()}><RefreshCw size={15} /> Refresh</Button>
+      {allowed('store') && <Button variant="secondary" disabled={saving} onClick={() => openMaster('store')}>Add store</Button>}{allowed('catalog') && <Button variant="secondary" disabled={saving} onClick={() => openMaster('catalog')}>Add item</Button>}
+      {allowed('create') && <Button disabled={loading || saving || opening.required || !items.length || !stores.length} onClick={openMove}>Issue / transfer</Button>}
+    </div></header>
+    {opening.required&&<div role="status"><p>Review opening stock before receiving goods, posting invoices, or moving stock.</p>{allowed('reconcile')&&<Button variant="secondary" onClick={()=>{setFormError('');setReview({mode:'LINK',reason:'',confirmedReview:false,idempotencyKey:crypto.randomUUID()});}}>Review opening stock</Button>}</div>}
+    {review&&<FormDialog title="Review opening stock" saving={saving} onClose={()=>setReview(null)}><form onSubmit={saveReview}>{formError&&<p role="alert">{formError}</p>}<fieldset disabled={saving} style={{border:0,padding:0,display:'grid',gap:14}}><dl><dt>Stock value · all property stores</dt><dd>{money(opening.value)}</dd><dt>Posted stock balance</dt><dd>{money(opening.posted)}</dd><dt>Difference</dt><dd>{money(opening.value-opening.posted)}</dd></dl><label><span className="hne-label">Reconciliation</span><select className="hne-select" value={review.mode} onChange={e=>setReview(r=>r?{...r,mode:e.target.value,idempotencyKey:crypto.randomUUID()}:r)}><option value="LINK">Confirm matching posted stock balance</option><option value="ADJUST">Post difference against opening equity</option></select></label><label><span className="hne-label">Review reason</span><textarea required minLength={3} className="hne-input" value={review.reason} onChange={e=>setReview(r=>r?{...r,reason:e.target.value,idempotencyKey:crypto.randomUUID()}:r)}/></label><label><input required type="checkbox" checked={review.confirmedReview} onChange={e=>setReview(r=>r?{...r,confirmedReview:e.target.checked,idempotencyKey:crypto.randomUUID()}:r)}/> I checked the stock valuation and prior accounting entries.</label></fieldset><div className="hne-modal-footer"><Button type="submit" disabled={saving}>Confirm stock review</Button></div></form></FormDialog>}
+    {error && <p role="alert" style={{ color: 'var(--danger-red)' }}>{error}</p>}{message && <p role="status" style={{ color: 'var(--brand-green)' }}>{message}</p>}
+    <label style={{ maxWidth: 400 }}><span className="hne-label">Store</span><select className="hne-select" value={storeId} disabled={saving} onChange={e => setStoreId(e.target.value)}><option value="">All stores</option>{stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12 }}>{[['Stock value', money(items.reduce((sum, i) => sum + i.totalValuation, 0))], ['Catalog items', items.length], ['Low stock', items.filter(i => i.isLow).length]].map(([label,value]) => <div className="hne-card" key={String(label)} style={{ padding: 18 }}><div style={{ fontSize: 12 }}>{label}</div><strong style={{ fontSize: 22 }}>{value}</strong></div>)}</div>
+    <Card title={`Stock (${filtered.length})`}><input aria-label="Search inventory" className="hne-input" placeholder="Search item or SKU" value={search} onChange={e => setSearch(e.target.value)} style={{ marginBottom: 16 }} />
+      {loading ? <p>Loading inventory…</p> : <div className="hne-table-container"><table className="hne-table"><thead><tr><th>SKU / Item</th><th>Category</th><th>On hand</th><th>Store balances</th><th>Average cost</th><th>Stock value</th><th>Status</th></tr></thead><tbody>{filtered.map(i => <tr key={i.id}><td><strong>{i.name}</strong><div style={{ fontSize: 11 }}>{i.sku}</div></td><td>{i.category}</td><td>{i.currentStock} {i.unit}<div style={{ fontSize: 11 }}>Min: {i.minStock}</div></td><td>{i.storesBreakdown.map(s => <div key={s.storeId}>{s.storeName}: {s.qty} {i.unit}</div>)}</td><td>{money(i.unitPrice)}</td><td>{money(i.totalValuation)}</td><td><Badge variant={i.isLow ? 'warning' : 'success'}>{i.isLow ? 'LOW STOCK' : 'IN STOCK'}</Badge></td></tr>)}{!filtered.length && <tr><td colSpan={7}>No items found.</td></tr>}</tbody></table></div>}
+    </Card>
+    <Card title="Stock movements"><div className="hne-table-container"><table className="hne-table"><thead><tr><th>Date / Reference</th><th>Item</th><th>Type</th><th>Quantity</th><th>From / To</th><th>Value</th><th>Staff / Notes</th></tr></thead><tbody>{movements.map(m => <tr key={m.id}><td>{m.businessDate}<div style={{ fontSize: 11 }}>{m.number}</div></td><td>{m.itemName}</td><td>{m.kind}</td><td>{m.quantity} {m.unit}</td><td>{m.sourceStore || 'Supplier'} → {m.destinationStore || m.department}</td><td>{money(m.totalCost)}</td><td>{m.staff}<div style={{ fontSize: 11 }}>{m.notes}</div></td></tr>)}{!movements.length && <tr><td colSpan={7}>No stock movements recorded.</td></tr>}</tbody></table></div></Card>
+    {move && <FormDialog title="Issue / transfer stock" saving={saving} onClose={() => setMove(null)}><form onSubmit={saveMove}>
+      {formError && <p role="alert" style={{ color: 'var(--danger-red)', marginBottom: 12 }}>{formError}</p>}<fieldset disabled={saving} style={{ border: 0, padding: 0, display: 'grid', gap: 14 }}>
+        <label><span className="hne-label">Movement</span><select className="hne-select" value={move.operation} onChange={e => changeMove({ operation: e.target.value })}><option value="ISSUE">Issue to department</option><option value="TRANSFER">Transfer to store</option></select></label>
+        <label><span className="hne-label">Source store</span><select required className="hne-select" value={move.storeId} onChange={e => changeMove({ storeId: e.target.value, itemId: '', quantity: '' })}>{stores.filter(s => !storeId || s.id === storeId).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+        <label><span className="hne-label">Item</span><select required className="hne-select" value={move.itemId} onChange={e => changeMove({ itemId: e.target.value })}><option value="">Select item</option>{items.map(i => <option key={i.id} value={i.id}>{i.sku} · {i.name}</option>)}</select></label>
+        {selectedItem && <p style={{ fontSize: 12 }}>Available: {available} {selectedItem.unit}</p>}
+        <label><span className="hne-label">Quantity</span><input required type="number" min="0.01" step="0.01" max={available} className="hne-input" value={move.quantity} onChange={e => changeMove({ quantity: e.target.value })} /></label>
+        {move.operation === 'TRANSFER' ? <label><span className="hne-label">Destination store</span><select required className="hne-select" value={move.destinationStoreId} onChange={e => changeMove({ destinationStoreId: e.target.value })}><option value="">Select store</option>{stores.filter(s => s.id !== move.storeId).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label> : <label><span className="hne-label">Department</span><input required className="hne-input" value={move.department} onChange={e => changeMove({ department: e.target.value })} /></label>}
+        <label><span className="hne-label">Reference / notes</span><textarea className="hne-input" value={move.notes} onChange={e => changeMove({ notes: e.target.value })} /></label>
+      </fieldset><div className="hne-modal-footer"><Button type="button" variant="secondary" disabled={saving} onClick={() => setMove(null)}>Close</Button><Button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Confirm movement'}</Button></div>
+    </form></FormDialog>}
+    {master && <FormDialog title={master === 'store' ? 'Add store' : 'Add item'} saving={saving} onClose={() => setMaster(null)}><form onSubmit={saveMaster}>
+      {formError && <p role="alert" style={{ color: 'var(--danger-red)' }}>{formError}</p>}<fieldset disabled={saving} style={{ display: 'grid', gap: 14, padding: 0, border: 0 }}>
+        {(master === 'store' ? [['code','Store code'],['name','Store name']] : [['sku','SKU'],['name','Item name'],['unit','Unit'],['category','Category'],['standardCost','Reference unit cost (NPR)'],['minStock','Minimum stock']]).map(([key,label]) => <label key={key}><span className="hne-label">{label}</span><input className="hne-input" required={key !== 'category'} type={['standardCost','minStock'].includes(key) ? 'number' : 'text'} min={0} step="0.01" value={fields[key as keyof typeof fields]} onChange={e => setFields(current => ({ ...current, [key]: e.target.value }))} /></label>)}
+      </fieldset><div className="hne-modal-footer"><Button variant="secondary" type="button" disabled={saving} onClick={() => setMaster(null)}>Close</Button><Button type="submit" disabled={saving}>Save</Button></div>
+    </form></FormDialog>}
+  </div>;
 }

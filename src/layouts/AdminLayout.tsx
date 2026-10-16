@@ -7,6 +7,7 @@ import { authClient, SessionProfile } from '@/lib/auth-client';
 import { PortalContext } from '@/lib/portal-context';
 import { canOpenPage, portalHome } from '@/lib/portal-access';
 import './staff-portals.css';
+import { setDisplayPreferences } from '@/lib/display-preferences';
 
 export default function AdminLayout() {
   const [profile, setProfile] = useState<SessionProfile | null>(() => authClient.profile());
@@ -23,7 +24,7 @@ export default function AdminLayout() {
       if (!active) return;
       if (response.status === 401) { authClient.clear(); setProfile(null); setChecked(true); }
       else if (!response.ok || !result.success) { setError(result.error || 'Unable to verify your staff access.'); }
-      else { authClient.updateProfile(result.data); setProfile(result.data); setChecked(true); }
+      else { setDisplayPreferences(result.data.displayPreferences); authClient.updateProfile(result.data); setProfile(result.data); setChecked(true); }
     }).catch(() => { if (active) setError('Unable to verify your staff access. Please retry.'); });
     return () => { active = false; };
   }, [token]);

@@ -1,0 +1,15 @@
+﻿.accounting-reports { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+.accounting-report-header, .accounting-report-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.accounting-report-header { justify-content: space-between; }
+.accounting-report-header h1 { font-size: 24px; font-weight: 800; }
+.accounting-report-heading { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; font-size: 13px; }
+.accounting-report-heading strong { font-size: 16px; }
+.accounting-report-line { display: flex; justify-content: space-between; gap: 16px; padding: 8px 0; font-size: 13px; }
+.accounting-report-line strong { white-space: nowrap; }
+.accounting-report-total { border-top: 1px solid var(--border); font-weight: 700; margin: 4px 0 16px; }
+.accounting-reports h3 { font-size: 15px; margin: 12px 0 6px; }
+.accounting-balance-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.accounting-balance-columns section { min-width: 0; }
+.accounting-report-error { color: var(--danger-red); }
+@media (max-width: 800px) { .accounting-balance-columns { grid-template-columns: 1fr; } }
+

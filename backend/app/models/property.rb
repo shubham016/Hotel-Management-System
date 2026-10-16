@@ -32,7 +32,12 @@ class Property < ApplicationRecord
 
   validates :name, :code, presence: true
   validates :code, uniqueness: { scope: :company_id }
-  validates :check_out_time, format: { with: /\A(?:[01]\d|2[0-3]):[0-5]\d\z/ }
+  validates :check_in_time, :check_out_time, format: { with: /\A(?:[01]\d|2[0-3]):[0-5]\d\z/ }
+  validates :currency_display, inclusion: { in: %w[SYMBOL CODE] }
+
+  def display_preferences
+    { currency_code: company.currency_code, currency_display: currency_display, nepali_calendar_enabled: nepali_calendar_enabled }
+  end
 
   def operating_date
     business_date || Date.current

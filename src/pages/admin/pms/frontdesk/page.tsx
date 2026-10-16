@@ -1,3 +1,4 @@
+import { currencyLabel, showNepaliDates } from '@/lib/display-preferences';
 import React, { useState, useEffect } from 'react';
 import {
   Users,
@@ -186,7 +187,7 @@ export default function FrontDeskPage() {
   };
 
   const handleSettleAndCheckout = async (folio: any) => {
-    if (!confirm(`Settle Folio #${folio.folioNumber} (Balance Due: Rs. ${folio.balanceDue.toLocaleString()}), complete guest checkout, and post General Ledger Sales Voucher?`)) {
+    if (!confirm(`Settle Folio #${folio.folioNumber} (Balance Due: ${currencyLabel()} ${folio.balanceDue.toLocaleString()}), complete guest checkout, and post General Ledger Sales Voucher?`)) {
       return;
     }
 
@@ -381,18 +382,18 @@ export default function FrontDeskPage() {
                       </td>
                       <td style={{ fontSize: 12 }}>
                         <div style={{ fontWeight: 600 }}>In: {formatDualDate(folio.checkInDate).adFormatted}</div>
-                        <div style={{ color: 'var(--brand-gold-hover)', fontSize: 11, fontWeight: 600 }}>
+                        {showNepaliDates() && <div style={{ color: 'var(--brand-gold-hover)', fontSize: 11, fontWeight: 600 }}>
                           BS: {formatDualDate(folio.checkInDate).bsFormatted}
-                        </div>
+                        </div>}
                         <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>
                           Out: {formatDualDate(folio.checkOutDate).adFormatted}
                         </div>
                       </td>
                       <td>
                         <div style={{ fontWeight: 800, color: folio.balanceDue > 0 ? 'var(--danger-red)' : 'var(--brand-green)' }}>
-                          Rs. {folio.balanceDue.toLocaleString()}
+                          {currencyLabel()} {folio.balanceDue.toLocaleString()}
                         </div>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Total: Rs. {folio.grandTotal.toLocaleString()}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Total: {currencyLabel()} {folio.grandTotal.toLocaleString()}</div>
                       </td>
                       <td>
                         <Badge variant={folio.status === 'SETTLED' ? 'success' : 'warning'}>
@@ -510,12 +511,12 @@ export default function FrontDeskPage() {
                         </span>
                       </td>
                       <td style={{ fontWeight: 600 }}>{it.description}</td>
-                      <td>Rs. {it.amount.toLocaleString()}</td>
+                      <td>{currencyLabel()} {it.amount.toLocaleString()}</td>
                       <td style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>
-                        Rs. {it.vatAmount.toLocaleString()}
+                        {currencyLabel()} {it.vatAmount.toLocaleString()}
                       </td>
                       <td style={{ fontWeight: 700 }}>
-                        Rs. {(it.amount + it.serviceCharge + it.vatAmount).toLocaleString()}
+                        {currencyLabel()} {(it.amount + it.serviceCharge + it.vatAmount).toLocaleString()}
                       </td>
                     </tr>
                   ))}
@@ -528,27 +529,27 @@ export default function FrontDeskPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span>Accommodations & Services Subtotal:</span>
-                  <span>Rs. {selectedFolio.subTotal.toLocaleString()}</span>
+                  <span>{currencyLabel()} {selectedFolio.subTotal.toLocaleString()}</span>
                 </div>
                 {selectedFolio.serviceCharge > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
                   <span>Previously billed service charge:</span>
-                  <span>Rs. {selectedFolio.serviceCharge.toLocaleString()}</span>
+                  <span>{currencyLabel()} {selectedFolio.serviceCharge.toLocaleString()}</span>
                 </div>}
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
                   <span>Government VAT (13%):</span>
-                  <span>Rs. {selectedFolio.vatAmount.toLocaleString()}</span>
+                  <span>{currencyLabel()} {selectedFolio.vatAmount.toLocaleString()}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: 15, borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 4 }}>
                   <span>Grand Total Billed:</span>
-                  <span>Rs. {selectedFolio.grandTotal.toLocaleString()}</span>
+                  <span>{currencyLabel()} {selectedFolio.grandTotal.toLocaleString()}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--brand-green)', fontWeight: 700 }}>
                   <span>Total Payments Received:</span>
-                  <span>Rs. {selectedFolio.totalPaid.toLocaleString()}</span>
+                  <span>{currencyLabel()} {selectedFolio.totalPaid.toLocaleString()}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: 16, color: selectedFolio.balanceDue > 0 ? 'var(--danger-red)' : 'var(--brand-green)', borderTop: '1px dashed var(--border)', paddingTop: 8, marginTop: 4 }}>
                   <span>Outstanding Balance Due:</span>
-                  <span>Rs. {selectedFolio.balanceDue.toLocaleString()}</span>
+                  <span>{currencyLabel()} {selectedFolio.balanceDue.toLocaleString()}</span>
                 </div>
               </div>
             </div>
@@ -591,7 +592,7 @@ export default function FrontDeskPage() {
                     if (item) { setChargeDesc(`Laundry - ${item.name}`); setChargeAmount(String(item.price)); }
                   }}>
                     <option value="">Choose an item</option>
-                    {laundryRates.map((item) => <option key={item.name} value={item.name}>{item.name} — Rs. {item.price}</option>)}
+                    {laundryRates.map((item) => <option key={item.name} value={item.name}>{item.name} — {currencyLabel()} {item.price}</option>)}
                   </select>
                   <small>{laundryReturn}</small>
                 </div>}
@@ -645,7 +646,7 @@ export default function FrontDeskPage() {
             <form onSubmit={handleRecordPayment}>
               <div className="hne-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <div style={{ backgroundColor: 'var(--bg-subtle)', padding: 12, borderRadius: 'var(--radius-sm)', fontSize: 13 }}>
-                  <div>Total Outstanding: <strong>Rs. {selectedFolio.balanceDue.toLocaleString()}</strong></div>
+                  <div>Total Outstanding: <strong>{currencyLabel()} {selectedFolio.balanceDue.toLocaleString()}</strong></div>
                 </div>
 
                 <div className="hne-form-group">

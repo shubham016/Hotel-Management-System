@@ -1,0 +1,8 @@
+.cms-page-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 24px; }
+.cms-page-layout > *, .cms-page-editor { min-width: 0; }
+.cms-page-navigation { display: flex; flex-direction: column; gap: 6px; }
+@media (max-width: 900px) {
+  .cms-page-layout { grid-template-columns: minmax(0, 1fr); }
+  .cms-page-navigation { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cms-page-editor .hne-card { min-width: 0; }
+}

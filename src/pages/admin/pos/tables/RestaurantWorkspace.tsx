@@ -1,3 +1,4 @@
+import { currencyLabel } from '@/lib/display-preferences';
 import { useEffect, useRef, useState } from 'react';
 import { RefreshCw, Send, UtensilsCrossed } from 'lucide-react';
 import Link from '@/lib/router';
@@ -27,7 +28,7 @@ export default function RestaurantPage() {
   const outlet = outlets.find(item => item.outletCode === outletCode);
   const table = tables.find(item => item.id === selectedId);
   const menu = outlet?.items || [];
-  const money = (amount: number) => `Rs. ${amount.toLocaleString('en-NP', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const money = (amount: number) => `${currencyLabel()} ${amount.toLocaleString('en-NP', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   useEffect(() => {
     posRequest('menu-items').then(result => { setOutlets(result.outlets); setOutletCode(result.outlets[0]?.outletCode || ''); if (!result.outlets.length) setLoading(false); })

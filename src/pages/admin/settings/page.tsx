@@ -6,9 +6,11 @@ import { Button } from '@/components/ui/Button';
 import { ClientDataEditor, type ClientRecord } from './ClientDataEditor';
 import Link from '@/lib/router';
 import './SettingsTabs.css';
+import { setDisplayPreferences } from '@/lib/display-preferences';
+import { authClient } from '@/lib/auth-client';
 
 export default function SystemSettingsPage() {
-  const [activeTab, setActiveTab] = useState<'PROPERTY' | 'TAX' | 'CALENDAR' | 'ROLES' | 'STAFF' | 'LAUNDRY' | 'EXTRAS'>('PROPERTY');
+  const [activeTab, setActiveTab] = useState<'PROPERTY' | 'TAX' | 'CALENDAR' | 'EMAIL' | 'ROLES' | 'STAFF' | 'LAUNDRY' | 'EXTRAS'>('PROPERTY');
   const [staff, setStaff] = useState<ClientRecord[]>([]);
   const [laundry, setLaundry] = useState<ClientRecord[]>([]);
   const [extras, setExtras] = useState<ClientRecord[]>([]);
@@ -42,9 +44,11 @@ export default function SystemSettingsPage() {
   const [saveMessage, setSaveMessage] = useState('');
   const [saveError, setSaveError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [emailDelivery, setEmailDelivery] = useState<{ configured: boolean; sender: string } | null>(null);
 
   // Localization State
-  const [currencySymbol, setCurrencySymbol] = useState('Rs.');
+  const [currencyDisplay, setCurrencyDisplay] = useState<'SYMBOL' | 'CODE'>('SYMBOL');
   const [currencyCode, setCurrencyCode] = useState('NPR');
   const [nepaliCalendarEnabled, setNepaliCalendarEnabled] = useState(true);
 
@@ -58,6 +62,11 @@ export default function SystemSettingsPage() {
       setLaundryCollection(property.laundry_collection_instructions || '');
       setLaundryReturn(property.laundry_return_instructions || '');
       setIsVatInclusive(result.data.vat.inclusive);
+      setCurrencyCode(result.data.display_preferences.currency_code);
+      setCurrencyDisplay(result.data.display_preferences.currency_display);
+      setNepaliCalendarEnabled(result.data.display_preferences.nepali_calendar_enabled);
+      setEmailDelivery(result.data.email_delivery);
+      setSettingsLoaded(true);
     }).catch((reason) => setSaveError(reason instanceof Error ? reason.message : 'Unable to load settings.'));
   }, []);
 
@@ -66,11 +75,14 @@ export default function SystemSettingsPage() {
     try {
       const body = activeTab === 'PROPERTY' ? { property: {
         name: propertyName, phone, email, address, check_in_time: checkinTime, check_out_time: checkoutTime
-      } } : { vat: { inclusive: isVatInclusive } };
+      } } : activeTab === 'CALENDAR' ? { display_preferences: { currency_display: currencyDisplay, nepali_calendar_enabled: nepaliCalendarEnabled } } : { vat: { inclusive: isVatInclusive } };
       const response = await fetch('/api/hotel_settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const result = await response.json();
       if (!response.ok || !result.success) throw new Error(result.error || 'Unable to save settings.');
-      setSaveMessage('Saved to the database.');
+      setDisplayPreferences(result.data.display_preferences);
+      const profile = authClient.profile();
+      if (profile) authClient.updateProfile({ ...profile, displayPreferences: result.data.display_preferences });
+      setSaveMessage('Settings saved.');
     } catch (reason) { setSaveError(reason instanceof Error ? reason.message : 'Unable to save settings.'); }
     finally { setSaving(false); }
   };
@@ -84,7 +96,7 @@ export default function SystemSettingsPage() {
       });
       const result = await response.json();
       if (!response.ok || !result.success) throw new Error(result.error || 'Unable to save laundry instructions.');
-      setSaveMessage('Laundry instructions saved to the database.');
+      setSaveMessage('Laundry instructions saved.');
     } catch (reason) { setSaveError(reason instanceof Error ? reason.message : 'Unable to save laundry instructions.'); }
     finally { setSaving(false); }
   };
@@ -94,7 +106,7 @@ export default function SystemSettingsPage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 800 }}>System Configuration & Multi-Tenant Settings</h1>
+          <h1 style={{ fontSize: 24, fontWeight: 800 }}>Settings</h1>
 
         </div>
       </div>
@@ -103,9 +115,10 @@ export default function SystemSettingsPage() {
       <div className="hne-settings-tabs" role="group" aria-label="Settings sections">
         {[
           { id: 'PROPERTY', label: 'Property Profile' },
-          { id: 'TAX', label: 'Tax & VAT Engine' },
+          { id: 'TAX', label: 'Tax & VAT' },
           { id: 'CALENDAR', label: 'Nepali Calendar & Currency' },
-          { id: 'ROLES', label: 'RBAC Roles & Permissions' },
+          { id: 'EMAIL', label: 'Email' },
+          { id: 'ROLES', label: 'Roles & Access' },
           { id: 'STAFF', label: 'Staff Directory' },
           { id: 'LAUNDRY', label: 'Laundry Tariffs' },
           { id: 'EXTRAS', label: 'Extra Services' }
@@ -122,7 +135,8 @@ export default function SystemSettingsPage() {
         ))}
       </div>
 
-      <div>
+      {!settingsLoaded && !saveError && <p role="status">Loading settings…</p>}
+      <fieldset disabled={saving || (!settingsLoaded && ['PROPERTY', 'TAX', 'LAUNDRY', 'CALENDAR'].includes(activeTab))} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
         {activeTab === 'PROPERTY' && (
           <Card title="Hotel / Property Master Profile">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -156,11 +170,11 @@ export default function SystemSettingsPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <div className="hne-form-group" style={{ marginBottom: 0 }}>
                   <label className="hne-label">Standard Check-In Time</label>
-                  <input type="text" className="hne-input" value={checkinTime} onChange={(e) => setCheckinTime(e.target.value)} />
+                  <input type="time" className="hne-input" value={checkinTime} onChange={(e) => setCheckinTime(e.target.value)} />
                 </div>
                 <div className="hne-form-group" style={{ marginBottom: 0 }}>
                   <label className="hne-label">Standard Check-Out Time</label>
-                  <input type="text" className="hne-input" value={checkoutTime} onChange={(e) => setCheckoutTime(e.target.value)} />
+                  <input type="time" className="hne-input" value={checkoutTime} onChange={(e) => setCheckoutTime(e.target.value)} />
                 </div>
               </div>
             </div>
@@ -196,18 +210,18 @@ export default function SystemSettingsPage() {
         )}
 
         {activeTab === 'CALENDAR' && (
-          <Card title="Nepali Bikram Sambat (BS) Calendar & Multi-Currency">
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 14 }}>This panel is display only. Calendar and currency changes are not available here yet.</p>
-            <fieldset disabled style={{ border: 0, padding: 0, margin: 0 }}>
+          <Card title="Calendar & Currency Display">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <div className="hne-form-group" style={{ marginBottom: 0 }}>
                   <label className="hne-label">Operating Currency Code</label>
-                  <input type="text" className="hne-input" value={currencyCode} onChange={(e) => setCurrencyCode(e.target.value)} />
+                  <input type="text" className="hne-input" value={currencyCode} readOnly />
+                  <small>Existing transactions use {currencyCode}. Changing the label does not convert amounts.</small>
                 </div>
                 <div className="hne-form-group" style={{ marginBottom: 0 }}>
-                  <label className="hne-label">Currency Symbol</label>
-                  <input type="text" className="hne-input" value={currencySymbol} onChange={(e) => setCurrencySymbol(e.target.value)} />
+                  <label className="hne-label">Currency label</label>
+                  <select aria-label="Currency label" className="hne-select" value={currencyDisplay} onChange={event => setCurrencyDisplay(event.target.value as 'SYMBOL' | 'CODE')}><option value="SYMBOL">Rs.</option><option value="CODE">{currencyCode}</option></select>
+                  <small>{currencyDisplay === 'CODE' ? currencyCode : 'Rs.'} 12,345.67</small>
                 </div>
               </div>
 
@@ -220,13 +234,14 @@ export default function SystemSettingsPage() {
                 />
                 <div>
                   <div style={{ fontWeight: 800, fontSize: 14, color: '#B45309' }}>Enable Nepali Bikram Sambat (BS) Dual Display</div>
-                  <div style={{ fontSize: 12, color: '#92400E' }}>Displays current BS date (e.g. 2083 Bhadra) and Shrawan-Ashadh fiscal year across all front desk views and vouchers.</div>
+                  <div style={{ fontSize: 12, color: '#92400E' }}>Show BS dates alongside AD dates. Payroll continues to use BS months.</div>
                 </div>
               </label>
             </div>
-            </fieldset>
           </Card>
         )}
+
+        {activeTab === 'EMAIL' && <Card title="Password-reset Emails"><dl><dt>Delivery</dt><dd style={{ margin: '4px 0 16px' }}>{emailDelivery ? emailDelivery.configured ? 'Configured' : 'Not configured' : 'Loading…'}</dd><dt>Sender</dt><dd style={{ margin: '4px 0 16px' }}>{emailDelivery?.sender || 'Not set'}</dd></dl>{emailDelivery && !emailDelivery.configured && <p role="status">Configure the hotel's outgoing email service to deliver reset requests. Owner/Admin can reset passwords in <Link href="/admin/staff-access">Staff Portal Access</Link>.</p>}</Card>}
 
         {activeTab === 'ROLES' && (
           <Card title="Staff roles and portal access"><p style={{ marginBottom: 16 }}>Assign individual accounts from <Link href="/admin/staff-access">Staff Portal Access</Link>.</p>
@@ -271,13 +286,13 @@ export default function SystemSettingsPage() {
 
         {saveError && <p role="alert" style={{ color: 'var(--red)', marginTop: 12 }}>{saveError}</p>}
         {saveMessage && <p role="status" style={{ color: 'var(--green)', marginTop: 12 }}>{saveMessage}</p>}
-        {['PROPERTY', 'TAX'].includes(activeTab) && <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 24 }}>
-          <Button type="button" onClick={handleSaveSettings} disabled={saving} variant="primary">
+        {['PROPERTY', 'TAX', 'CALENDAR'].includes(activeTab) && <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 24 }}>
+          <Button type="button" onClick={handleSaveSettings} disabled={saving || !settingsLoaded} variant="primary">
             <Save size={16} />
             <span>{saving ? 'Saving…' : 'Save Configuration'}</span>
           </Button>
         </div>}
-      </div>
+      </fieldset>
     </div>
   );
 }

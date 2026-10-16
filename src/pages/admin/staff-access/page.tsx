@@ -31,8 +31,9 @@ export default function StaffAccessPage() {
   const [message, setMessage] = useState('');
 
   async function load() {
+    setLoading(true);
     try { const result = await request(); setAccounts(result.users); setStaff(result.staff); setRoles(result.roles); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to load staff accounts.'); }
+    catch (reason) { setAccounts([]); setStaff([]); setRoles([]); setError(reason instanceof Error ? reason.message : 'Unable to load staff accounts.'); }
     finally { setLoading(false); }
   }
   useEffect(() => { void load(); }, []);

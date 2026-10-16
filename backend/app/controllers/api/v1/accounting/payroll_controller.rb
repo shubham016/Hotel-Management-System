@@ -196,6 +196,10 @@ module Api
           bs_date = Calendars::BikramSambat.iso(date)
           fail!("BS payment date does not match the actual payment date") if params[:bs_paid_on].present? && params[:bs_paid_on] != bs_date
           fail!("Payment date cannot be in the future") if date > Date.current
+          property = default_property
+          if property.business_day_closings.exists?(business_date: date) || property.cashier_closings.exists?(business_date: date, status: "CLOSED")
+            raise ApiError.new("This payment date is closed. Reopen the cashier or choose an open payment date.", status: :conflict, code: "PAYROLL_PAYMENT_DATE_CLOSED")
+          end
           method = params.require(:payment_method).to_s
           fail!("Select Cash or Bank Transfer") unless method.in?(%w[CASH BANK_TRANSFER])
           reference = params[:payment_reference].to_s.strip.first(200)
@@ -213,7 +217,7 @@ module Api
           total = lines.sum { |_, debit, _| debit }
           fail!("Payroll journal is not balanced") unless total.positive? && total == lines.sum { |_, _, credit| credit }
           company = default_property.company
-          journal = company.journal_entries.create!(voucher_number: DocumentNumbers::NextNumber.call(company: company, property: default_property, document_type: "JOURNAL", date: date),
+          journal = company.journal_entries.create!(property: default_property, voucher_number: DocumentNumbers::NextNumber.call(company: company, property: default_property, document_type: "JOURNAL", date: date),
             voucher_type: "JOURNAL", posting_date: date, nepali_date: Calendars::BikramSambat.iso(date), narration: "#{label}: #{entry.employee_name}, #{entry.period_details[:label]} (#{default_property.code})",
             total_debit: total, total_credit: total, status: "POSTED", source_module: "PAYROLL")
           lines.each { |account, debit, credit| journal.journal_lines.create!(account: account, debit: debit, credit: credit, memo: journal.narration) }

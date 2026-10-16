@@ -2,6 +2,7 @@ module Api
   module V1
     module Cms
       class PagesController < BackendController
+        self.authorization_module_name = "CMS"
         skip_before_action :authenticate!, only: :index
         skip_before_action :authorize_request!, only: :index
 
@@ -28,7 +29,7 @@ module Api
           property = public_property
           pages = DEFAULT_PAGES.deep_dup
           pages["contact"][:contactInfo] = default_contact_info
-          property.company.cms_pages.where(property_id: [nil, property.id], published: true).includes(:cms_sections).find_each do |page|
+          property.company.cms_pages.where(property_id: [nil, property.id], published: true).includes(:cms_sections).order(Arel.sql("property_id IS NOT NULL ASC"), :slug).each do |page|
             hero = page.cms_sections.find { |section| section.section_key == "hero" }
             fallback = pages[page.slug] || {}
             pages[page.slug] = {
@@ -53,7 +54,10 @@ module Api
 
         def create
           property = default_property
-          page = property.company.cms_pages.find_or_initialize_by(slug: params.require(:slug))
+          slug = params.require(:slug).to_s
+          raise ApiError.new("Select a supported website page", status: :unprocessable_content, code: "INVALID_PAGE") unless DEFAULT_PAGES.key?(slug)
+          page = property.cms_pages.find_or_initialize_by(slug: slug)
+          page.company = property.company
           section = nil
           CmsPage.transaction do
           page.update!(

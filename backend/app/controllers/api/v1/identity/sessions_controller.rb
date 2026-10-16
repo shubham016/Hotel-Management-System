@@ -10,7 +10,7 @@ module Api
           password = params.require(:password)
           user = User.includes(:role, :company, :properties).find_by("lower(email) = ?", email)
 
-          unless user&.active? && user.authenticate(password)
+          unless user&.login_enabled? && user.authenticate(password)
             reason = user.nil? ? "ACCOUNT_NOT_FOUND" : user.active? ? "PASSWORD_MISMATCH" : "ACCOUNT_INACTIVE"
             Rails.logger.warn("Authentication failed request_id=#{request.request_id} reason=#{reason} user_id=#{user&.id || 'none'}")
             return render_error("Invalid email or password", status: :unauthorized, code: "INVALID_CREDENTIALS")
@@ -55,7 +55,9 @@ module Api
         private
 
         def user_payload(user)
+          property = Current.property || user.properties.where(active: true).order(:created_at).first
           {
+            displayPreferences: property&.display_preferences,
             userId: user.id,
             email: user.email,
             firstName: user.first_name,

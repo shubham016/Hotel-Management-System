@@ -11,6 +11,10 @@ Prioritize fast, correct fixes with focused verification.
 - Continue with available context. Ask for missing information only when necessary to resolve the issue correctly.
 - Keep progress updates and final explanations concise. Lead with the outcome and explain how the user can use the fix.
 
+# Documentation
+
+- Keep work records, review findings, verification results, and follow-up notes in the existing `docs/CONVERSATION.md` only. Do not create separate session, review, or follow-up Markdown files unless the user explicitly requests another location.
+
 # Interface wording
 
 - Keep Admin, Owner, and staff panels concise. Do not add generic descriptions, introductory paragraphs, formula explanations, marketing claims, or filler subtitles under page titles, cards, or dialogs.

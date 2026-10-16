@@ -27,7 +27,7 @@ module Api
         token = request.authorization.to_s.split.last
         payload = Authentication::Token.decode(token)
         user = payload && User.includes(:role, :company).find_by(id: payload[:sub], active: true)
-        return render_error("Authentication required", status: :unauthorized, code: "UNAUTHENTICATED") unless user
+        return render_error("Authentication required", status: :unauthorized, code: "UNAUTHENTICATED") unless user&.login_enabled?
         if payload[:sid].present? && !user.api_sessions.active.exists?(id: payload[:sid])
           return render_error("Session expired", status: :unauthorized, code: "SESSION_EXPIRED")
         end

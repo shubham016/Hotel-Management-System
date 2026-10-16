@@ -2,39 +2,49 @@ module Api
   module V1
     module Inventory
       class ItemsController < BackendController
+        include ::Supply::Support
         def index
           property = default_property
-          items = property.company.inventory_items.includes(stock_balances: :store).order(:name)
-          render json: { success: true, items: items.map { |item| serialize(item) }, stores: property.stores.as_json }
+          store = property.stores.find(params[:storeId]) if params[:storeId].present?
+          balances = StockBalance.joins(:store).where(stores: { property_id: property.id }).includes(:store).to_a.group_by(&:inventory_item_id)
+          items = property.company.inventory_items.order(:name).map do |item|
+            stocks = balances[item.id] || []
+            stocks = stocks.select { |b| b.store_id == store.id } if store
+            qty, value = stocks.sum(&:quantity_on_hand), stocks.sum(&:inventory_value)
+            { id: item.id, sku: item.item_code, name: item.name, category: item.category, unit: item.unit_of_measure,
+              unitPrice: (qty.positive? ? (value / qty).round(2) : item.standard_cost).to_f, standardCost: item.standard_cost.to_f,
+              currentStock: qty.to_f, minStock: item.min_reorder_level.to_f, isLow: qty <= item.min_reorder_level, totalValuation: value.to_f,
+              storesBreakdown: stocks.map { |b| { storeId: b.store_id, storeName: b.store.name, qty: b.quantity_on_hand.to_f, value: b.inventory_value.to_f } } }
+          end
+          movements = StockMovement.where(property:).includes(:inventory_item, :source_store, :destination_store, :user).order(created_at: :desc, id: :desc)
+          movements = movements.where("source_store_id = :id OR destination_store_id = :id", id: store.id) if store
+          render json: { success: true, openingReviewRequired: property.supply_opening_review_required, openingStockValue: StockBalance.joins(:store).where(stores:{property_id:property.id}).sum(:inventory_value).to_f,
+            postedStockValue: ::Supply::Portal.posted_stock_value(property).to_f, items:, stores: property.stores.order(:name).as_json(only: %i[id name code]), movements: movements.limit(100).map { |m| ::Supply::Portal.movement(m) } }
+        end
+
+        def reconcile
+          posting = ::Supply::Ledger.new(default_property).opening(params)
+          render json:{success:true,voucherNumber:posting.journal_entry&.voucher_number}
         end
 
         def create
-          item = default_property.company.inventory_items.find(params.require(:itemId))
-          qty = BigDecimal(params.require(:quantity).to_s)
-          balance = item.stock_balances.first
-          balance&.update!(quantity_on_hand: balance.quantity_on_hand - qty)
-          audit!("INVENTORY", "UPDATE", "InventoryItem", item.id, new_values: { issued_quantity: qty.to_s })
-          render json: { success: true, message: "Successfully issued #{qty.to_f} #{item.unit_of_measure} of #{item.name} to #{params[:departmentName].presence || 'Main Central Kitchen'}!" }
+          movement = ::Supply::MoveStock.call(property: default_property, params:)
+          render json: { success: true, data: ::Supply::Portal.movement(movement) }
         end
 
-        private
+        def catalog
+          company = default_property.company
+          item = company.inventory_items.create!(item_code: params.require(:sku).to_s.strip.upcase, name: params.require(:name).to_s.strip,
+            category: params[:category].presence || "GENERAL", unit_of_measure: params.require(:unit).to_s.strip,
+            standard_cost: decimal(params[:standardCost] || 0), min_reorder_level: decimal(params[:minStock] || 0))
+          audit!("INVENTORY", "CREATE", "InventoryItem", item.id, new_values: { sku: item.item_code })
+          render json: { success: true, data: item.as_json }
+        end
 
-        def serialize(item)
-          total_qty = item.stock_balances.sum(&:quantity_on_hand)
-          {
-            id: item.id,
-            sku: item.item_code,
-            name: item.name,
-            category: item.category,
-            unit: item.unit_of_measure,
-            unitPrice: item.standard_cost.to_f,
-            currentStock: total_qty.to_f,
-            minStock: item.min_reorder_level.to_f,
-            reorderPoint: item.min_reorder_level.to_f,
-            isLow: total_qty <= item.min_reorder_level,
-            totalValuation: (total_qty * item.standard_cost).to_f,
-            storesBreakdown: item.stock_balances.map { |stock| { storeName: stock.store.name, qty: stock.quantity_on_hand.to_f } }
-          }
+        def store
+          record = default_property.stores.create!(code: params.require(:code).to_s.strip.upcase, name: params.require(:name).to_s.strip)
+          audit!("INVENTORY", "CREATE", "Store", record.id, new_values: { code: record.code })
+          render json: { success: true, data: record.as_json }
         end
       end
     end

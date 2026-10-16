@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_15_000002) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_16_000004) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -96,8 +96,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000002) do
     t.decimal "advance_paid", precision: 14, scale: 2, default: "0.0", null: false
     t.uuid "banquet_hall_id", null: false
     t.string "booking_ref", null: false
+    t.decimal "cancellation_fee", precision: 14, scale: 2, default: "0.0", null: false
+    t.text "cancellation_reason"
+    t.datetime "cancelled_at"
     t.decimal "catering_charge", precision: 14, scale: 2, default: "0.0", null: false
+    t.decimal "catering_net", precision: 14, scale: 2, default: "0.0", null: false
+    t.datetime "completed_at"
     t.datetime "created_at", null: false
+    t.string "creation_digest"
+    t.string "creation_key"
     t.datetime "end_date_time", null: false
     t.string "event_name", null: false
     t.string "event_type", default: "CONFERENCE", null: false
@@ -105,17 +112,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000002) do
     t.uuid "guest_id", null: false
     t.decimal "hall_charge", precision: 14, scale: 2, default: "0.0", null: false
     t.string "hall_layout"
+    t.decimal "hall_net", precision: 14, scale: 2, default: "0.0", null: false
+    t.decimal "legacy_advance", precision: 14, scale: 2, default: "0.0", null: false
+    t.integer "lock_version", default: 0, null: false
     t.string "nepali_date"
     t.text "notes"
     t.integer "pax_count", default: 1, null: false
     t.uuid "property_id", null: false
     t.datetime "start_date_time", null: false
     t.string "status", default: "CONFIRMED", null: false
+    t.decimal "tax_amount", precision: 14, scale: 2, default: "0.0", null: false
+    t.jsonb "tax_snapshot", default: {}, null: false
     t.datetime "updated_at", null: false
     t.index ["banquet_hall_id"], name: "index_banquet_bookings_on_banquet_hall_id"
     t.index ["booking_ref"], name: "index_banquet_bookings_on_booking_ref", unique: true
     t.index ["guest_id"], name: "index_banquet_bookings_on_guest_id"
+    t.index ["property_id", "creation_key"], name: "index_banquet_bookings_on_property_id_and_creation_key", unique: true
     t.index ["property_id"], name: "index_banquet_bookings_on_property_id"
+    t.check_constraint "advance_paid >= 0::numeric AND legacy_advance >= 0::numeric AND cancellation_fee >= 0::numeric AND tax_amount >= 0::numeric", name: "banquet_nonnegative_balances"
   end
 
   create_table "banquet_halls", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -129,6 +143,31 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000002) do
     t.datetime "updated_at", null: false
     t.index ["property_id", "code"], name: "index_banquet_halls_on_property_id_and_code", unique: true
     t.index ["property_id"], name: "index_banquet_halls_on_property_id"
+  end
+
+  create_table "banquet_transactions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id"
+    t.decimal "amount", precision: 14, scale: 2, null: false
+    t.uuid "banquet_booking_id", null: false
+    t.date "business_date", null: false
+    t.datetime "created_at", null: false
+    t.string "document_number", null: false
+    t.string "idempotency_key", null: false
+    t.uuid "journal_entry_id"
+    t.string "kind", null: false
+    t.string "payment_method"
+    t.text "reason"
+    t.string "request_digest", null: false
+    t.string "transaction_reference"
+    t.datetime "updated_at", null: false
+    t.uuid "user_id", null: false
+    t.index ["account_id"], name: "index_banquet_transactions_on_account_id"
+    t.index ["banquet_booking_id", "idempotency_key"], name: "banquet_transaction_retry_key", unique: true
+    t.index ["banquet_booking_id"], name: "index_banquet_transactions_on_banquet_booking_id"
+    t.index ["document_number"], name: "index_banquet_transactions_on_document_number", unique: true
+    t.index ["journal_entry_id"], name: "index_banquet_transactions_on_journal_entry_id", unique: true
+    t.index ["user_id"], name: "index_banquet_transactions_on_user_id"
+    t.check_constraint "amount >= 0::numeric", name: "banquet_nonnegative_transaction"
   end
 
   create_table "business_day_closings", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -225,7 +264,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000002) do
     t.string "slug", null: false
     t.string "title", null: false
     t.datetime "updated_at", null: false
-    t.index ["company_id", "slug"], name: "index_cms_pages_on_company_id_and_slug", unique: true
+    t.index ["company_id", "property_id", "slug"], name: "index_cms_pages_on_company_id_and_property_id_and_slug", unique: true
+    t.index ["company_id", "slug"], name: "index_company_wide_cms_page_slugs", unique: true, where: "(property_id IS NULL)"
     t.index ["company_id"], name: "index_cms_pages_on_company_id"
     t.index ["property_id"], name: "index_cms_pages_on_property_id"
   end
@@ -374,13 +414,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000002) do
   end
 
   create_table "housekeeping_tasks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "assigned_staff_member_id"
     t.string "assigned_to"
     t.datetime "completed_at"
+    t.uuid "completed_by_id"
     t.datetime "created_at", null: false
     t.uuid "room_id", null: false
+    t.date "service_date"
     t.string "status", default: "PENDING", null: false
     t.string "task_type", default: "CLEANING", null: false
     t.datetime "updated_at", null: false
+    t.index ["assigned_staff_member_id"], name: "index_housekeeping_tasks_on_assigned_staff_member_id"
+    t.index ["completed_by_id"], name: "index_housekeeping_tasks_on_completed_by_id"
+    t.index ["room_id", "service_date"], name: "index_daily_stayover_service", unique: true, where: "((task_type)::text = 'STAYOVER'::text)"
     t.index ["room_id"], name: "index_housekeeping_tasks_on_room_id"
   end
 
@@ -630,15 +676,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000002) do
     t.uuid "company_id", null: false
     t.string "country", default: "Nepal", null: false
     t.datetime "created_at", null: false
+    t.string "currency_display", default: "SYMBOL", null: false
     t.string "email"
     t.text "laundry_collection_instructions"
     t.text "laundry_return_instructions"
     t.string "name", null: false
+    t.boolean "nepali_calendar_enabled", default: true, null: false
     t.string "phone"
+    t.boolean "supply_opening_review_required", default: false, null: false
     t.datetime "updated_at", null: false
     t.index ["code"], name: "index_properties_on_code", unique: true
     t.index ["company_id", "code"], name: "index_properties_on_company_id_and_code", unique: true
     t.index ["company_id"], name: "index_properties_on_company_id"
+    t.check_constraint "currency_display::text = ANY (ARRAY['SYMBOL'::character varying, 'CODE'::character varying]::text[])", name: "valid_property_currency_display"
   end
 
   create_table "purchase_order_items", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -648,16 +698,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000002) do
     t.decimal "line_total", precision: 14, scale: 2, default: "0.0", null: false
     t.uuid "purchase_order_id", null: false
     t.decimal "quantity", precision: 14, scale: 2, default: "1.0", null: false
+    t.decimal "received_quantity", precision: 14, scale: 2, default: "0.0", null: false
     t.decimal "unit_price", precision: 14, scale: 2, default: "0.0", null: false
     t.datetime "updated_at", null: false
     t.index ["inventory_item_id"], name: "index_purchase_order_items_on_inventory_item_id"
     t.index ["purchase_order_id"], name: "index_purchase_order_items_on_purchase_order_id"
+    t.check_constraint "received_quantity >= 0::numeric", name: "valid_received_quantity"
   end
 
   create_table "purchase_orders", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "approved_at"
+    t.text "cancellation_reason"
+    t.datetime "cancelled_at"
     t.uuid "company_id", null: false
     t.datetime "created_at", null: false
+    t.string "creation_digest"
+    t.string "creation_key"
     t.decimal "grand_total", precision: 14, scale: 2, default: "0.0", null: false
+    t.integer "lock_version", default: 0, null: false
     t.text "notes"
     t.date "order_date", null: false
     t.string "po_number", null: false
@@ -668,8 +726,29 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000002) do
     t.datetime "updated_at", null: false
     t.index ["company_id"], name: "index_purchase_orders_on_company_id"
     t.index ["po_number"], name: "index_purchase_orders_on_po_number", unique: true
+    t.index ["property_id", "creation_key"], name: "index_purchase_orders_on_property_id_and_creation_key", unique: true
     t.index ["property_id"], name: "index_purchase_orders_on_property_id"
     t.index ["supplier_id"], name: "index_purchase_orders_on_supplier_id"
+  end
+
+  create_table "purchase_receipts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.date "business_date", null: false
+    t.datetime "created_at", null: false
+    t.string "delivery_reference", null: false
+    t.string "idempotency_key", null: false
+    t.text "notes"
+    t.uuid "purchase_order_id", null: false
+    t.string "receipt_number", null: false
+    t.string "request_digest", null: false
+    t.uuid "store_id", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "user_id", null: false
+    t.index ["purchase_order_id", "delivery_reference"], name: "purchase_delivery_reference", unique: true
+    t.index ["purchase_order_id", "idempotency_key"], name: "purchase_receipt_retry_key", unique: true
+    t.index ["purchase_order_id"], name: "index_purchase_receipts_on_purchase_order_id"
+    t.index ["receipt_number"], name: "index_purchase_receipts_on_receipt_number", unique: true
+    t.index ["store_id"], name: "index_purchase_receipts_on_store_id"
+    t.index ["user_id"], name: "index_purchase_receipts_on_user_id"
   end
 
   create_table "rate_plans", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -847,12 +926,45 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000002) do
   create_table "stock_balances", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
     t.uuid "inventory_item_id", null: false
+    t.decimal "inventory_value", precision: 14, scale: 2, default: "0.0", null: false
     t.decimal "quantity_on_hand", precision: 14, scale: 2, default: "0.0", null: false
     t.uuid "store_id", null: false
     t.datetime "updated_at", null: false
     t.index ["inventory_item_id", "store_id"], name: "index_stock_balances_on_inventory_item_id_and_store_id", unique: true
     t.index ["inventory_item_id"], name: "index_stock_balances_on_inventory_item_id"
     t.index ["store_id"], name: "index_stock_balances_on_store_id"
+  end
+
+  create_table "stock_movements", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.date "business_date", null: false
+    t.datetime "created_at", null: false
+    t.string "department"
+    t.uuid "destination_store_id"
+    t.string "document_number", null: false
+    t.string "idempotency_key", null: false
+    t.uuid "inventory_item_id", null: false
+    t.string "kind", null: false
+    t.text "notes"
+    t.uuid "property_id", null: false
+    t.uuid "purchase_order_item_id"
+    t.uuid "purchase_receipt_id"
+    t.decimal "quantity", precision: 14, scale: 2, null: false
+    t.string "request_digest", null: false
+    t.uuid "source_store_id"
+    t.decimal "total_cost", precision: 14, scale: 2, null: false
+    t.decimal "unit_cost", precision: 16, scale: 4, null: false
+    t.datetime "updated_at", null: false
+    t.uuid "user_id", null: false
+    t.index ["destination_store_id"], name: "index_stock_movements_on_destination_store_id"
+    t.index ["document_number"], name: "index_stock_movements_on_document_number", unique: true
+    t.index ["inventory_item_id"], name: "index_stock_movements_on_inventory_item_id"
+    t.index ["property_id", "idempotency_key"], name: "index_stock_movements_on_property_id_and_idempotency_key", unique: true
+    t.index ["property_id"], name: "index_stock_movements_on_property_id"
+    t.index ["purchase_order_item_id"], name: "index_stock_movements_on_purchase_order_item_id"
+    t.index ["purchase_receipt_id"], name: "index_stock_movements_on_purchase_receipt_id"
+    t.index ["source_store_id"], name: "index_stock_movements_on_source_store_id"
+    t.index ["user_id"], name: "index_stock_movements_on_user_id"
+    t.check_constraint "quantity > 0::numeric AND unit_cost >= 0::numeric AND total_cost >= 0::numeric", name: "valid_stock_movement_amounts"
   end
 
   create_table "stores", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -865,6 +977,88 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000002) do
     t.index ["property_id"], name: "index_stores_on_property_id"
   end
 
+  create_table "supplier_invoice_lines", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.decimal "line_total", precision: 14, scale: 2, default: "0.0", null: false
+    t.decimal "quantity", precision: 14, scale: 2, default: "0.0", null: false
+    t.decimal "received_cost", precision: 14, scale: 2, default: "0.0", null: false
+    t.uuid "stock_movement_id", null: false
+    t.uuid "supplier_invoice_id", null: false
+    t.decimal "unit_price", precision: 14, scale: 2, default: "0.0", null: false
+    t.datetime "updated_at", null: false
+    t.index ["stock_movement_id"], name: "index_supplier_invoice_lines_on_stock_movement_id"
+    t.index ["supplier_invoice_id", "stock_movement_id"], name: "one_receipt_line_per_bill", unique: true
+    t.index ["supplier_invoice_id"], name: "index_supplier_invoice_lines_on_supplier_invoice_id"
+    t.check_constraint "quantity > 0::numeric AND unit_price >= 0::numeric AND line_total >= 0::numeric AND received_cost >= 0::numeric", name: "valid_supplier_invoice_line"
+  end
+
+  create_table "supplier_invoices", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "company_id", null: false
+    t.datetime "created_at", null: false
+    t.string "creation_digest", null: false
+    t.string "creation_key", null: false
+    t.decimal "declared_total", precision: 14, scale: 2, default: "0.0", null: false
+    t.string "document_number", null: false
+    t.date "due_date", null: false
+    t.decimal "grand_total", precision: 14, scale: 2, default: "0.0", null: false
+    t.date "invoice_date", null: false
+    t.string "invoice_reference", null: false
+    t.uuid "journal_entry_id"
+    t.integer "lock_version", default: 0, null: false
+    t.text "notes"
+    t.datetime "posted_at"
+    t.uuid "property_id", null: false
+    t.uuid "purchase_order_id", null: false
+    t.uuid "reversal_journal_id"
+    t.string "status", default: "DRAFT", null: false
+    t.decimal "sub_total", precision: 14, scale: 2, default: "0.0", null: false
+    t.uuid "supplier_id", null: false
+    t.decimal "tax_amount", precision: 14, scale: 2, default: "0.0", null: false
+    t.decimal "tax_rate", precision: 7, scale: 4, default: "0.0", null: false
+    t.decimal "total_paid", precision: 14, scale: 2, default: "0.0", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "user_id", null: false
+    t.text "void_reason"
+    t.datetime "voided_at"
+    t.index ["company_id", "supplier_id", "invoice_reference"], name: "supplier_invoice_number_once", unique: true, where: "((status)::text <> 'VOID'::text)"
+    t.index ["company_id"], name: "index_supplier_invoices_on_company_id"
+    t.index ["document_number"], name: "index_supplier_invoices_on_document_number", unique: true
+    t.index ["journal_entry_id"], name: "index_supplier_invoices_on_journal_entry_id"
+    t.index ["property_id", "creation_key"], name: "index_supplier_invoices_on_property_id_and_creation_key", unique: true
+    t.index ["property_id"], name: "index_supplier_invoices_on_property_id"
+    t.index ["purchase_order_id"], name: "index_supplier_invoices_on_purchase_order_id"
+    t.index ["reversal_journal_id"], name: "index_supplier_invoices_on_reversal_journal_id"
+    t.index ["supplier_id"], name: "index_supplier_invoices_on_supplier_id"
+    t.index ["user_id"], name: "index_supplier_invoices_on_user_id"
+    t.check_constraint "grand_total >= 0::numeric AND total_paid >= 0::numeric AND total_paid <= grand_total AND tax_amount >= 0::numeric", name: "valid_supplier_invoice_balances"
+  end
+
+  create_table "supplier_payments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.decimal "amount", precision: 14, scale: 2, null: false
+    t.date "business_date", null: false
+    t.datetime "created_at", null: false
+    t.string "document_number", null: false
+    t.string "idempotency_key", null: false
+    t.uuid "journal_entry_id", null: false
+    t.string "payment_method", null: false
+    t.uuid "property_id", null: false
+    t.string "request_digest", null: false
+    t.uuid "supplier_invoice_id", null: false
+    t.string "transaction_reference"
+    t.datetime "updated_at", null: false
+    t.uuid "user_id", null: false
+    t.index ["account_id"], name: "index_supplier_payments_on_account_id"
+    t.index ["document_number"], name: "index_supplier_payments_on_document_number", unique: true
+    t.index ["journal_entry_id"], name: "index_supplier_payments_on_journal_entry_id"
+    t.index ["property_id", "idempotency_key"], name: "index_supplier_payments_on_property_id_and_idempotency_key", unique: true
+    t.index ["property_id", "transaction_reference"], name: "supplier_transfer_once", unique: true, where: "((payment_method)::text = 'BANK_TRANSFER'::text)"
+    t.index ["property_id"], name: "index_supplier_payments_on_property_id"
+    t.index ["supplier_invoice_id"], name: "index_supplier_payments_on_supplier_invoice_id"
+    t.index ["user_id"], name: "index_supplier_payments_on_user_id"
+    t.check_constraint "amount > 0::numeric", name: "positive_supplier_payment"
+  end
+
   create_table "suppliers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "address"
     t.uuid "company_id", null: false
@@ -874,6 +1068,27 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000002) do
     t.string "phone"
     t.datetime "updated_at", null: false
     t.index ["company_id"], name: "index_suppliers_on_company_id"
+  end
+
+  create_table "supply_postings", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "idempotency_key", null: false
+    t.uuid "journal_entry_id"
+    t.string "kind", null: false
+    t.uuid "property_id", null: false
+    t.uuid "purchase_receipt_id"
+    t.text "reason"
+    t.string "request_digest", null: false
+    t.jsonb "snapshot", default: {}, null: false
+    t.uuid "stock_movement_id"
+    t.datetime "updated_at", null: false
+    t.uuid "user_id", null: false
+    t.index ["journal_entry_id"], name: "index_supply_postings_on_journal_entry_id", unique: true
+    t.index ["property_id", "idempotency_key"], name: "index_supply_postings_on_property_id_and_idempotency_key", unique: true
+    t.index ["property_id"], name: "index_supply_postings_on_property_id"
+    t.index ["purchase_receipt_id"], name: "index_supply_postings_on_purchase_receipt_id", unique: true
+    t.index ["stock_movement_id"], name: "index_supply_postings_on_stock_movement_id", unique: true
+    t.index ["user_id"], name: "index_supply_postings_on_user_id"
   end
 
   create_table "tax_configurations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -934,6 +1149,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000002) do
   add_foreign_key "banquet_bookings", "guests"
   add_foreign_key "banquet_bookings", "properties"
   add_foreign_key "banquet_halls", "properties"
+  add_foreign_key "banquet_transactions", "accounts"
+  add_foreign_key "banquet_transactions", "banquet_bookings"
+  add_foreign_key "banquet_transactions", "journal_entries"
+  add_foreign_key "banquet_transactions", "users"
   add_foreign_key "business_day_closings", "cashier_closings"
   add_foreign_key "business_day_closings", "properties"
   add_foreign_key "business_day_closings", "users", column: "closed_by_id"
@@ -957,6 +1176,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000002) do
   add_foreign_key "folios", "reservations"
   add_foreign_key "guests", "companies"
   add_foreign_key "housekeeping_tasks", "rooms"
+  add_foreign_key "housekeeping_tasks", "staff_members", column: "assigned_staff_member_id"
+  add_foreign_key "housekeeping_tasks", "users", column: "completed_by_id"
   add_foreign_key "inventory_items", "companies"
   add_foreign_key "journal_entries", "companies"
   add_foreign_key "journal_entries", "properties"
@@ -990,6 +1211,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000002) do
   add_foreign_key "purchase_orders", "companies"
   add_foreign_key "purchase_orders", "properties"
   add_foreign_key "purchase_orders", "suppliers"
+  add_foreign_key "purchase_receipts", "purchase_orders"
+  add_foreign_key "purchase_receipts", "stores"
+  add_foreign_key "purchase_receipts", "users"
   add_foreign_key "rate_plans", "properties"
   add_foreign_key "rate_plans", "room_types"
   add_foreign_key "reservation_rooms", "reservations"
@@ -1008,8 +1232,34 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000002) do
   add_foreign_key "staff_members", "properties"
   add_foreign_key "stock_balances", "inventory_items"
   add_foreign_key "stock_balances", "stores"
+  add_foreign_key "stock_movements", "inventory_items"
+  add_foreign_key "stock_movements", "properties"
+  add_foreign_key "stock_movements", "purchase_order_items"
+  add_foreign_key "stock_movements", "purchase_receipts"
+  add_foreign_key "stock_movements", "stores", column: "destination_store_id"
+  add_foreign_key "stock_movements", "stores", column: "source_store_id"
+  add_foreign_key "stock_movements", "users"
   add_foreign_key "stores", "properties"
+  add_foreign_key "supplier_invoice_lines", "stock_movements"
+  add_foreign_key "supplier_invoice_lines", "supplier_invoices"
+  add_foreign_key "supplier_invoices", "companies"
+  add_foreign_key "supplier_invoices", "journal_entries"
+  add_foreign_key "supplier_invoices", "journal_entries", column: "reversal_journal_id"
+  add_foreign_key "supplier_invoices", "properties"
+  add_foreign_key "supplier_invoices", "purchase_orders"
+  add_foreign_key "supplier_invoices", "suppliers"
+  add_foreign_key "supplier_invoices", "users"
+  add_foreign_key "supplier_payments", "accounts"
+  add_foreign_key "supplier_payments", "journal_entries"
+  add_foreign_key "supplier_payments", "properties"
+  add_foreign_key "supplier_payments", "supplier_invoices"
+  add_foreign_key "supplier_payments", "users"
   add_foreign_key "suppliers", "companies"
+  add_foreign_key "supply_postings", "journal_entries"
+  add_foreign_key "supply_postings", "properties"
+  add_foreign_key "supply_postings", "purchase_receipts"
+  add_foreign_key "supply_postings", "stock_movements"
+  add_foreign_key "supply_postings", "users"
   add_foreign_key "tax_configurations", "companies"
   add_foreign_key "user_properties", "properties"
   add_foreign_key "user_properties", "users"

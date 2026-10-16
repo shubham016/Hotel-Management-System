@@ -12,6 +12,7 @@ import {
   getNepaliFiscalYear,
   toNepaliDigits
 } from '@inicrea/bikram-sambat-core';
+import { showNepaliDates } from './display-preferences';
 
 export const NEPALI_MONTHS_EN = [...BS_MONTHS_EN];
 export const NEPALI_MONTHS_NP = [...BS_MONTHS_NE];
@@ -121,7 +122,7 @@ export function formatDualDate(dateInput: Date | string): DualDateInfo {
     bsFormatted: bsInfo.bsFormatted,
     bsNepaliText: bsInfo.bsNepaliText,
     bsMonthName: bsInfo.bsMonthName,
-    combined: `${adFormatted} (${bsInfo.bsFormatted} BS)`,
+    combined: showNepaliDates() ? `${adFormatted} (${bsInfo.bsFormatted} BS)` : adFormatted,
     fiscalYearBS
   };
 }

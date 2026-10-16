@@ -25,7 +25,7 @@ module Api
         def destroy
           floor = default_property.floors.find(params[:id])
           if default_property.rooms.exists?(floor: floor.number)
-            raise ApiError.new("Move or deactivate the rooms on this floor before deleting it", status: :unprocessable_content, code: "FLOOR_IN_USE")
+            raise ApiError.new("Move the rooms off this floor before deleting it", status: :unprocessable_content, code: "FLOOR_IN_USE")
           end
           audit!("ROOMS", "DELETE", "Floor", floor.id, old_values: floor.attributes.slice("number", "name"))
           floor.destroy!

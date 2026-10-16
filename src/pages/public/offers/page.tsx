@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Sparkles, Calendar, Tag, ArrowRight, Check } from 'lucide-react';
 import Link from '@/lib/router';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -13,44 +13,9 @@ export default function OffersPage() {
     heroDescription: 'Exclusive rates and value-added experiences when you book directly with Hotel New Era, Butwal.'
   });
 
-  const [offers, setOffers] = useState<any[]>([
-    {
-      id: '1',
-      title: 'Lumbini Pilgrimage & Spiritual Package',
-      code: 'LUMBINI15',
-      discountPct: 15,
-      validUntil: '2026-12-31',
-      description: '2 Nights stay in Deluxe Room, complimentary breakfast, guided Lumbini Sacred Garden itinerary, and evening Thakali dinner at Dhiki Restaurant.',
-      bannerUrl: 'https://images.unsplash.com/photo-1544735716-392fe2489ffa?auto=format&fit=crop&w=800&q=80'
-    },
-    {
-      id: '2',
-      title: 'Butwal Weekend Leisure Getaway',
-      code: 'WEEKEND20',
-      discountPct: 20,
-      validUntil: '2026-12-31',
-      description: 'Special weekend rate on Luxury Rooms with welcome drinks on New Era Terrace Bar, late checkout at 2:00 PM, and 10% F&B discount.',
-      bannerUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80'
-    },
-    {
-      id: '3',
-      title: 'Corporate Executive Seminar & Stay Bundle',
-      code: 'CORPEXEC',
-      discountPct: 10,
-      validUntil: '2026-12-31',
-      description: 'Full-day seminar in Devakala Executive Suite + Deluxe room accommodation, high-speed fiber internet, LCD projector, and 2-course high-tea.',
-      bannerUrl: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=800&q=80'
-    },
-    {
-      id: '4',
-      title: 'Honeymoon Romance & Candlelight Dinner',
-      code: 'ROMANCE25',
-      discountPct: 25,
-      validUntil: '2026-12-31',
-      description: '2 Nights in Honeymoon Suite with fresh floral bed styling, celebratory wine bottle, private candlelight dinner on Terrace Lounge, and breakfast in bed.',
-      bannerUrl: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80'
-    }
-  ]);
+  const [offers, setOffers] = useState<any[]>([]);
+  const [offersLoading, setOffersLoading] = useState(true);
+  const [offersError, setOffersError] = useState('');
 
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
@@ -78,11 +43,12 @@ export default function OffersPage() {
     fetch('/api/cms/offers')
       .then(res => res.json())
       .then(data => {
-        if (data.success && data.offers && data.offers.length > 0) {
+        if (data.success && Array.isArray(data.offers)) {
           setOffers(data.offers);
-        }
+        } else throw new Error(data.error || 'Unable to load current offers.');
       })
-      .catch(console.error);
+      .catch(() => setOffersError('Unable to load current offers. Please retry.'))
+      .finally(() => setOffersLoading(false));
   }, []);
 
   const handleCopyCode = (code: string) => {
@@ -120,6 +86,7 @@ export default function OffersPage() {
       </div>
 
       <div style={{ maxWidth: 1200, margin: '50px auto', padding: '0 24px' }}>
+        {offersLoading ? <p role="status">Loading current offers…</p> : offersError ? <p role="alert">{offersError}</p> : !offers.length && <p>No current offers available.</p>}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 32 }}>
           {offers.map((offer) => (
             <div key={offer.id} id={`offer-${offer.id}`} className="hne-card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', scrollMarginTop: 110 }}>

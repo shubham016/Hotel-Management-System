@@ -4,37 +4,33 @@ module Api
       class BookingsController < BackendController
         def index
           property = default_property
-          bookings = property.banquet_bookings.includes(:banquet_hall, :guest).order(:start_date_time)
-          render json: { success: true, halls: property.banquet_halls.where(active: true).order(theater_capacity: :desc).as_json, bookings: bookings.map { |booking| serialize(booking) } }
+          bookings = property.banquet_bookings.includes(:banquet_hall, :guest, banquet_transactions: [:user, :journal_entry]).order(:start_date_time)
+          render json: { success: true, businessDate: property.operating_date, tax: ::Banquet::Quote.tax(property.company, property.operating_date),
+            accounts: property.company.accounts.where(active: true).order(:account_code).select(&:cash_or_bank?).map { |a| { id: a.id, code: a.account_code, name: a.name } },
+            halls: property.banquet_halls.where(active: true).order(theater_capacity: :desc).as_json, bookings: bookings.map { |booking| serialize(booking) } }
+        end
+
+        def show
+          render json: { success: true, data: serialize(default_property.banquet_bookings.find(params[:id])) }
         end
 
         def create
-          property = default_property
-          hall = property.banquet_halls.find_by!(code: params[:hallCode].presence || "NILKANTHA-01")
-          first, last = split_name(params[:guestName].presence || "Valued Client")
-          guest = property.company.guests.find_or_create_by!(phone: params[:phone].presence || "+977-9800000000") { |g| g.first_name = first; g.last_name = last; g.email = params[:email] }
-          rent = BigDecimal(params[:hallRent].presence || hall.base_rent.to_s)
-          catering = BigDecimal(params[:cateringTotal].presence || "0")
-          booking = property.banquet_bookings.create!(
-            banquet_hall: hall,
-            guest:,
-            booking_ref: DocumentNumbers::NextNumber.call(company: property.company, property:, document_type: "BANQUET"),
-            event_name: params[:eventName].presence || "#{hall.name} Event",
-            event_type: params[:eventType].presence || "CONFERENCE",
-            start_date_time: params[:startDate].presence || Time.current,
-            end_date_time: params[:endDate].presence || params[:startDate].presence || Time.current,
-            nepali_date: Date.current.iso8601,
-            pax_count: params[:expectedPax].presence || 100,
-            hall_layout: params[:setupLayout],
-            hall_charge: rent,
-            catering_charge: catering,
-            grand_total: rent + catering,
-            advance_paid: params[:advancePaid].presence || 0,
-            notes: params[:specialRequests],
-            status: "CONFIRMED"
-          )
-          audit!("BANQUET", "CREATE", "BanquetBooking", booking.id, new_values: { booking_ref: booking.booking_ref })
-          render json: { success: true, message: "Banquet event booked successfully!", data: booking.as_json }
+          booking = ::Banquet::SaveBooking.call(property: default_property, params:)
+          render json: { success: true, data: serialize(booking) }
+        end
+
+        def update
+          booking = default_property.banquet_bookings.find(params[:id])
+          booking = ::Banquet::SaveBooking.call(property: default_property, params:, booking:)
+          render json: { success: true, data: serialize(booking) }
+        end
+
+        %w[receipt refund settle cancel reconcile].each do |operation|
+          define_method(operation) do
+            booking = default_property.banquet_bookings.find(params[:id])
+            booking = ::Banquet::Finance.call(booking:, action: operation, params:)
+            render json: { success: true, data: serialize(booking) }
+          end
         end
 
         private
@@ -57,10 +53,25 @@ module Api
             setupLayout: booking.hall_layout,
             hallRent: booking.hall_charge.to_f,
             cateringTotal: booking.catering_charge.to_f,
+            hallNet: booking.hall_net.to_f,
+            cateringNet: booking.catering_net.to_f,
+            taxAmount: booking.tax_amount.to_f,
+            tax: booking.tax_snapshot,
             grandTotal: booking.grand_total.to_f,
             advancePaid: booking.advance_paid.to_f,
-            balanceDue: (booking.grand_total - booking.advance_paid).to_f,
-            status: booking.status
+            balanceDue: booking.balance_due.to_f,
+            legacyAdvance: booking.legacy_advance.to_f,
+            cancellationFee: booking.cancellation_fee.to_f,
+            refundDue: booking.refund_due.to_f,
+            cancellationReason: booking.cancellation_reason,
+            notes: booking.notes,
+            version: booking.lock_version,
+            status: booking.status,
+            transactions: booking.banquet_transactions.sort_by(&:created_at).map { |t| {
+              id: t.id, kind: t.kind, number: t.document_number, amount: t.amount.to_f, method: t.payment_method,
+              reference: t.transaction_reference, businessDate: t.business_date, createdAt: t.created_at,
+              voucherNumber: t.journal_entry&.voucher_number, user: t.user.full_name, reason: t.reason
+            } }
           }
         end
       end

@@ -19,7 +19,7 @@ module BusinessDays
           opening = money(params[:openingCash])
           counted = money(params[:countedCash])
           expected = opening + BigDecimal(review[:cashNet])
-          raise ApiError.new("Opening cash does not cover cash refunds", status: :unprocessable_content, code: "INSUFFICIENT_OPENING_CASH") if expected.negative?
+          raise ApiError.new("Opening cash does not cover cash refunds and payments", status: :unprocessable_content, code: "INSUFFICIENT_OPENING_CASH") if expected.negative?
           variance = counted - expected
           notes = params[:notes].to_s.strip
           raise ApiError.new("Explain the cash difference before closing", status: :unprocessable_content, code: "VARIANCE_REASON_REQUIRED") if !variance.zero? && notes.length < 3
@@ -36,7 +36,10 @@ module BusinessDays
           cashier = property.cashier_closings.find_by(business_date: date, status: "CLOSED")
           blockers = review[:blockers].dup
           blockers << "Close and reconcile the cashier" unless cashier
-          if cashier && (cashier.snapshot.slice("receiptIds", "refundIds", "posReceiptIds") != review.stringify_keys.slice("receiptIds", "refundIds", "posReceiptIds") || cashier.snapshot["tenders"] != review[:tenders].map(&:stringify_keys))
+          receipt_keys = %w[receiptIds refundIds posReceiptIds banquetReceiptIds banquetRefundIds supplierPaymentIds payrollPaymentIds payrollAdvanceIds]
+          # Older saved cashier evidence predates supplier-payment columns.
+          saved_tenders = cashier&.snapshot&.fetch("tenders", [])&.map { |t| {"payments"=>"0", "payrollPayments"=>"0"}.merge(t) }
+          if cashier && (receipt_keys.any? { |key| cashier.snapshot.fetch(key, []) != review.stringify_keys.fetch(key, []) } || saved_tenders != review[:tenders].map(&:stringify_keys))
             blockers << "Receipts changed. Reopen and reconcile the cashier"
           end
           raise ApiError.new(blockers.join(". "), status: :conflict, code: "DAY_NOT_READY", details: blockers) if blockers.any?

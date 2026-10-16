@@ -114,7 +114,67 @@ class DashboardTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "operational revenue uses net posted property revenue including other revenue accounts" do
+    today = @property.operating_date
+    other = @company.properties.create!(name: "Other branch", code: "DASH-OTHER")
+    post_revenue(@property, "4001", 1000)
+    post_revenue(@property, "4001", -100)
+    own_sale = post_revenue(@property, "4002", 200, source_module: "POS_RESTAURANT")
+    post_revenue(@property, "4099", 250)
+    post_revenue(other, "4001", 9000)
+    post_revenue(other, "4002", 5000, source_module: "POS_RESTAURANT")
+    post_revenue(@property, "4001", 7000, status: "DRAFT")
+    post_revenue(nil, "4001", 6000)
+
+    get "/api/v1/dashboard", headers: auth_headers
+    assert_response :success
+    body = response.parsed_body
+    assert_equal 900, body.dig("revenue", "today", "room")
+    assert_equal 200, body.dig("revenue", "today", "fnb")
+    assert_equal 1350, body.dig("revenue", "today", "total")
+    assert_equal 1350, body.dig("trends", "revenue").last
+    assert_equal 1, body.dig("pos", "ordersToday")
+    assert_equal 4, body["recentTransactions"].length
+    assert body["recentTransactions"].any? { |entry| entry["voucherNumber"] == own_sale.voucher_number }
+
+    get "/api/v1/dashboard", params: { compact: "true" }, headers: auth_headers
+    assert_response :success
+    assert_equal 4, response.parsed_body["recentTransactions"].length
+    assert_equal 1, response.parsed_body.dig("pos", "ordersToday")
+  end
+
+  test "in-house trends reflect completed stays rather than repeating current occupancy" do
+    today = @property.operating_date
+    departed = create_reservation(status: "CHECKED_OUT", check_in_date: today - 3, check_out_date: today - 1, adults_count: 2)
+    departed.update!(checked_in_at: (today - 3).in_time_zone.change(hour: 14), checked_out_at: (today - 1).in_time_zone.change(hour: 10))
+    staying = create_reservation(status: "CHECKED_IN", check_in_date: today, check_out_date: today + 2, adults_count: 1)
+    staying.update!(checked_in_at: today.in_time_zone.change(hour: 8))
+    get "/api/v1/dashboard", headers: auth_headers
+    assert_response :success
+    assert_equal [0, 0, 0, 2, 2, 0, 1], response.parsed_body.dig("trends", "inHouse")
+    assert_equal 1, response.parsed_body.dig("guests", "inHouseGuests")
+  end
+
+  test "legacy checkout revenue is attributed only through its own property folio" do
+    reservation = create_reservation(status: "CHECKED_OUT", check_in_date: Date.current - 1, check_out_date: Date.current, adults_count: 1)
+    folio = @property.folios.create!(reservation:, guest: reservation.guest, folio_number: "DASH-LEGACY-#{SecureRandom.hex(6)}")
+    post_revenue(nil, "4001", 300, source_reference: "PMS_CHECKOUT:#{folio.id}")
+    get "/api/v1/dashboard", headers: auth_headers
+    assert_response :success
+    assert_equal 300, response.parsed_body.dig("revenue", "today", "total")
+  end
+
   private
+
+  def post_revenue(property, code, amount, status: "POSTED", source_module: "DASHBOARD_TEST", source_reference: SecureRandom.uuid)
+    account = @company.accounts.find_or_create_by!(account_code: code) { |a| a.name = "Test revenue #{code}"; a.category = "REVENUE" }
+    offset = @company.accounts.find_or_create_by!(account_code: "1001") { |a| a.name = "Test cash"; a.category = "ASSET" }
+    entry = @company.journal_entries.create!(property:, voucher_number: "DASH-JV-#{SecureRandom.hex(8)}", voucher_type: "SALES", posting_date: @property.operating_date,
+      narration: "Dashboard verification", total_debit: amount.abs, total_credit: amount.abs, status:, source_module:, source_reference:)
+    entry.journal_lines.create!(account:, debit: amount.negative? ? amount.abs : 0, credit: amount.positive? ? amount : 0)
+    entry.journal_lines.create!(account: offset, debit: amount.positive? ? amount : 0, credit: amount.negative? ? amount.abs : 0)
+    entry
+  end
 
   def auth_headers
     { "Authorization" => "Bearer #{@token}", "X-Property-Code" => @property.code }

@@ -11,11 +11,11 @@ module Access
 
     def self.call(email:)
       user = User.active_scope.includes(:role).find_by("lower(email) = ?", email.to_s.strip.downcase)
-      return unless user && !user.role.name.in?(%w[OWNER SUPER_ADMIN])
+      return unless user&.login_enabled? && !user.role.name.in?(%w[OWNER SUPER_ADMIN])
 
       requested_at = nil
       user.with_lock do
-        return unless user.active?
+        return unless user.login_enabled?
         return if user.password_reset_requested_at && user.password_reset_requested_at > COOLDOWN.ago
         recipients = administrators_for(user).to_a
         return if recipients.empty?

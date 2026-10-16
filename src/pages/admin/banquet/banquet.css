@@ -1,0 +1,6 @@
+.hne-client-record-dialog.banquet-event-details {
+  width: min(920px, calc(100vw - 32px));
+}
+.banquet-event-details .hne-table {
+  min-width: 760px;
+}

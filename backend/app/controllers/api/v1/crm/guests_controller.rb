@@ -3,13 +3,24 @@ module Api
     module Crm
       class GuestsController < BackendController
         def index
-          guests = default_property.company.guests.includes(:reservations).order(lifetime_spend: :desc)
+          guests = default_property.company.guests.order(:first_name, :last_name)
           render json: { success: true, guests: guests.map { |guest| serialize(guest) } }
         end
 
         def create
           company = default_property.company
-          guest = params[:id].present? ? company.guests.find(params[:id]) : company.guests.find_or_initialize_by(phone: params.require(:phone))
+          if params[:id].present?
+            authorize!("GUESTS", "update")
+            guest = company.guests.find(params[:id])
+            if company.guests.where.not(id: guest.id).exists?(normalized_phone: params.require(:phone).to_s.gsub(/\D/, ""))
+              raise ApiError.new("Another guest already uses this phone", status: :conflict, code: "GUEST_EXISTS")
+            end
+          else
+            if company.guests.exists?(normalized_phone: params.require(:phone).to_s.gsub(/\D/, ""))
+              raise ApiError.new("A guest with this phone already exists. Open their profile to edit it.", status: :conflict, code: "GUEST_EXISTS")
+            end
+            guest = company.guests.new
+          end
           guest.update!(
             first_name: params.require(:firstName),
             last_name: params.require(:lastName),
@@ -27,6 +38,7 @@ module Api
         private
 
         def serialize(guest)
+          reservations = guest.reservations.where(property_id: permitted_properties.select(:id))
           {
             id: guest.id,
             name: guest.full_name,
@@ -34,14 +46,15 @@ module Api
             lastName: guest.last_name,
             email: guest.email || "N/A",
             phone: guest.phone,
-            city: guest.city || "Butwal / Nepal",
+            city: guest.city || "",
             country: guest.country,
             vipLevel: guest.vip_level,
-            stayCount: guest.stay_count,
-            lifetimeSpend: guest.lifetime_spend.to_f,
-            preferences: guest.preferences || "Standard preferred amenities",
+            stayCount: reservations.where(status: %w[CHECKED_IN CHECKED_OUT]).count,
+            lifetimeSpend: guest.folios.where(property_id: permitted_properties.select(:id), status: "CLOSED").sum(:grand_total).to_f,
+            preferences: guest.preferences || "",
+            notes: guest.notes,
             isBlacklisted: guest.blacklisted,
-            recentReservations: guest.reservations.order(check_in_date: :desc).limit(5).map do |reservation|
+            recentReservations: reservations.order(check_in_date: :desc).limit(5).map do |reservation|
               {
                 id: reservation.id,
                 confirmationNumber: reservation.confirmation_number,

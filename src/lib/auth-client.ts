@@ -1,8 +1,10 @@
+import type { DisplayPreferences } from './display-preferences';
 const TOKEN_KEY = 'hne_access_token';
 const PROFILE_KEY = 'hne_session_profile';
 const REFRESH_KEY = 'hne_refresh_token';
 
 export type SessionProfile = {
+  displayPreferences?: DisplayPreferences;
   email: string;
   firstName?: string;
   lastName?: string;
@@ -27,7 +29,7 @@ export const authClient = {
     other.removeItem(TOKEN_KEY); other.removeItem(PROFILE_KEY); other.removeItem(REFRESH_KEY);
     storage.setItem(TOKEN_KEY, data.token);
     if (data.refreshToken) storage.setItem(REFRESH_KEY, data.refreshToken);
-    storage.setItem(PROFILE_KEY, JSON.stringify({ email: data.email, firstName: data.firstName, lastName: data.lastName, role: data.role, roleLabel: data.roleLabel, permissions: data.permissions, fullAccess: data.fullAccess, userId: data.userId, properties: data.properties }));
+    storage.setItem(PROFILE_KEY, JSON.stringify({ email: data.email, firstName: data.firstName, lastName: data.lastName, role: data.role, roleLabel: data.roleLabel, permissions: data.permissions, fullAccess: data.fullAccess, userId: data.userId, properties: data.properties, displayPreferences: data.displayPreferences }));
   },
   updateProfile(data: SessionProfile) {
     const storage = window.localStorage.getItem(TOKEN_KEY) ? window.localStorage : window.sessionStorage;

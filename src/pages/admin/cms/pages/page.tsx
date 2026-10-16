@@ -7,6 +7,8 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { GuestFeedbackManager } from './GuestFeedbackManager';
+import './cms-pages.css';
+import { FormDialog } from '@/components/admin/FormDialog';
 
 function CmsImageField({
   label,
@@ -196,6 +198,7 @@ export default function CMSPagesManager() {
 
   // Special Offers State
   const [offersList, setOffersList] = useState<any[]>([]);
+  const [offersError, setOffersError] = useState('');
   const [showOfferModal, setShowOfferModal] = useState(false);
   const [editingOffer, setEditingOffer] = useState<any>({
     title: '',
@@ -232,14 +235,14 @@ export default function CMSPagesManager() {
       .catch(() => setLoadError('Unable to load saved CMS pages. Refresh before editing.'))
       .finally(() => setIsLoadingPages(false));
 
-    fetch('/api/cms/offers')
+    fetch('/api/cms/offers?scope=manage')
       .then(res => res.json())
       .then(data => {
         if (data.success && data.offers) {
           setOffersList(data.offers);
-        }
+        } else throw new Error(data.error || 'Unable to load offers.');
       })
-      .catch(console.error);
+      .catch(reason => setOffersError(reason instanceof Error ? reason.message : 'Unable to load offers.'));
   }, []);
 
   const currentPage = cmsPages[selectedSlug] || cmsPages.home;
@@ -272,6 +275,7 @@ export default function CMSPagesManager() {
 
   const handleSaveOffer = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
     try {
       const res = await fetch('/api/cms/offers', {
         method: 'POST',
@@ -282,7 +286,7 @@ export default function CMSPagesManager() {
       if (data.success) {
         setShowOfferModal(false);
         // Refresh offers list
-        const refRes = await fetch('/api/cms/offers');
+        const refRes = await fetch('/api/cms/offers?scope=manage');
         const refData = await refRes.json();
         if (refData.success) setOffersList(refData.offers);
         alert('Special promotional offer saved successfully!');
@@ -291,6 +295,8 @@ export default function CMSPagesManager() {
       }
     } catch (err: any) {
       alert(err.message || 'Network error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -312,7 +318,7 @@ export default function CMSPagesManager() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 800 }}>Headless CMS Page & Section Builder</h1>
+          <h1 style={{ fontSize: 24, fontWeight: 800 }}>Website Content</h1>
 
         </div>
 
@@ -332,10 +338,10 @@ export default function CMSPagesManager() {
       )}
 
       {/* Main Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 24 }}>
+      <div className="cms-page-layout">
         {/* Left: Managed pages and sections */}
         <Card title="Managed Pages (8)">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div className="cms-page-navigation">
             {[
               { slug: 'home', name: '🏠 Homepage', path: '/' },
               { slug: 'about', name: '🏛️ About Us', path: '/about' },
@@ -370,14 +376,13 @@ export default function CMSPagesManager() {
                 }}
               >
                 <span style={{ flex: 1, minWidth: 0, font: 'inherit' }}>{p.name}</span>
-                <Badge variant="neutral" style={{ fontSize: 10, flexShrink: 0 }}>Live</Badge>
               </button>
             ))}
           </div>
         </Card>
 
         {/* Right: CMS Editor Form */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div className="cms-page-editor" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           {selectedSlug === 'guest-feedback' && <GuestFeedbackManager />}
           {/* Main Hero & SEO Editor */}
           {loadError && <p role="alert" style={{ color: 'var(--danger-red)' }}>{loadError}</p>}
@@ -469,7 +474,8 @@ export default function CMSPagesManager() {
 
           {/* 1. SPECIAL OFFERS & PACKAGES MANAGER (Active when 'offers' is selected) */}
           {selectedSlug === 'offers' && (
-            <Card title="Live Promotional Packages & Promo Codes Engine">
+            <div>{offersError && <p role="alert" style={{ color: 'var(--danger-red)' }}>{offersError}</p>}
+            <Card title="Promotional Packages">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
 
                 <Button
@@ -541,12 +547,14 @@ export default function CMSPagesManager() {
                               setShowOfferModal(true);
                             }}
                             className="hne-btn hne-btn-secondary hne-btn-xs"
+                            aria-label={`Edit ${off.title}`}
                           >
                             <Edit3 size={12} />
                           </button>
                           <button
                             onClick={() => handleDeleteOffer(off.id)}
                             className="hne-btn hne-btn-danger hne-btn-xs"
+                            aria-label={`Delete ${off.title}`}
                           >
                             <Trash2 size={12} />
                           </button>
@@ -556,7 +564,7 @@ export default function CMSPagesManager() {
                   </div>
                 ))}
               </div>
-            </Card>
+            </Card></div>
           )}
 
           {/* 2. CONTACT US & RECEPTION COORDINATES (Active when 'contact' is selected) */}
@@ -616,29 +624,7 @@ export default function CMSPagesManager() {
 
       {/* Special Offer Modal */}
       {showOfferModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 999
-        }}>
-          <div style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: 'var(--radius-lg)',
-            padding: 24,
-            width: '100%',
-            maxWidth: 520,
-            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'
-          }}>
-            <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 16 }}>
-              {editingOffer.id ? 'Edit Special Package' : 'Create Special Package'}
-            </h3>
+        <FormDialog title={editingOffer.id ? 'Edit Special Package' : 'Create Special Package'} saving={isSaving} onClose={() => setShowOfferModal(false)}>
 
             <form onSubmit={handleSaveOffer} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div className="hne-form-group">
@@ -719,17 +705,17 @@ export default function CMSPagesManager() {
                 onChange={(bannerUrl) => setEditingOffer({ ...editingOffer, bannerUrl })}
               />
 
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}><input type="checkbox" checked={editingOffer.isActive} onChange={event => setEditingOffer({ ...editingOffer, isActive: event.target.checked })} />Offer active</label>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
-                <Button type="button" variant="secondary" onClick={() => setShowOfferModal(false)}>
+                <Button type="button" variant="secondary" disabled={isSaving} onClick={() => setShowOfferModal(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" variant="primary">
+                <Button type="submit" variant="primary" disabled={isSaving}>
                   Save Promotional Package
                 </Button>
               </div>
             </form>
-          </div>
-        </div>
+        </FormDialog>
       )}
     </div>
   );

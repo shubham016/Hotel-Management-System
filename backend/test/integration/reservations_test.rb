@@ -68,8 +68,9 @@ class ReservationsTest < ActionDispatch::IntegrationTest
     assert_equal 13_560.0, body.dig("data", "grandTotal")
     assert_equal "PENDING", body.dig("data", "paymentStatus")
     assert_match(/^RES-TEST-PROPERTY-\d{4}-\d{6}$/, body.dig("data", "confirmationNumber"))
-    assert_equal body.dig("data", "grandTotal"), Reservation.last.grand_total.to_f
-    assert_equal Reservation.last.grand_total, Folio.last.balance_due
+    reservation = Reservation.find(body.dig("data", "id"))
+    assert_equal body.dig("data", "grandTotal"), reservation.grand_total.to_f
+    assert_equal reservation.grand_total, reservation.folio.balance_due
   end
 
   test "website booking alerts property front desk in notification bell" do

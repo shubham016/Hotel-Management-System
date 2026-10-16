@@ -14,20 +14,20 @@ module Api
 
         rooms = property.rooms.active.setup_managed
         total_rooms = rooms.count
-        occupied_rooms = rooms.where(status: "OCCUPIED").count
+        occupied_rooms = rooms.where(status: %w[OCCUPIED DUE_OUT]).count
 
         render json: {
           success: true,
           businessDate: today.iso8601,
           occupancy: occupancy_stats(rooms, total_rooms, occupied_rooms),
           guests: guest_stats(property, days),
-          revenue: revenue_stats(company, today, occupied_rooms, total_rooms),
+          revenue: revenue_stats(property, today, occupied_rooms, total_rooms),
           receivables: { pendingReceivables: property.folios.where(status: "OPEN").sum(:balance_due).to_f },
           arrivals: arrivals(property, today),
-          recentTransactions: recent_transactions(company),
+          recentTransactions: recent_transactions(property),
           housekeeping: housekeeping_stats(rooms),
           pos: pos_stats(property, days),
-          trends: trends(property, company, days),
+          trends: trends(property, days),
           rooms: room_board(property.rooms.setup_managed)
         }
       end
@@ -45,7 +45,7 @@ module Api
           businessDate: today.iso8601,
           receivables: { pendingReceivables: property.folios.where(status: "OPEN").sum(:balance_due).to_f },
           arrivals: arrivals(property, today),
-          recentTransactions: recent_transactions(company),
+          recentTransactions: recent_transactions(property),
           housekeeping: housekeeping_stats(rooms),
           pos: pos_stats(property, [ today ]),
           rooms: room_board(property.rooms.setup_managed)
@@ -85,21 +85,27 @@ module Api
         property.reservations.where(check_out_date: day).where.not(status: %w[CANCELLED NO_SHOW ARCHIVED]).count
       end
 
-      def in_house_on(property, _day)
-        property.reservations.where(status: "CHECKED_IN")
-                .sum("adults_count + children_count")
+      def in_house_on(property, day)
+        finish = (day + 1).in_time_zone
+        property.reservations
+          .where("checked_in_at < :finish OR (checked_in_at IS NULL AND status IN ('CHECKED_IN', 'CHECKED_OUT') AND check_in_date <= :day)", finish:, day:)
+          .where("checked_out_at >= :finish OR (checked_out_at IS NULL AND (status = 'CHECKED_IN' OR (status = 'CHECKED_OUT' AND check_out_date > :day)))", finish:, day:)
+          .sum("adults_count + children_count")
       end
 
-      # Revenue is read from the General Ledger (posted journal lines), not summed ad hoc from
-      # source modules, so this always agrees with the accounting reports. Property dimensioning
-      # on journal_lines is a known gap (docs/plans/IMPLEMENTATION_PLAN_v3.0_OWNER_PORTAL.md Phase 5)
-      # so this is company-wide today, not property-scoped, like the rest of the ledger.
-      def revenue_stats(company, today, occupied_rooms, total_rooms)
-        by_code = revenue_by_account_code(company, today)
+      # Operational KPIs use this property's posted ledger. Historical checkout
+      # entries can be attributed through their persisted folio reference.
+      def ledger_entries(property)
+        property.company.journal_entries.where(status: "POSTED")
+          .where("journal_entries.property_id = :id OR (journal_entries.property_id IS NULL AND journal_entries.source_reference IN (SELECT 'PMS_CHECKOUT:' || id::text FROM folios WHERE property_id = :id))", id: property.id)
+      end
+
+      def revenue_stats(property, today, occupied_rooms, total_rooms)
+        by_code = revenue_by_account_code(property, today)
         room = by_code["4001"].to_f
         fnb = by_code["4002"].to_f
         banquet = by_code["4004"].to_f
-        total = room + fnb + banquet
+        total = by_code.values.sum.to_f
 
         {
           today: { room:, fnb:, banquet:, total: },
@@ -108,20 +114,20 @@ module Api
         }
       end
 
-      def revenue_by_account_code(company, day)
+      def revenue_by_account_code(property, day)
         JournalLine.joins(:account, :journal_entry)
-                   .where(accounts: { company_id: company.id, category: "REVENUE" })
-                   .where(journal_entries: { posting_date: day })
-                   .group("accounts.account_code").sum(:credit)
+                   .where(accounts: { company_id: property.company_id, category: "REVENUE" })
+                   .where(journal_entry_id: ledger_entries(property).where(posting_date: day).select(:id))
+                   .group("accounts.account_code").sum("journal_lines.credit - journal_lines.debit")
       end
 
-      def revenue_total_on(company, day)
-        revenue_by_account_code(company, day).values.sum(&:to_f)
+      def revenue_total_on(property, day)
+        revenue_by_account_code(property, day).values.sum(&:to_f)
       end
 
       def restaurant_orders_on(property, day)
         range = day.beginning_of_day..day.end_of_day
-        settlements = property.company.journal_entries.where(source_module: "POS_RESTAURANT", posting_date: day).count
+        settlements = ledger_entries(property).where(source_module: "POS_RESTAURANT", posting_date: day).count
         room_postings = FolioItem.joins(:folio).where(folios: { property_id: property.id }, source_module: "RESTAURANT", created_at: range).count
         settlements + room_postings
       end
@@ -141,8 +147,8 @@ module Api
         end
       end
 
-      def recent_transactions(company)
-        company.journal_entries.order(created_at: :desc).limit(5).map do |voucher|
+      def recent_transactions(property)
+        ledger_entries(property).order(created_at: :desc).limit(5).map do |voucher|
           {
             voucherNumber: voucher.voucher_number,
             narration: voucher.narration,
@@ -186,12 +192,12 @@ module Api
 
       # 7-day trailing series for the dashboard's stat-tile sparklines. Small multi-day query
       # fan-out is acceptable here — this endpoint is a low-traffic admin view, not a hot path.
-      def trends(property, company, days)
+      def trends(property, days)
         {
           arrivals: days.map { |d| arrivals_on(property, d) },
           departures: days.map { |d| departures_on(property, d) },
           inHouse: days.map { |d| in_house_on(property, d) },
-          revenue: days.map { |d| revenue_total_on(company, d) },
+          revenue: days.map { |d| revenue_total_on(property, d) },
           restaurantOrders: days.map { |d| restaurant_orders_on(property, d) }
         }
       end

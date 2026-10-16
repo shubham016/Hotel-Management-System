@@ -5,7 +5,7 @@ module Authentication
     def self.call(refresh_token:, request:)
       digest = ApiSession.digest(refresh_token)
       session = ApiSession.includes(user: %i[role company properties]).active.find_by(refresh_token_digest: digest)
-      raise ApiError.new("Refresh session is invalid or expired", status: :unauthorized, code: "INVALID_REFRESH_TOKEN") unless session&.user&.active?
+      raise ApiError.new("Refresh session is invalid or expired", status: :unauthorized, code: "INVALID_REFRESH_TOKEN") unless session&.user&.login_enabled?
 
       ApiSession.transaction do
         session.revoke!

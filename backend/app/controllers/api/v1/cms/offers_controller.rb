@@ -2,6 +2,7 @@ module Api
   module V1
     module Cms
       class OffersController < BackendController
+        self.authorization_module_name = "CMS"
         skip_before_action :authenticate!, only: :index
         skip_before_action :authorize_request!, only: :index
 
@@ -11,8 +12,13 @@ module Api
         ].freeze
 
         def index
-          offers = public_property.cms_offers.order(created_at: :desc).map { |offer| serialize(offer) }
-          render json: { success: true, offers: offers.presence || DEFAULT_OFFERS }
+          if params[:scope] == "manage"
+            authenticate!
+            return if performed?
+            authorize!("CMS", "read")
+          end
+          offers = params[:scope] == "manage" ? default_property.cms_offers : public_property.cms_offers.where(active: true).where("valid_from <= :date AND valid_until >= :date", date: Date.current)
+          render json: { success: true, offers: offers.order(created_at: :desc).map { |offer| serialize(offer) } }
         end
 
         def create
@@ -35,8 +41,6 @@ module Api
         end
 
         def destroy
-          return render json: { success: true, message: "Sample offer dismissed" } if params[:id].to_s.start_with?("off-")
-
           offer = default_property.cms_offers.find(params.require(:id))
           offer.destroy!
           audit!("CMS", "DELETE", "CmsOffer", offer.id, new_values: { id: offer.id })

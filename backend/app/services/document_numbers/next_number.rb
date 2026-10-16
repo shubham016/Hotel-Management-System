@@ -7,7 +7,9 @@ module DocumentNumbers
       "PURCHASE_ORDER" => "PO",
       "BANQUET" => "BNQ",
       "JOURNAL" => "JV",
-      "KOT" => "KOT"
+      "KOT" => "KOT",
+      "GOODS_RECEIPT" => "GRN", "STOCK_MOVEMENT" => "STK",
+      "SUPPLIER_INVOICE" => "BILL", "SUPPLIER_PAYMENT" => "SPY"
     }.freeze
 
     def self.call(company:, property:, document_type:, date: nil)

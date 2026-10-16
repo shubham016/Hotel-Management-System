@@ -9,7 +9,7 @@ module Api
           render json: {
             success: true,
             restaurant: { id: restaurant.id, name: restaurant.name, outletCode: restaurant.outlet_code },
-            taxes: default_property.company.tax_configurations.where(active: true, code: "VAT").for_date(Date.current).order(:calculation_order).map { |tax| { rate: tax.rate.to_f, inclusive: tax.inclusive } },
+            taxes: default_property.company.tax_configurations.where(active: true, code: "VAT").for_date(default_property.operating_date).order(:calculation_order).map { |tax| { rate: tax.rate.to_f, inclusive: tax.inclusive } },
             inHouseRooms: default_property.reservations.where(status: "CHECKED_IN").includes(:guest, :folio, reservation_rooms: :room).flat_map { |reservation|
               next [] unless reservation.folio&.status == "OPEN"
               reservation.reservation_rooms.filter_map { |assignment| { roomNumber: assignment.room.room_number, guestName: reservation.guest.full_name } if assignment.room }

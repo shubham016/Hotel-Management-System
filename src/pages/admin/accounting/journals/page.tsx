@@ -1,3 +1,4 @@
+import { currencyLabel, showNepaliDates } from '@/lib/display-preferences';
 import React, { useState, useEffect } from 'react';
 import { ReceiptText, Plus, Search, Filter, CheckCircle2, ShieldCheck, Printer, RefreshCw, Trash2 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
@@ -11,6 +12,7 @@ export default function JournalsPage() {
   const [journals, setJournals] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
   // Manual Journal Form
@@ -25,9 +27,10 @@ export default function JournalsPage() {
   const fetchJournals = async () => {
     try {
       setIsLoading(true);
+      setError('');
       const res = await fetch('/api/accounting/journals');
       const json = await res.json();
-      if (json.success) {
+      if (res.ok && json.success) {
         setJournals(json.vouchers || []);
         setAccounts(json.accounts || []);
         if (json.accounts?.length > 0 && !lines[0].accountId) {
@@ -36,9 +39,12 @@ export default function JournalsPage() {
             { accountId: json.accounts[1]?.id || json.accounts[0].id, debitAmount: '', creditAmount: '', narration: '' }
           ]);
         }
-      }
+      } else throw new Error(json.error || 'Unable to load journal vouchers.');
     } catch (err) {
-      console.error('Failed to load journal vouchers:', err);
+      setJournals([]);
+      setAccounts([]);
+      setSelectedJournal(null);
+      setError(err instanceof Error ? err.message : 'Unable to load journal vouchers.');
     } finally {
       setIsLoading(false);
     }
@@ -62,12 +68,13 @@ export default function JournalsPage() {
 
   const totalDebit = lines.reduce((acc, l) => acc + (parseFloat(l.debitAmount) || 0), 0);
   const totalCredit = lines.reduce((acc, l) => acc + (parseFloat(l.creditAmount) || 0), 0);
-  const isBalanced = Math.abs(totalDebit - totalCredit) < 0.01 && totalDebit > 0;
+  const isBalanced = Math.round(totalDebit * 100) === Math.round(totalCredit * 100) && totalDebit > 0;
+  const validLines = lines.every(line => line.accountId && Number(line.debitAmount || 0) >= 0 && Number(line.creditAmount || 0) >= 0 && ((Number(line.debitAmount) > 0) !== (Number(line.creditAmount) > 0)));
 
   const handlePostJournal = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isBalanced) {
-      alert(`Voucher is not balanced! Total Debit (Rs. ${totalDebit}) must equal Total Credit (Rs. ${totalCredit}).`);
+    if (!isBalanced || !validLines) {
+      alert(`Voucher is not balanced! Total Debit (${currencyLabel()} ${totalDebit}) must equal Total Credit (${currencyLabel()} ${totalCredit}).`);
       return;
     }
 
@@ -122,7 +129,7 @@ export default function JournalsPage() {
           <Button variant="secondary" size="sm" onClick={fetchJournals} disabled={isLoading}>
             <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} /> Refresh
           </Button>
-          <Button variant="primary" onClick={() => setShowManualModal(true)}>
+          <Button variant="primary" onClick={() => setShowManualModal(true)} disabled={isLoading || !accounts.length}>
             <Plus size={16} />
             <span>Create Journal Voucher</span>
           </Button>
@@ -130,6 +137,7 @@ export default function JournalsPage() {
       </div>
 
       {/* Main Grid: Journal List + Inspector */}
+      {error && <div role="alert" style={{ color: 'var(--danger-red)' }}>{error}</div>}
       <div style={{ display: 'grid', gridTemplateColumns: selectedJournal ? '1.1fr 1fr' : '1fr', gap: 24 }}>
         <Card title={`Posted Journal Vouchers (${filteredJournals.length})`} >
           <div style={{ marginBottom: 16, position: 'relative' }}>
@@ -184,13 +192,13 @@ export default function JournalsPage() {
                         </td>
                         <td style={{ fontSize: 11.5 }}>
                           <div>{dual.adFormatted}</div>
-                          <div style={{ color: 'var(--brand-gold)', fontWeight: 600 }}>BS: {dual.bsFormatted}</div>
+                          {showNepaliDates() && <div style={{ color: 'var(--brand-gold)', fontWeight: 600 }}>BS: {dual.bsFormatted}</div>}
                         </td>
                         <td style={{ fontSize: 12.5, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {jv.narration}
                         </td>
                         <td style={{ fontWeight: 800 }}>
-                          Rs. {Number(jv.totalAmount).toLocaleString()}
+                          {currencyLabel()} {Number(jv.totalAmount).toLocaleString()}
                         </td>
                         <td>
                           <Badge variant="success">{jv.status}</Badge>
@@ -230,8 +238,8 @@ export default function JournalsPage() {
                   <thead>
                     <tr>
                       <th>Account</th>
-                      <th>Debit (Rs.)</th>
-                      <th>Credit (Rs.)</th>
+                      <th>Debit ({currencyLabel()})</th>
+                      <th>Credit ({currencyLabel()})</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -239,15 +247,15 @@ export default function JournalsPage() {
                       <tr key={e.id}>
                         <td>
                           <div style={{ fontWeight: 700 }}>
-                            [{e.account?.accountCode || 'GL'}] {e.account?.name || 'Account'}
+                            [{e.account?.account_code || 'GL'}] {e.account?.name || 'Account'}
                           </div>
                           <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{e.narration}</div>
                         </td>
                         <td style={{ fontWeight: 700, color: Number(e.debitAmount) > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-                          {Number(e.debitAmount) > 0 ? `Rs. ${Number(e.debitAmount).toLocaleString()}` : '-'}
+                          {Number(e.debitAmount) > 0 ? `${currencyLabel()} ${Number(e.debitAmount).toLocaleString()}` : '-'}
                         </td>
                         <td style={{ fontWeight: 700, color: Number(e.creditAmount) > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-                          {Number(e.creditAmount) > 0 ? `Rs. ${Number(e.creditAmount).toLocaleString()}` : '-'}
+                          {Number(e.creditAmount) > 0 ? `${currencyLabel()} ${Number(e.creditAmount).toLocaleString()}` : '-'}
                         </td>
                       </tr>
                     ))}
@@ -255,8 +263,8 @@ export default function JournalsPage() {
                   <tfoot>
                     <tr style={{ backgroundColor: 'var(--bg-subtle)', fontWeight: 800 }}>
                       <td>Total Balanced</td>
-                      <td>Rs. {Number(selectedJournal.totalAmount).toLocaleString()}</td>
-                      <td>Rs. {Number(selectedJournal.totalAmount).toLocaleString()}</td>
+                      <td>{currencyLabel()} {Number(selectedJournal.totalAmount).toLocaleString()}</td>
+                      <td>{currencyLabel()} {Number(selectedJournal.totalAmount).toLocaleString()}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -332,14 +340,16 @@ export default function JournalsPage() {
                         >
                           {accounts.map((acc) => (
                             <option key={acc.id} value={acc.id}>
-                              [{acc.accountCode}] {acc.name}
+                              [{acc.account_code}] {acc.name}
                             </option>
                           ))}
                         </select>
 
                         <input
                           type="number"
-                          placeholder="Debit (Rs.)"
+                          min="0"
+                          step="0.01"
+                          placeholder={("Debit (" + currencyLabel() + ")")}
                           className="hne-input"
                           value={line.debitAmount}
                           onChange={(e) => {
@@ -352,7 +362,9 @@ export default function JournalsPage() {
 
                         <input
                           type="number"
-                          placeholder="Credit (Rs.)"
+                          min="0"
+                          step="0.01"
+                          placeholder={("Credit (" + currencyLabel() + ")")}
                           className="hne-input"
                           value={line.creditAmount}
                           onChange={(e) => {
@@ -376,15 +388,15 @@ export default function JournalsPage() {
 
                   {/* Summary Bar */}
                   <div style={{ marginTop: 14, padding: 12, borderRadius: 'var(--radius-sm)', backgroundColor: isBalanced ? 'var(--brand-green-light)' : 'var(--danger-red-light)', display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700 }}>
-                    <div>Total Debit: Rs. {totalDebit.toLocaleString()}</div>
-                    <div>Total Credit: Rs. {totalCredit.toLocaleString()}</div>
+                    <div>Total Debit: {currencyLabel()} {totalDebit.toLocaleString()}</div>
+                    <div>Total Credit: {currencyLabel()} {totalCredit.toLocaleString()}</div>
                     <div>Status: {isBalanced ? '✓ BALANCED' : '✕ UNBALANCED'}</div>
                   </div>
                 </div>
               </div>
               <div className="hne-modal-footer">
                 <Button variant="secondary" type="button" onClick={() => setShowManualModal(false)}>Cancel</Button>
-                <Button variant="primary" type="submit" disabled={!isBalanced || isSubmitting}>Post Voucher to GL</Button>
+                <Button variant="primary" type="submit" disabled={!isBalanced || !validLines || isSubmitting}>Post Voucher to GL</Button>
               </div>
             </form>
           </div>

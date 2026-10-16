@@ -1,3 +1,4 @@
+import { currencyLabel } from '@/lib/display-preferences';
 import React, { useState, useEffect } from 'react';
 import { BedDouble, CheckCircle2, AlertTriangle, Sparkles, Filter, RefreshCw, User, Phone } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
@@ -249,7 +250,7 @@ export default function RoomsManagementPage() {
                     {room.roomType}
                   </div>
                   <div style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>
-                    Rs. {room.basePrice.toLocaleString()} / night
+                    {currencyLabel()} {room.basePrice.toLocaleString()} / night
                   </div>
 
                   {room.activeGuest && (

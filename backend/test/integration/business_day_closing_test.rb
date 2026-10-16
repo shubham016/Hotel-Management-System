@@ -200,7 +200,7 @@ class BusinessDayClosingTest < ActionDispatch::IntegrationTest
     close_action("CLOSE_DAY")
     assert_response :conflict
     assert_equal "FUTURE_BUSINESS_DATE", response.parsed_body["code"]
-    assert_equal 0, BusinessDayClosing.count
+    assert_equal 0, @property.business_day_closings.count
   end
 
   test "due departures must be extended or checked out before the day can close" do
@@ -295,6 +295,20 @@ class BusinessDayClosingTest < ActionDispatch::IntegrationTest
     assert_equal 115, entry.total_debit
     get "/api/v1/night-audit", headers: headers
     assert_equal 215, BigDecimal(response.parsed_body.dig("reconciliation", "cashNet"))
+  end
+
+  test "cashier requires explicit opening and counted cash instead of assuming zero" do
+    [{ openingCash: "", countedCash: "0" }, { openingCash: "0", countedCash: "" }, { countedCash: "0" }].each do |amounts|
+      assert_no_difference ["CashierClosing.count", "BusinessDayClosing.count", "JournalEntry.count", "AuditLog.count"] do
+        close_action("CLOSE_CASHIER", **amounts)
+        assert_response :unprocessable_content
+        assert_equal "INVALID_CASH_AMOUNT", response.parsed_body["code"]
+      end
+    end
+    close_action("CLOSE_CASHIER", openingCash: "0", countedCash: "0")
+    assert_response :success
+    assert_equal 0, @property.cashier_closings.sole.opening_cash
+    assert_equal 0, @property.cashier_closings.sole.counted_cash
   end
 
   private

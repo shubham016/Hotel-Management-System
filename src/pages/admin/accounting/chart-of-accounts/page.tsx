@@ -9,6 +9,7 @@ export default function ChartOfAccountsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [accounts, setAccounts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
 
   // Form
@@ -21,13 +22,15 @@ export default function ChartOfAccountsPage() {
   const fetchAccounts = async () => {
     try {
       setIsLoading(true);
+      setError('');
       const res = await fetch('/api/accounting/chart-of-accounts');
       const json = await res.json();
-      if (json.success) {
+      if (res.ok && json.success) {
         setAccounts(json.accounts || []);
-      }
+      } else throw new Error(json.error || 'Unable to load accounts.');
     } catch (err) {
-      console.error('Failed to load chart of accounts:', err);
+      setAccounts([]);
+      setError(err instanceof Error ? err.message : 'Unable to load accounts.');
     } finally {
       setIsLoading(false);
     }
@@ -71,7 +74,7 @@ export default function ChartOfAccountsPage() {
 
   const filteredAccounts = accounts.filter(acc => {
     const matchesCategory = selectedCategory === 'ALL' || acc.category === selectedCategory;
-    const matchesSearch = acc.name.toLowerCase().includes(searchTerm.toLowerCase()) || acc.accountCode.includes(searchTerm);
+    const matchesSearch = acc.name.toLowerCase().includes(searchTerm.toLowerCase()) || acc.account_code.includes(searchTerm);
     return matchesCategory && matchesSearch;
   });
 
@@ -129,6 +132,7 @@ export default function ChartOfAccountsPage() {
       </div>
 
       {/* Accounts List Table */}
+      {error && <div role="alert" style={{ color: 'var(--danger-red)' }}>{error}</div>}
       <Card title={`Ledger Accounts (${filteredAccounts.length})`} >
         <div style={{ marginBottom: 16, position: 'relative' }}>
           <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
@@ -163,7 +167,7 @@ export default function ChartOfAccountsPage() {
                   <tr key={acc.id}>
                     <td>
                       <span style={{ fontWeight: 800, fontFamily: 'monospace', fontSize: 14, color: 'var(--brand-crimson)' }}>
-                        {acc.accountCode}
+                        {acc.account_code}
                       </span>
                     </td>
                     <td>
@@ -174,7 +178,7 @@ export default function ChartOfAccountsPage() {
                       {acc.description || 'System standard account'}
                     </td>
                     <td>
-                      <Badge variant="success">ACTIVE</Badge>
+                      <Badge variant={acc.active ? 'success' : 'outline'}>{acc.active ? 'ACTIVE' : 'INACTIVE'}</Badge>
                     </td>
                   </tr>
                 ))}

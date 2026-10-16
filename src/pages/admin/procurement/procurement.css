@@ -1,0 +1,4 @@
+.hne-client-record-dialog.supply-order-dialog { width: min(900px, calc(100vw - 32px)); }
+.supply-order-dialog .hne-table { min-width: 620px; }
+.supply-order-line { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) auto; gap: 12px; align-items: end; border-bottom: 1px solid var(--border); padding-bottom: 14px; }
+@media (max-width: 650px) { .supply-order-line { grid-template-columns: minmax(0, 1fr); } }

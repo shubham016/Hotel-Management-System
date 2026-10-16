@@ -1,16 +1,23 @@
+import { currencyLabel } from '@/lib/display-preferences';
 import React, { useState, useEffect } from 'react';
 import { Users, Search, Plus, Star, Award, Shield, Phone, Mail, MapPin, Eye, CheckCircle2, RefreshCw } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { usePortalProfile } from '@/lib/portal-context';
+import { hasAccess } from '@/lib/portal-access';
 
 export default function GuestCRMPage() {
+  const profile = usePortalProfile();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGuest, setSelectedGuest] = useState<any>(null);
   const [showAddGuestModal, setShowAddGuestModal] = useState(false);
   const [guests, setGuests] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [formError, setFormError] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // New Guest Form
   const [firstName, setFirstName] = useState('');
@@ -27,6 +34,8 @@ export default function GuestCRMPage() {
       setIsLoading(true);
       const res = await fetch('/api/crm/guests');
       const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || 'Unable to load guests.');
+      setError('');
       if (json.success) {
         setGuests(json.guests || []);
         if (selectedGuest) {
@@ -35,7 +44,7 @@ export default function GuestCRMPage() {
         }
       }
     } catch (err) {
-      console.error('Failed to load CRM guests:', err);
+      setError(err instanceof Error ? err.message : 'Unable to load guests.');
     } finally {
       setIsLoading(false);
     }
@@ -49,10 +58,12 @@ export default function GuestCRMPage() {
     e.preventDefault();
     try {
       setIsSubmitting(true);
+      setFormError('');
       const res = await fetch('/api/crm/guests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          id: editingId,
           firstName,
           lastName,
           phone,
@@ -66,7 +77,8 @@ export default function GuestCRMPage() {
 
       const json = await res.json();
       if (json.success) {
-        alert('Guest CRM Profile saved successfully!');
+        setSelectedGuest(json.data);
+        setEditingId(null);
         setShowAddGuestModal(false);
         setFirstName('');
         setLastName('');
@@ -77,10 +89,10 @@ export default function GuestCRMPage() {
         setNotes('');
         fetchGuests();
       } else {
-        alert(json.error || 'Failed to save guest');
+        setFormError(json.error || 'Unable to save guest.');
       }
     } catch (err: any) {
-      alert(err.message || 'Error saving guest');
+      setFormError(err.message || 'Unable to save guest.');
     } finally {
       setIsSubmitting(false);
     }
@@ -107,7 +119,7 @@ export default function GuestCRMPage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 800 }}>Guest CRM & Loyalty Intelligence</h1>
+          <h1 style={{ fontSize: 24, fontWeight: 800 }}>Guest CRM</h1>
 
         </div>
 
@@ -115,13 +127,14 @@ export default function GuestCRMPage() {
           <Button variant="secondary" size="sm" onClick={fetchGuests} disabled={isLoading}>
             <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} /> Refresh
           </Button>
-          <Button variant="primary" onClick={() => setShowAddGuestModal(true)}>
+          {hasAccess(profile, 'GUESTS', 'create') && <Button variant="primary" onClick={() => { setEditingId(null); setFirstName(''); setLastName(''); setPhone(''); setEmail(''); setCity(''); setVipLevel('REGULAR'); setPreferences(''); setNotes(''); setFormError(''); setShowAddGuestModal(true); }}>
             <Plus size={16} />
             <span>Create Guest Profile</span>
-          </Button>
+          </Button>}
         </div>
       </div>
 
+      {error && <p role="alert" style={{ color: "var(--danger-red)" }}>{error}</p>}
       {/* KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
         <div className="hne-card" style={{ padding: 18, borderLeft: '4px solid var(--brand-crimson)', backgroundColor: '#FFFFFF' }}>
@@ -139,15 +152,15 @@ export default function GuestCRMPage() {
         </div>
 
         <div className="hne-card" style={{ padding: 18, borderLeft: '4px solid var(--brand-gold)', backgroundColor: '#FFFFFF' }}>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Cumulative Guest Spend</div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Completed Stay Charges</div>
           <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--brand-gold-hover)', marginTop: 4 }}>
-            Rs. {guests.reduce((acc, g) => acc + g.lifetimeSpend, 0).toLocaleString()}
+            {currencyLabel()} {guests.reduce((acc, g) => acc + g.lifetimeSpend, 0).toLocaleString()}
           </div>
         </div>
       </div>
 
       {/* Main Grid: Directory + Inspector */}
-      <div style={{ display: 'grid', gridTemplateColumns: selectedGuest ? '1fr 1.1fr' : '1fr', gap: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: selectedGuest ? 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))' : '1fr', gap: 24 }}>
         {/* Guests Directory */}
         <Card title={`Guest Directory (${filteredGuests.length})`} >
           <div style={{ marginBottom: 16, position: 'relative' }}>
@@ -175,7 +188,7 @@ export default function GuestCRMPage() {
                     <th>Contact</th>
                     <th>VIP Tier</th>
                     <th>Stays</th>
-                    <th>Lifetime Spend</th>
+                    <th>Completed Stay Charges</th>
                     <th>Action</th>
                   </tr>
                 </thead>
@@ -200,7 +213,7 @@ export default function GuestCRMPage() {
                       <td>{getVipBadge(guest.vipLevel)}</td>
                       <td style={{ fontWeight: 700 }}>{guest.stayCount} Stays</td>
                       <td style={{ fontWeight: 800, color: 'var(--brand-green)' }}>
-                        Rs. {guest.lifetimeSpend.toLocaleString()}
+                        {currencyLabel()} {guest.lifetimeSpend.toLocaleString()}
                       </td>
                       <td>
                         <Button
@@ -237,15 +250,16 @@ export default function GuestCRMPage() {
             }
           >
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {hasAccess(profile, 'GUESTS', 'update') && <Button variant="secondary" onClick={() => { setEditingId(selectedGuest.id); setFirstName(selectedGuest.firstName); setLastName(selectedGuest.lastName); setPhone(selectedGuest.phone); setEmail(selectedGuest.email === 'N/A' ? '' : selectedGuest.email); setCity(selectedGuest.city); setVipLevel(selectedGuest.vipLevel); setPreferences(selectedGuest.preferences); setNotes(selectedGuest.notes || ''); setFormError(''); setShowAddGuestModal(true); }}>Edit Profile</Button>}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-subtle)', padding: 14, borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
                 <div>
                   <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Loyalty Classification</div>
                   <div style={{ marginTop: 4 }}>{getVipBadge(selectedGuest.vipLevel)}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Lifetime Revenue</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Completed Stay Charges</div>
                   <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--brand-green)' }}>
-                    Rs. {selectedGuest.lifetimeSpend.toLocaleString()}
+                    {currencyLabel()} {selectedGuest.lifetimeSpend.toLocaleString()}
                   </div>
                 </div>
               </div>
@@ -265,6 +279,7 @@ export default function GuestCRMPage() {
                 <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>Guest Preferences & Notes</div>
                 <div style={{ backgroundColor: 'var(--bg-subtle)', padding: 12, borderRadius: 'var(--radius-sm)', fontSize: 12.5, color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
                   {selectedGuest.preferences}
+                  {selectedGuest.notes && <p style={{ marginTop: 8 }}>{selectedGuest.notes}</p>}
                 </div>
               </div>
 
@@ -277,7 +292,7 @@ export default function GuestCRMPage() {
                         <div>
                           <strong>{r.confirmationNumber}</strong> • Status: {r.status}
                         </div>
-                        <div style={{ fontWeight: 700 }}>Rs. {Number(r.grandTotal).toLocaleString()}</div>
+                        <div style={{ fontWeight: 700 }}>{currencyLabel()} {Number(r.grandTotal).toLocaleString()}</div>
                       </div>
                     ))}
                   </div>
@@ -293,11 +308,12 @@ export default function GuestCRMPage() {
         <div className="hne-modal-backdrop" onClick={() => setShowAddGuestModal(false)}>
           <div className="hne-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 500 }}>
             <div className="hne-modal-header">
-              <h3 className="hne-modal-title">Create New Guest CRM Profile</h3>
+              <h3 className="hne-modal-title">{editingId ? 'Edit Guest Profile' : 'Create Guest Profile'}</h3>
               <button className="hne-modal-close" onClick={() => setShowAddGuestModal(false)}>✕</button>
             </div>
             <form onSubmit={handleSaveGuest}>
               <div className="hne-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {formError && <p role="alert" style={{ color: 'var(--danger-red)' }}>{formError}</p>}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div className="hne-form-group">
                     <label className="hne-label">First Name</label>
@@ -383,6 +399,7 @@ export default function GuestCRMPage() {
                     onChange={(e) => setPreferences(e.target.value)}
                   />
                 </div>
+                <div className="hne-form-group"><label className="hne-label">Notes</label><textarea className="hne-input" value={notes} onChange={event => setNotes(event.target.value)} /></div>
               </div>
               <div className="hne-modal-footer">
                 <Button variant="secondary" type="button" onClick={() => setShowAddGuestModal(false)}>Cancel</Button>

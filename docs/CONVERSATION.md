@@ -856,3 +856,257 @@ The user asked for a connected set of Hotel New Era PMS corrections: prevent ove
 - Keep live payment activation, outgoing emails, deployment backups and the reviewed unfinished modules on the follow-up list. Do not treat a role portal as proof that all underlying operational workflows are complete.
 
 ---
+
+## Record Entry: 2026-10-16 (Accounting, CMS, Platform, and Settings Verification)
+
+Documentation is consolidated in this existing conversation log at the user's request. The three separate review files were removed after their contents were retained here. Continue recording work in this file only unless the user explicitly requests another location.
+
+### Accounting review — 16 October 2026
+
+The four accounting screens are connected to the same company ledger. Application defects found during this review were corrected and verified. Existing financial records still contain a historical payment classification that needs reconciliation before the balances can be treated as accurate operational accounts.
+
+#### Connections verified
+
+| Screen | Database and workflow |
+| --- | --- |
+| Chart of Accounts | Company accounts supply journal lines and payroll ledger mappings. |
+| Journal Vouchers | Journal headers belong to a company and property; lines reference the chart of accounts. |
+| Staff Payroll | Staff and payroll belong to a property. Salary approvals, advances, and payments generate linked journals using the configured accounts. |
+| Financial Reports | Posted journal lines produce profit and loss, trial balance, balance sheet, and tax ledger balances. |
+
+The chart, journal listing, and reports are company-wide. Payroll is property-specific. Reports explicitly show all postings through the selected property's operating date; they do not claim to be filtered fiscal-year statements.
+
+#### Corrections made
+
+- Fixed snake-case account-code fields in account search, account lists, journal selectors, and voucher details.
+- Require manual journal lines to use active accounts from the current company, nonnegative two-decimal amounts, exactly one debit or credit per line, and exact balanced totals. Reject malformed lines and unsupported totals without saving records.
+- Preserve the existing transaction around financial writes; failed requests do not leave journal lines, headers, document sequences, or audit entries behind.
+- Protect posted journal lines from ordinary updates and deletion, alongside the existing posted-header protection.
+- Give new payroll journals their property association. Applied migration `20261016000001` to repair seven existing links from unambiguous payroll associations. Amounts, posting dates, voucher numbers, status, and timestamps were preserved.
+- Replace hard-coded balance-sheet figures, estimated revenue/expense splits, fallback financial amounts, and tax-compliance claims with posted ledger data.
+- Preserve negative balances, display net debit/credit balances with trial-balance totals, and include unclosed earnings in the balance-sheet equation. Balance checks use decimal arithmetic and exact equality.
+- Export the selected report. Tax ledgers show actual VAT/tax account balances and configured payroll TDS accounts; they do not assert filing compliance.
+- Show API failures explicitly instead of displaying empty or fabricated successful reports.
+
+#### Current database findings
+
+- 17 accounts, 13 journals, 36 journal lines, 7 payroll records, and no advance records.
+- Payroll status: 3 draft, 1 approved, 3 paid. Existing counts were preserved.
+- All 13 posted journals balance and their header totals equal their line totals.
+- No orphaned lines, cross-company account links, property/company mismatches, staff/property mismatches, missing payroll journals, or invalid payroll ledger configurations were found after the association repair.
+- All 16 inspected accounting/payroll foreign-key constraints are validated.
+- Current cumulative revenue: NPR 28,926; expenses: NPR 91,000; net loss: NPR 62,074. Assets: NPR -30,689; liabilities: NPR 31,385; recorded equity: NPR 0. Including the unclosed loss reconciles the balance sheet exactly.
+
+##### Financial data requiring reconciliation
+
+Voucher **JV-HNE-BTW-2026-000008**, dated **2026-10-09**, settles a **NPR 18,000 BANK_TRANSFER payroll payment** by debiting Salaries Payable and crediting **1100 Accounts Receivable**. This explains the current **NPR -18,000 receivables balance**. Current payroll validation rejects receivables as a payment account.
+
+The actual bank ledger and payment evidence are needed to determine the correct offset. The historical voucher and financial amounts were preserved; no speculative correcting entry was posted.
+
+**1001 Cash / Bank is NPR -12,689.** Reconcile it with actual cash/bank records and opening/funding entries. Mathematical ledger balance does not establish that the accounts match bank statements or the hotel's actual financial position.
+
+#### Verification
+
+- Accounting, payroll, and day-closing suite: **43 tests, 866 assertions, no failures/errors** after correcting two test assertions. The day-closing assertion now checks the test property instead of unrelated persisted test properties.
+- Booking and supply workflow suite: **70 tests, 1,109 assertions, no failures/errors**.
+- POS, banquet finance, and supplier billing tests passed in the initial combined run. Its two failures were test assertions corrected and rerun in the 43-test suite above.
+- Final focused additions for duplicate accounts, malformed/oversized journals, payroll report reconciliation and TDS mapping: **3 tests, 116 assertions, no failures/errors**. Final accounting authorization checks: **1 test, 13 assertions, no failures/errors**.
+- Financial writes were tested in the isolated Rails test database. The localhost development database was inspected read-only, apart from the targeted property-link repair.
+- Actual localhost browser checks passed for all four screens at 1440px and 390px: account search, forms, journal inspection, payroll mapping dialog, report tabs, all four CSV exports, print content, API failure states, and absence of uncaught browser exceptions. No financial entries were created in the operational database for browser verification.
+- Type checking, production build, and whitespace checks passed.
+
+Recheck database relationships and the outstanding historical payment with:
+
+```powershell
+docker compose -f backend/compose.yml exec -T api bin/rails runner script/check_accounting_integrity.rb
+```
+
+#### Workflow references
+
+[Cloudbeds custom accounting codes](https://myfrontdesk.cloudbeds.com/hc/en-us/articles/36722395474843-Custom-accounting-codes-overview) documents using consistent ledger codes across transactions and reports. [Mews accounting integration guidance](https://docs.mews.com/connector-api/use-cases/accounting) recommends cross-checking accounting data against reports. These support verifying the shared account mappings, journal evidence, and report reconciliation together.
+
+### CMS and platform review — 16 October 2026
+
+Reviewed the five localhost administration pages, their database associations, authorization, and directly connected public-site and staff-access workflows. Application issues found during the review were fixed and verified. SMTP configuration remains outstanding for password-reset email delivery.
+
+#### Connections verified
+
+| Page | Connected records and behavior |
+| --- | --- |
+| Website Content | Company/property pages and their sections supply public banners, SEO, and contact content. Property offers supply public promotions; guest feedback has its own moderation records. |
+| Hotel Setup | Property floors, room categories, and rooms supply setup, the public room catalog, availability, and booking data. |
+| Audit Logs | Company, property, acting user, action, and target record are retained in append-only audit records. |
+| Settings | Property contact details, check-in/out times, current company VAT configuration, staff directory, laundry tariffs, and extra-service records persist through their existing APIs. |
+| Staff Portal Access | Users link to company roles, assigned properties, and optional staff-directory records; login sessions and password-reset records link to the user. |
+
+CMS contact copy is separately editable website content. Operational property contact fields are managed in Settings. Portal accounts are optional; a directory entry does not automatically create login access.
+
+#### Fixes
+
+- **CMS property boundaries:** Saving a page now updates the selected property's page instead of moving another property's record. Added unique property/page indexes while retaining company-wide fallback pages. Public reads apply property overrides deterministically. Applied migration `20261016000002` without changing existing content.
+- **CMS permissions:** Page and offer writes use CMS permissions consistently. Offer management reads require authentication and permission; public reads expose only current, active offers.
+- **Offers:** Removed runtime fallback to sample offers. Empty or deleted offer lists stay empty; expired, future, and inactive offers are excluded publicly. Added discount, price, and date-order validation, an active toggle, accessible edit/delete labels, and the existing shared form dialog. Saving disables duplicate submission.
+- **Audit display:** Corrected API/UI field names so timestamps, modules, actions, targets, users, and recorded IP addresses render correctly. Missing IPs are shown as unavailable. Added server search, filters derived from actual modules, and pagination beyond the previous 100-record cap. Logs are limited to the selected property's records plus company-wide records.
+- **Employee deactivation:** Deactivating a directory record disables its linked portal account, revokes sessions and active reset tokens, and records an audit event. Protected/self accounts cannot be disabled through the directory. Reactivating the directory record does not silently restore portal access. Login, refresh, and reset requests also reject inactive legacy staff records.
+- **Association safeguards:** User roles and linked employees must belong to the user's company. CMS property/company links are validated.
+- **Hotel setup:** Floors with rooms cannot be renumbered until their rooms are moved, preventing undefined floor associations. Nightly-rate fields now accept decimal amounts.
+- **Settings:** Check-in and check-out times are validated. VAT reads and updates use the currently effective configuration instead of updating an older version while displaying a different one. Saving is blocked until existing settings load; confirmations use concise wording.
+- **Rendering and errors:** Fixed the CMS editor's clipped mobile column. Added or corrected error states for audit/staff/offer loading, and blocked publishing/settings saves after failed initial reads.
+
+#### Current operational database
+
+Read-only checks found:
+
+- 1 saved CMS page override, 1 section, and 10 media records. Other managed website pages use their existing defaults until saved.
+- 5 floors and 45 managed physical rooms. There are 95 total room records; 50 legacy records are outside the managed setup catalog.
+- 12 directory staff records, 3 user accounts, 3 property memberships, and 294 audit records.
+- No duplicate scoped CMS slugs, orphaned CMS sections, cross-company page/media/user/role/property links, staff users missing their property membership, active users linked to inactive employees, room/category property mismatches, undefined managed floors, or invalid property times.
+- All 15 inspected foreign-key constraints are validated.
+
+Existing operational content and staff access were preserved. Browser writes used an isolated test property and database.
+
+#### Verification
+
+- **45 distinct focused tests** passed across CMS pages, guest feedback, offers, hotel setup, staff portals, password reset, authentication, and new platform workflow cases. Focused reruns covered subsequent corrections.
+- Actual localhost browser checks covered all five pages at desktop/mobile widths, audit field rendering and pagination, CMS publishing and public rendering, room-category/rate persistence and the public catalog, property settings save/reload, staff account creation, denied CMS access for staff, directory deactivation, and rejection of the revoked staff session.
+- Isolated browser checks verified offer creation, public listing/details, deactivation, management visibility, deletion, and the empty public state.
+- Verified the CMS editor's actual mobile bounds visually and programmatically. All five affected API failure states displayed errors; unsafe settings saves and CMS publishing were disabled.
+- No uncaught browser exceptions in the completed verification run. Type checking, the final production build, and focused whitespace checks passed.
+
+#### Remaining configuration and limits
+
+- **SMTP is not configured.** Actual password-reset emails cannot be delivered until mail settings are supplied. Owner/Admin can perform manual password resets; in-app reset-request handling remains available. No live external emails were sent during verification.
+- Calendar/currency display preferences are now functional, as recorded in the follow-up below. Accounting currency remains NPR; no new role templates were introduced.
+- Database integrity and workflow checks do not replace checking the accuracy of the hotel's authored content or employee identity details.
+
+Repeat the read-only association check with:
+
+```powershell
+docker compose -f backend/compose.yml exec -T api bin/rails runner script/check_platform_integrity.rb
+```
+
+#### References
+
+[Cloudbeds user management and activity logs](https://myfrontdesk.cloudbeds.com/hc/en-us/articles/221793248-Add-edit-or-disable-users-and-user-s-activity-log) documents role-based access, deactivation, password reset, and retained activity history. [Mews multi-property user management](https://help.mews.com/s/article/Understanding-users-and-role-management-in-Mews-Multi-Property) documents assigning minimum required permissions and property access. These informed the property boundaries, deactivation behavior, and audit checks.
+
+### Calendar, currency display, and reset-email follow-up
+
+#### Completed
+
+Settings → Nepali Calendar & Currency now saves property preferences. Choose **Rs.** or **NPR**, enable/disable BS dates alongside AD dates, and select **Save Configuration**. Reload other open staff views to use the latest saved preferences.
+
+The preferences apply to the existing admin currency labels and optional BS date displays. Accounting values remain in NPR; changing a display label does not perform a currency conversion. Payroll continues to use BS months independently of the display preference. Existing financial records were preserved.
+
+Migration `20261016000003` adds persisted preferences with their previous defaults and validates the currency-label choice. Settings permissions and property boundaries apply; invalid inputs and attempts to relabel the accounting currency are rejected. Staff sessions receive the selected property's preferences.
+
+Settings → Email now reports outgoing email configuration and sender status. SMTP credentials remain server-side. The password-reset job also checks that the employee is still eligible to sign in before sending a queued notification.
+
+#### Verification
+
+- Display preferences, authorization, property isolation, payroll-calendar preservation, settings, and reset requests: **17 tests, 208 assertions passed**.
+- Actual SMTP transport to an isolated local receiving server: **1 test, 8 assertions passed**. The administrator notification was accepted and the request status became SENT. No real external inboxes were contacted.
+- Browser checks verified saved preferences after reload, NPR/Rs amount labels, BS date hide/show, unchanged report totals, mobile layout, and accurate email configuration status.
+- Type checking and production build passed.
+
+#### Required to activate real outgoing email
+
+The live environment currently lacks **SMTP_ADDRESS** and **MAILER_FROM**. Provider connection details and account credentials have not been supplied. SMTP code and local delivery verification are complete; delivery to real administrator inboxes remains unverified until the provider is configured.
+
+1. Put provider-issued values in the ignored `backend/.env` file. The SMTP fields are documented in `backend/.env.example`: host, port, sender, username, password, authentication, and TLS mode. Keep passwords/API keys out of source control and chat. Use the provider's approved sender address.
+2. Recreate the API with the explicit environment file so mail settings are loaded:
+
+   ```powershell
+   docker compose --env-file backend/.env -f backend/compose.yml up -d --no-deps api
+   ```
+
+3. Verify connectivity and authentication without sending mail:
+
+   ```powershell
+   docker compose --env-file backend/.env -f backend/compose.yml exec -T api bin/rails runner script/check_smtp.rb
+   ```
+
+The check identifies missing values, conflicting SSL/STARTTLS modes, and connection/authentication errors without displaying credentials. It explicitly reports whether authentication was used. After a successful check, verify a reset notification using the hotel's approved administrator inbox. Existing manual Owner/Admin resets remain available.
+
+Use the provider's TLS settings: port 587 commonly uses STARTTLS; port 465 commonly uses SSL. Do not enable both modes together.
+
+#### Currency workflow reference
+
+[Cloudbeds General System Settings](https://myfrontdesk.cloudbeds.com/hc/en-us/articles/17981431449115-General-System-Settings) distinguishes accounting currency changes from numeric conversion and cautions about changing currency after transactions exist. The implemented settings therefore change display preferences while preserving the hotel's NPR accounting records.
+
+---
+
+## Record Entry: 2026-10-16 (Connected Core Operations Review)
+
+### Scope and professional references
+
+Reviewed all 21 requested admin routes and the public website as connected workflows. Reused the earlier accounting, supply, banquet, and CMS findings recorded above, then checked the current application and database again. No separate Markdown report was created.
+
+Professional references used:
+
+- [Oracle OPERA end-of-day procedures](https://docs.oracle.com/en/industries/hospitality/opera-cloud/25.5/ocsuh/c_endofday_procedures.htm): resolve operational exceptions and reconcile financial activity before closing the business date.
+- [Oracle housekeeping reports](https://docs.oracle.com/en/industries/hospitality/opera-cloud/22.5/ocsuh/c_reports_housekeeping.htm): distinguish occupied-room stayover service, departure cleaning, room readiness, and attendant assignments.
+- [Oracle Simphony room-folio charges](https://docs.oracle.com/en/industries/food-beverage/simphony/sipou/t_paying_menu_item_transaction_services.htm): carry restaurant charges into the selected guest folio with traceable room/guest references.
+- [Oracle Inventory purchase and receiving permissions](https://docs.oracle.com/en/industries/food-beverage/back-office/invug/r_userrights_purchase.htm): separate purchase orders, booked receipts, invoice control, and role permissions. Existing purchasing/receiving/invoice/payment workflows were verified rather than replaced.
+
+### Confirmed gaps corrected
+
+- Dashboard revenue now uses this property's posted journals, sums credits less debits, and includes all revenue accounts in its total. Unposted entries and another property's postings no longer inflate operational figures. Older checkout journals without a property link can be attributed through their saved property folio reference; unallocated company entries remain in company accounting reports rather than being guessed into a property's dashboard.
+- Dashboard restaurant settlement counts and recent transactions use the same property/posted-entry boundary. Occupied counts include legacy DUE_OUT statuses. Trend charts use returned operational data instead of fixed sample curves; in-house history uses recorded arrival/departure evidence instead of repeating today's headcount across seven days.
+- Housekeeping now supports daily stayover-service records for checked-in rooms, separate from vacant-room cleaning and inspection. Completing stayover service preserves room occupancy, reservation state, and financial amounts. Repeating the same daily completion does not duplicate task/audit evidence.
+- Owner/Admin can assign an active employee from the selected property's staff directory. Completed tasks retain both the assigned employee and the actual completing user. Department staff cannot assign employees or access another property's tasks. Existing historical task names remain intact.
+- Housekeeping returns the saved room/task state after changes. The UI applies that response, shows concise status/errors, preserves inspection safeguards, and disables unsafe actions after a failed load. Route-specific API/types/hook/assignment component files keep the page focused on composition.
+- Night Audit cashier reconciliation now includes payroll salary payments and staff advances. Salary payments use the final net salary after recovered advances, so cash is not counted twice. Bank payments appear in their own tender without reducing counted cash. Closing snapshots retain salary/advance IDs and detect stale reconciliation evidence, with compatibility for older snapshots without the added fields.
+- Payroll payments/advances are rejected when their payment date belongs to a closed cashier or business day. Existing idempotent payment/advance replays remain supported. Salary splits, TDS, payroll-month rules, and existing financial records were preserved.
+- Applied additive migration `20261016000004_add_housekeeping_service_tracking`: optional staff/completing-user foreign keys, service date, and one stayover record per room/service date. Existing rows were retained.
+
+### Verification
+
+- Baseline complete Rails suite: **225 tests, 7,941 assertions, no failures/errors/skips**.
+- Affected-workflow runs covered dashboard, reservations, staff portals, housekeeping, payroll, business-day closing, and supplier billing. Across the two focused runs, 131 distinct tests were exercised. New housekeeping fixtures initially omitted required reservation totals and a foreign room-category price; those test-data omissions were corrected. The final failed case was rerun successfully: **1 test, 2 assertions**. All exercised cases passed after those fixture corrections; the earlier failing runs are not described as wholly successful runs.
+- Actual localhost browser review: **49 page/viewport checks** (21 admin pages at 1440px and 390px, plus seven public pages), with no failing API responses, uncaught runtime exceptions, or horizontal page overflow in completed checks. Harness waits were corrected for payroll's existing header-free layout and the booking dialog outside the public main element.
+- Isolated browser workflow: booking/check-in; actual staff assignment and daily stayover service; reload persistence; occupied-room cleaning rejection; replay protection; Restaurant -> Kitchen preparing -> ready -> served -> guest-room charge; cash checkout; departure cleaning -> inspection -> ready; payroll advance -> approval -> final salary payment; cashier reconciliation -> business-day closing and saved report; mobile layouts; Housekeeping role assignment denial; simulated housekeeping API failure.
+- Isolated financial example: room bill NPR 2,260 plus restaurant NPR 565 produced NPR 2,825 received. Gross payroll NPR 1,000 less NPR 10 TDS yielded NPR 990 total disbursement (NPR 100 advance + NPR 890 final payment). Cashier expected cash and saved closing were exactly **NPR 1,835**. These were test-database entries only.
+- Read-only live integrity checks found no inspected cross-company/property links, overlapping active room assignments, invalid occupied-room/stay links, inconsistent folio totals, restaurant/table mismatches, banquet links, or stock/purchase item company mismatches. Existing accounting/platform checks were also rerun.
+- **128 database foreign-key constraints validated; none unvalidated.** Read-only before/after counts and row checksums matched across **30 operational tables**, including bookings, payments, rooms, housekeeping, purchasing, payroll, journals, and CMS records. Operational records were not changed by the review; browser writes used the isolated Rails test database.
+- Final frontend production build/type check and focused whitespace checks passed. Visual checks included the mobile housekeeping queue and the new cashier payroll/advance column. Temporary test API and frontend servers were stopped after verification.
+
+### Remaining configuration and reconciliation
+
+- Live SMTP delivery remains pending provider/sender credentials; the prior local SMTP transport test does not prove real inbox delivery. Manual Owner/Admin password reset remains available.
+- Live wallet collection remains dependent on hotel-issued gateway credentials and a public HTTPS return URL. Direct POS wallet selections record payments already received; they do not collect money automatically.
+- Historical voucher **JV-HNE-BTW-2026-000008** still credits Accounts Receivable for an **NPR 18,000 bank payroll payment**. It was preserved; correcting it requires the actual bank ledger and payment evidence. Existing negative cash/bank balances also require operational reconciliation, as recorded in the accounting review above.
+- The hotel's unconfirmed tariff/occupancy/content details remain subject to hotel confirmation; no prices, historical entries, or operational identities were invented to make the review appear complete.
+- This was local verification, not a production deployment, load test, or a guarantee that every possible transaction combination has been exercised.
+
+Re-run the non-mutating operations association/checksum check with:
+
+```powershell
+docker compose -f backend/compose.yml exec -T api bin/rails runner script/check_operations_integrity.rb
+```
+
+---
+## Record Entry: 2026-10-16 (Remaining Inputs Clarified and Confirmed Tariff Corrected)
+
+- Corrected the earlier claim that Deluxe AC Triple pricing still needed confirmation. The 29 September record and existing client import already confirm Room 509 at NPR 4,000 per room/night excluding 13% VAT (NPR 4,520 including VAT). The current database already had the correct active category and NPR 4,000 price, but its description still said "Tariff pending".
+- Updated only that stale description through the existing authenticated room-category API, retaining the saved rate, capacity, category fields, room status, and associations. The public catalog and actual public booking UI now show the confirmed tariff with no pending-tariff message. Checksums of reservations, room assignments, folios, charges, payments, payroll, journals, and journal lines were unchanged. No application code or calculation changes were required.
+- Password-reset SMTP details have not been obtained from the client. Leave delivery pending; existing manual Owner/Admin resets remain usable. No credentials were invented or configured.
+- The user has eSewa Terminal ID and API secret information. The running environment remains SANDBOX and public live eSewa collection is disabled. Its configured frontend return URL is a private HTTP address, so it does not satisfy the existing public HTTPS requirement. No secret values were displayed or changed. Asked for non-secret credential labels, whether the issued credentials are website ePay production/testing/terminal credentials, and the intended public website address. [Official eSewa ePay documentation](https://developer.esewa.com.np/pages/Epay-V2) identifies product_code/merchant code and the matching signing secret; a Terminal ID alone does not establish that these are the appropriate website production credentials.
+- Traced voucher JV-HNE-BTW-2026-000008 to Baje's October 2026 AD payroll, paid_on 2026-10-09, BANK_TRANSFER, reference "oct", with no advances. Approval voucher 000007 debits Staff Salaries/credits Salaries Payable by NPR 18,000; payment voucher 000008 debits Salaries Payable/credits Accounts Receivable by NPR 18,000. The linked payroll was archived at the user's earlier request on 9 October; archival retained both posted vouchers. This is a manual accounting record, not an eSewa transaction or an application-initiated transfer.
+- The user suspects the NPR 18,000 was demo data and requests verification/deletion. The saved records and audit history do not prove whether an actual bank transfer occurred. Asked whether this was a test with no bank transfer before removing any financial effect. Neither voucher, payroll record, nor original audit evidence was deleted or changed while that fact remains unconfirmed. If the whole payroll was a test, both its approval and payment effects need handling together.
+- Explained cash/bank reconciliation as comparing the system's recorded balances with actual hotel cash and bank records, starting with the hotel's opening balances and dates. Passing software tests does not independently establish that historical manual payments were real.
+
+---
+## Record Entry: 2026-10-16 (Confirmed NPR 18,000 Test Payroll Removed)
+
+- The user explicitly confirmed that the NPR 18,000 salary was test data and requested deletion, with actual salary to be entered later. This resolves the earlier uncertainty about voucher JV-HNE-BTW-2026-000008.
+- Removed only Baje's archived October 2026 AD test payroll `a85a3800-8c1f-4263-b344-54edca64fe78`, its linked approval voucher **JV-HNE-BTW-2026-000007**, payment voucher **JV-HNE-BTW-2026-000008**, and their four ledger lines. Removing both approval and payment prevents leaving a fictitious salary expense or payable behind.
+- Verified the exact employee, payroll dates/calendar, archived/paid state, NPR 18,000 totals, bank method/reference, zero advances, journal identities, account codes, and the absence of links from other workflows or saved closings before mutation. A transactionally rolled-back dry run passed before applying the same scoped cleanup.
+- Recovery copy saved in ignored `backend/tmp/recovery/confirmed-test-payroll-a85a3800-8c1f-4263-b344-54edca64fe78-20261016.json`, containing the original payroll, journals, lines, source audits, and unrelated-record checksums. Original audits remain; a new `DELETE_TEST_PAYROLL` audit records the explicit user confirmation and recovery-copy SHA-256. Ordinary posted-journal immutability was not weakened and no general financial-delete endpoint was added.
+- Compared checksums across 31 tables, excluding only the specifically authorized deleted rows. Other payroll, employee salary setup, staff records, reservations, folios, receipts, stock, purchasing, configurations, cash/bank records, saved closings, and document sequences were unchanged. Voucher numbering was not reset or reused.
+- Development database after cleanup: 17 accounts, 11 journals, 32 lines, 6 payroll records (3 draft, 1 approved, 2 paid), and zero advances. Accounts Receivable is now **NPR 0**; Staff Salaries expense is **NPR 73,000**. Cash / Bank remains **NPR -12,689**, since the removed payment had incorrectly credited Receivables rather than Cash / Bank. All accounting integrity checks, including the earlier historical payroll-account check, now return no issues; balance sheet and trial balance reconcile exactly.
+- Cashier improvement: Night Audit no longer assumes an opening cash amount of zero. Opening cash is required explicitly, expected cash stays blank until an opening value is supplied, and opening input clears after cashier/day closing. Added brief field help identifying cash in the drawer before the day's transactions. An entered zero remains valid when it is the actual opening amount. Opening drawer cash is a reconciliation input; it does not invent an opening ledger funding entry.
+- Professional reference: [Oracle cashier configuration](https://docs.oracle.com/en/industries/hospitality/opera-cloud/21.4/ocsuh/t_admin_financial_cashiering_management_setting_up_cashiers.htm) distinguishes the drawer's assigned starting amount from closing cash differences. Actual cash/bank opening figures must be supplied rather than inferred from an unexplained ledger deficit.
+- Verification: **13 day-closing tests, 182 assertions, no failures/errors**; frontend type check; desktop/mobile live browser checks for blank/required opening cash, expected-cash calculation, reload behavior, and no operational closing writes. Actual authenticated API/browser checks confirmed removal from vouchers/payroll, retained staff, cleanup audit rendering, NPR 0 receivables, NPR 73,000 salary expense, unchanged Cash / Bank, and balanced financial reports. Focused whitespace checks passed.
+- Remaining cash/bank reconciliation input: actual starting cash, bank balances, and their date, or explicit identification of any other demo financial entries. No other payment was assumed to be test data, no arbitrary deposit was posted, and the remaining negative balance was not replaced with a fabricated zero. The user can update actual salary through Salary setup and edit/create the relevant draft when ready.
+
+---

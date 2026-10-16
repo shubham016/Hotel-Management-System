@@ -1,3 +1,4 @@
+import { currencyLabel, showNepaliDates } from '@/lib/display-preferences';
 import { CalendarDays, DoorOpen, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { formatDualDate } from '@/lib/nepali-calendar';
@@ -58,12 +59,12 @@ export function ReservationReviewModal({ reservation, saving, saveError, onClose
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
           <Detail icon={<UserRound size={16} />} label="Guest" value={reservation.guest.name} secondary={`${reservation.guest.phone}${reservation.guest.idNumber ? ` · ${reservation.guest.idType || 'ID'}: ${reservation.guest.idNumber}` : ''}`} />
           <Detail icon={<DoorOpen size={16} />} label="Room" value={`${room?.roomType || 'Room type unavailable'} · Room ${room?.roomNumber || 'Unassigned'}`} secondary={`${room?.nights || 0} night(s) · ${reservation.adultsCount} adult(s) · ${reservation.childrenCount} child(ren)`} />
-          <Detail icon={<CalendarDays size={16} />} label="Check-in" value={formatDualDate(reservation.checkInDate).adFormatted} secondary={`BS: ${formatDualDate(reservation.checkInDate).bsFormatted}`} />
-          <Detail icon={<CalendarDays size={16} />} label="Check-out" value={formatDualDate(reservation.checkOutDate).adFormatted} secondary={`BS: ${formatDualDate(reservation.checkOutDate).bsFormatted}`} />
+          <Detail icon={<CalendarDays size={16} />} label="Check-in" value={formatDualDate(reservation.checkInDate).adFormatted} secondary={showNepaliDates() ? `BS: ${formatDualDate(reservation.checkInDate).bsFormatted}` : undefined} />
+          <Detail icon={<CalendarDays size={16} />} label="Check-out" value={formatDualDate(reservation.checkOutDate).adFormatted} secondary={showNepaliDates() ? `BS: ${formatDualDate(reservation.checkOutDate).bsFormatted}` : undefined} />
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', padding: 14, border: '1px solid var(--border)', borderRadius: 8 }}><span style={{ fontWeight: 700 }}>Booking total</span><strong>Rs. {reservation.grandTotal.toLocaleString()}</strong></div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}><span>Advance paid: Rs. {reservation.advancePaid.toLocaleString()}</span><strong>Balance: Rs. {balanceDue.toLocaleString()}</strong></div>
-        {reservation.cancellationRefund && <div style={{ fontSize: 13 }}>Cancellation deduction: Rs. {reservation.cancellationRefund.deductionAmount.toLocaleString()} (10%)<br />Refund {reservation.cancellationRefund.status === 'PAID' ? 'paid' : 'due'}: Rs. {reservation.cancellationRefund.refundAmount.toLocaleString()}{reservation.cancellationRefund.reference && <><br />Payout reference: {reservation.cancellationRefund.reference}</>}</div>}
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: 14, border: '1px solid var(--border)', borderRadius: 8 }}><span style={{ fontWeight: 700 }}>Booking total</span><strong>{currencyLabel()} {reservation.grandTotal.toLocaleString()}</strong></div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}><span>Advance paid: {currencyLabel()} {reservation.advancePaid.toLocaleString()}</span><strong>Balance: {currencyLabel()} {balanceDue.toLocaleString()}</strong></div>
+        {reservation.cancellationRefund && <div style={{ fontSize: 13 }}>Cancellation deduction: {currencyLabel()} {reservation.cancellationRefund.deductionAmount.toLocaleString()} (10%)<br />Refund {reservation.cancellationRefund.status === 'PAID' ? 'paid' : 'due'}: {currencyLabel()} {reservation.cancellationRefund.refundAmount.toLocaleString()}{reservation.cancellationRefund.reference && <><br />Payout reference: {reservation.cancellationRefund.reference}</>}</div>}
         {canCheckIn && reservation.rooms.map((booked, index) => <label key={booked.id} className="hne-form-group">{reservation.rooms.length > 1 ? `Room ${index + 1} · ${booked.roomType}` : 'Room'}
           <select className="hne-input" aria-label={`Assign room ${index + 1}`} value={selectedRooms[booked.id] || ''} disabled={roomsLoading || saving} onChange={event => setSelectedRooms(current => ({ ...current, [booked.id]: event.target.value }))}>
             <option value="">{roomsLoading ? 'Loading rooms…' : 'Select a clean room'}</option>
@@ -84,9 +85,9 @@ export function ReservationReviewModal({ reservation, saving, saveError, onClose
   </div>{showPayment && reservation.folioId && <PaymentRequestModal folioId={reservation.folioId} kind="ADVANCE" balanceDue={balanceDue} onClose={() => setShowPayment(false)} onCompleted={onPaymentComplete} />}</>;
 }
 
-function Detail({ icon, label, value, secondary }: { icon: React.ReactNode; label: string; value: string; secondary: string }) {
+function Detail({ icon, label, value, secondary }: { icon: React.ReactNode; label: string; value: string; secondary?: string }) {
   return <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>
     <div style={{ display: 'flex', gap: 6, alignItems: 'center', color: 'var(--text-muted)', fontSize: 11.5, marginBottom: 5 }}>{icon}{label}</div>
-    <div style={{ fontWeight: 700, fontSize: 13 }}>{value}</div><div style={{ color: 'var(--text-secondary)', fontSize: 11.5, marginTop: 3 }}>{secondary}</div>
+    <div style={{ fontWeight: 700, fontSize: 13 }}>{value}</div>{secondary && <div style={{ color: 'var(--text-secondary)', fontSize: 11.5, marginTop: 3 }}>{secondary}</div>}
   </div>;
 }

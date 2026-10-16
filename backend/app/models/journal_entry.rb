@@ -9,7 +9,9 @@ class JournalEntry < ApplicationRecord
 
   validates :voucher_number, presence: true, uniqueness: true
   validates :payment_method, inclusion: { in: Payment::METHODS }, allow_nil: true
-  validates :payment_method, inclusion: { in: Payment::METHODS }, allow_nil: true
+  validate do
+    errors.add(:property, "must belong to the journal company") if property && property.company_id != company_id
+  end
 
   private
 

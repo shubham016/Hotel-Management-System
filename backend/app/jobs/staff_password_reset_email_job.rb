@@ -4,7 +4,7 @@ class StaffPasswordResetEmailJob < ApplicationJob
   def perform(user_id, requested_at)
     user = User.find(user_id)
     request_time = Time.iso8601(requested_at)
-    return unless user.active? && user.password_reset_requested_at == request_time
+    return unless user.login_enabled? && user.password_reset_requested_at == request_time
 
     unless Rails.env.test? || ENV["SMTP_ADDRESS"].present? && ENV["MAILER_FROM"].present?
       User.where(id: user.id, password_reset_requested_at: request_time).update_all(password_reset_email_status: "NOT_CONFIGURED")

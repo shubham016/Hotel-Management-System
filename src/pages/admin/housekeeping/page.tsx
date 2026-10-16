@@ -1,65 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { Sparkles, CheckCircle2, AlertTriangle, ShieldCheck, User, Wrench, Package, RefreshCw } from 'lucide-react';
+import React from 'react';
+import { CheckCircle2, ShieldCheck, RefreshCw } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { publishRoomUpdate, useRoomUpdates } from '@/lib/room-updates';
+import { useHousekeeping } from './hooks/useHousekeeping';
+import { StaffAssignment } from './components/StaffAssignment';
 
 export default function HousekeepingPage() {
-  const [rooms, setRooms] = useState<any[]>([]);
-  const [dirtyCount, setDirtyCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isUpdating, setIsUpdating] = useState<string | null>(null);
-  const [error, setError] = useState('');
-
-  const fetchHousekeeping = async (showLoading = true) => {
-    try {
-      if (showLoading) setIsLoading(true);
-      const res = await fetch('/api/housekeeping/tasks');
-      const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.error || 'Unable to load housekeeping tasks.');
-      if (json.success) {
-        setRooms(json.rooms || []);
-        setDirtyCount(json.dirtyCount || 0);
-        setError('');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load housekeeping tasks.');
-    } finally {
-      if (showLoading) setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchHousekeeping();
-  }, []);
-  useRoomUpdates(() => fetchHousekeeping(false));
-
-  const handleMarkClean = async (room: any, action = 'MARK_CLEAN') => {
-    try {
-      setIsUpdating(room.id);
-      const res = await fetch('/api/housekeeping/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roomId: room.id,
-          action
-        })
-      });
-
-      const json = await res.json();
-      if (json.success) {
-        alert(json.message);
-        publishRoomUpdate();
-      } else {
-        alert(json.error || 'Failed to update status');
-      }
-    } catch (err: any) {
-      alert(err.message || 'Error updating status');
-    } finally {
-      setIsUpdating(null);
-    }
-  };
+  const { rooms, staff, canAssign, dirtyCount, isLoading, isUpdating, error, message, fetchHousekeeping, update: handleMarkClean } = useHousekeeping();
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -80,9 +28,6 @@ export default function HousekeepingPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800 }}>Housekeeping & Room Turnaround</h1>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            Dirty rooms remain bookable. Complete cleaning and inspection before guest check-in.
-          </p>
         </div>
 
         <div style={{ display: 'flex', gap: 10 }}>
@@ -94,6 +39,7 @@ export default function HousekeepingPage() {
 
       {/* KPI Cards */}
       {error && <p role="alert" style={{ color: 'var(--danger-red)' }}>{error}</p>}
+      {message && <p role="status" style={{ color: 'var(--brand-green)' }}>{message}</p>}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
         <div className="hne-card" style={{ padding: 18, borderLeft: '4px solid #16A34A', backgroundColor: '#FFFFFF' }}>
           <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Vacant Clean & Ready</div>
@@ -148,13 +94,16 @@ export default function HousekeepingPage() {
                     <td style={{ fontWeight: 600 }}>{room.roomType}</td>
                     <td>{getStatusBadge(room.status)}</td>
                     <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                      {room.latestTask?.assigned_to || 'Housekeeping Team'}
+                      <StaffAssignment room={room} staff={staff} canAssign={canAssign} disabled={Boolean(isUpdating) || Boolean(error)} onAssign={id => { void handleMarkClean(room, 'ASSIGN', id); }} />
                     </td>
                     <td>
-                      {['VACANT_DIRTY', 'INSPECTION_REQUIRED'].includes(room.status) ? (
+                      {room.stayoverEligible ? (
+                        room.latestTask?.status === 'COMPLETED' ? <span style={{ color: 'var(--brand-green)' }}>Serviced today</span> :
+                          <Button variant="secondary" size="sm" disabled={Boolean(isUpdating) || Boolean(error)} onClick={() => { void handleMarkClean(room, 'SERVICE_STAYOVER'); }}>Complete stayover service</Button>
+                      ) : ['VACANT_DIRTY', 'INSPECTION_REQUIRED'].includes(room.status) ? (
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         {room.status === 'VACANT_DIRTY' && (
-                          <Button variant="secondary" size="sm" onClick={() => handleMarkClean(room, 'MARK_FOR_INSPECTION')} disabled={isUpdating === room.id}>
+                          <Button variant="secondary" size="sm" onClick={() => handleMarkClean(room, 'MARK_FOR_INSPECTION')} disabled={Boolean(isUpdating) || Boolean(error)}>
                             <ShieldCheck size={14} /> Cleaned, Needs Inspection
                           </Button>
                         )}
@@ -162,7 +111,7 @@ export default function HousekeepingPage() {
                           variant="success"
                           size="sm"
                           onClick={() => handleMarkClean(room, room.status === 'INSPECTION_REQUIRED' ? 'MARK_INSPECTED' : 'MARK_CLEAN')}
-                          disabled={isUpdating === room.id}
+                          disabled={Boolean(isUpdating) || Boolean(error)}
                         >
                           <CheckCircle2 size={14} /> {room.status === 'INSPECTION_REQUIRED' ? 'Mark Inspected & Ready' : 'Mark Clean & Ready'}
                         </Button>
